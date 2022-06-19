@@ -14,7 +14,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'kawori',
+        'NAME': os.environ.get('NAME'),
         'USER': os.environ.get('USER'),
         'PASSWORD': os.environ.get('PASSWORD'),
         'HOST': os.environ.get('HOST')
