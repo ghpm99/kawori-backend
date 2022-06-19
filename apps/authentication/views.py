@@ -34,6 +34,14 @@ def login_view(request):
 @validate_user
 @require_GET
 def user_view(request, user):
+
     return JsonResponse({
-        'id': user.id, 'name': f'{user.first_name} {user.last_name}', 'email': user.email
+        'id': user.id,
+        'name': user.get_full_name(),
+        'email': user.email,
+        'is_staff': user.is_staff,
+        'is_active': user.is_active,
+        'is_superuser': user.is_superuser,
+        'last_login': user.last_login,
+        'date_joined': user.date_joined,
     })
