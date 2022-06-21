@@ -14,5 +14,4 @@ urlpatterns = [
             path('', guild.get_all_roles, name='guild_role_get_all'),
         ]))
     ])),
-
 ]

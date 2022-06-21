@@ -7,9 +7,9 @@ from kawori.utils import paginate
 
 
 @add_cors_react_dev
-# @validate_user
+@validate_user
 @require_GET
-def get_all_users(request):
+def get_all_users(request, user):
     req = request.GET
 
     query = """
@@ -24,9 +24,9 @@ def get_all_users(request):
 
     with connection.cursor() as cursor:
         cursor.execute(query)
-        users=cursor.fetchall()
+        users = cursor.fetchall()
 
-    users= [{
+    users = [{
         'id': user[0],
         'banned': user[1],
         'discriminator': user[2],

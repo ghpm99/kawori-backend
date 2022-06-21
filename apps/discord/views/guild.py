@@ -7,9 +7,9 @@ from kawori.utils import paginate
 
 
 @add_cors_react_dev
-# @validate_user
+@validate_user
 @require_GET
-def get_all_members(request):
+def get_all_members(request, user):
     req = request.GET
 
     query = """
@@ -24,9 +24,9 @@ def get_all_members(request):
 
     with connection.cursor() as cursor:
         cursor.execute(query)
-        members=cursor.fetchall()
+        members = cursor.fetchall()
 
-    members= [{
+    members = [{
         'id': member[0],
         'banned': member[1],
         'id_discord': member[2],
@@ -41,7 +41,8 @@ def get_all_members(request):
 
 @add_cors_react_dev
 @require_GET
-def get_all_guilds(request):
+@validate_user
+def get_all_guilds(request, user):
     req = request.GET
 
     query = """
@@ -57,9 +58,9 @@ def get_all_guilds(request):
 
     with connection.cursor() as cursor:
         cursor.execute(query)
-        guilds=cursor.fetchall()
+        guilds = cursor.fetchall()
 
-    guilds= [{
+    guilds = [{
         'id': guild[0],
         'active': guild[1],
         'block': guild[2],
@@ -75,7 +76,8 @@ def get_all_guilds(request):
 
 @add_cors_react_dev
 @require_GET
-def get_all_roles(request):
+@validate_user
+def get_all_roles(request, user):
     req = request.GET
 
     query = """
@@ -86,9 +88,9 @@ def get_all_roles(request):
 
     with connection.cursor() as cursor:
         cursor.execute(query)
-        roles=cursor.fetchall()
+        roles = cursor.fetchall()
 
-    roles= [{
+    roles = [{
         'id': role[0],
         'active': role[1],
     } for role in roles]
