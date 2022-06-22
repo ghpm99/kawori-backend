@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'apps.pusher_webhook',
     'apps.authentication',
     'apps.discord',
+    'apps.facetexture',
     'django.contrib.auth',
     'django.contrib.admin',
     'django.contrib.contenttypes',

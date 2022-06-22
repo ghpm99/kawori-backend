@@ -12,6 +12,7 @@ urlpatterns = [
         path('remote/', include('remote.urls')),
         path('financial/', include('financial.urls')),
         path('discord/', include('discord.urls')),
+        path('facetexture/', include('facetexture.urls')),
     ])),
 ]
 
