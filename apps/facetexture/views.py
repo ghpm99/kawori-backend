@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_user
-from facetexture.models import Facetexture
+from facetexture.models import Facetexture, BDOClass
 
 
 @add_cors_react_dev
@@ -25,27 +25,35 @@ def get_facetexture_config(request, user):
 @add_cors_react_dev
 @validate_user
 @require_POST
-def save_detail_view(request, id, user):
+def save_detail_view(request, user):
 
     data = json.loads(request.body)
     payment = Facetexture.objects.filter(user=user).first()
 
-    if(data is None):
-        return JsonResponse({'msg': 'Facetexture not found'}, status=404)
+    if(payment is None):
+        facetexture = Facetexture(
+            user=user,
+            characters=data
+        )
+        facetexture.save()
+        return JsonResponse({'msg': 'Facetexture criado com sucesso'}, status=201)
 
-    if data.get('type'):
-        payment.type = data.get('type')
-    if data.get('name'):
-        payment.name = data.get('name')
-    if data.get('payment_date'):
-        payment.payment_date = data.get('payment_date')
-    if data.get('fixed'):
-        payment.fixed = data.get('fixed')
-    if data.get('active'):
-        payment.active = data.get('active')
-    if data.get('value'):
-        payment.value = data.get('value')
-
+    payment.change('characters', data)
     payment.save()
 
-    return JsonResponse({'msg': 'ok'})
+    return JsonResponse({'msg': 'Facetexture atualizado com sucesso'})
+
+
+@add_cors_react_dev
+@validate_user
+@require_GET
+def get_bdo_class(request, user):
+
+    bdo_classes = BDOClass.objects.all()
+
+    bdo_class = [{
+        'name': bdo_class.name,
+        'abbreviation': bdo_class.abbreviation,
+    } for bdo_class in bdo_classes]
+
+    return JsonResponse({'class': bdo_class})

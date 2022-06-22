@@ -13,3 +13,8 @@ class Facetexture(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     characters = models.JSONField(default=characteres_json_default)
+
+
+class BDOClass(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+    abbreviation = models.CharField(max_length=32, unique=True)
