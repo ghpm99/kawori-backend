@@ -8,6 +8,7 @@ class FacetextureConfig(admin.ModelAdmin):
 
 
 class BDOClassConfig(admin.ModelAdmin):
+    list_display = ('name', 'abbreviation')
     pass
 
 

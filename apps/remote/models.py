@@ -9,7 +9,7 @@ class Config(models.Model):
 
     TYPES = [
         (CONFIG_EMPTY, 'empty'),
-        (CONFIG_SCREEN, 'scree')
+        (CONFIG_SCREEN, 'screen')
     ]
     type = models.IntegerField(default=CONFIG_EMPTY, choices=TYPES)
     value = models.TextField()

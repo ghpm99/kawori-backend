@@ -18,7 +18,7 @@ def get_facetexture_config(request, user):
             'characters': []
         })
 
-    return JsonResponse(facetexture.characters)
+    return JsonResponse(facetexture.characters, safe=False)
 
 
 @csrf_exempt
@@ -28,9 +28,9 @@ def get_facetexture_config(request, user):
 def save_detail_view(request, user):
 
     data = json.loads(request.body)
-    payment = Facetexture.objects.filter(user=user).first()
+    facetexture = Facetexture.objects.filter(user=user).first()
 
-    if(payment is None):
+    if(facetexture is None):
         facetexture = Facetexture(
             user=user,
             characters=data
@@ -38,8 +38,8 @@ def save_detail_view(request, user):
         facetexture.save()
         return JsonResponse({'msg': 'Facetexture criado com sucesso'}, status=201)
 
-    payment.change('characters', data)
-    payment.save()
+    facetexture.characters = data
+    facetexture.save()
 
     return JsonResponse({'msg': 'Facetexture atualizado com sucesso'})
 
@@ -49,11 +49,17 @@ def save_detail_view(request, user):
 @require_GET
 def get_bdo_class(request, user):
 
+    def orderFunc(e):
+        return e['name']
+
     bdo_classes = BDOClass.objects.all()
 
     bdo_class = [{
+        'id': bdo_class.id,
         'name': bdo_class.name,
         'abbreviation': bdo_class.abbreviation,
     } for bdo_class in bdo_classes]
+
+    bdo_class.sort(key=orderFunc)
 
     return JsonResponse({'class': bdo_class})

@@ -4,6 +4,7 @@ from remote.models import Config, Screenshot
 
 # Register your models here.
 class ConfigAdmin(admin.ModelAdmin):
+    list_display = ('type', 'value')
     pass
 
 
