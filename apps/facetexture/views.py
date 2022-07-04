@@ -57,7 +57,13 @@ def get_bdo_class(request, user):
     def orderFunc(e):
         return e['name']
 
-    bdo_classes = BDOClass.objects.all()
+    req = request.GET
+    filters = {}
+
+    if req.get('id'):
+        filters['id'] = req.get('id')
+
+    bdo_classes = BDOClass.objects.filter(**filters).all()
 
     bdo_class = [{
         'id': bdo_class.id,
