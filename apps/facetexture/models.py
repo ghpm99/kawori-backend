@@ -18,3 +18,9 @@ class Facetexture(models.Model):
 class BDOClass(models.Model):
     name = models.CharField(max_length=64, unique=True)
     abbreviation = models.CharField(max_length=32, unique=True)
+    image = models.ImageField(upload_to='bdoclass/')
+    class_image = models.ImageField(upload_to='classimage/', null=True)
+
+
+class PreviewBackground(models.Model):
+    image = models.ImageField(upload_to='background/')

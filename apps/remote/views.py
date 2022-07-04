@@ -84,7 +84,7 @@ def save_screenshot_view(request, user):
         return JsonResponse({'msg': 'Nao existe nenhuma imagem anexo'}, status=400)
 
     fullname = os.path.join(settings.MEDIA_ROOT, 'screenshot/screenshot.png')
-    print(fullname)
+
     if os.path.exists(fullname):
         os.remove(fullname)
 
