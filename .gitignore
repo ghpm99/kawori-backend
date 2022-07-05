@@ -3,7 +3,6 @@
 /static/
 .coverage
 /htmlcov/
-/media/
 /node_modules/
 *.pkl
 *.sublime-*
