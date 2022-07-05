@@ -23,6 +23,17 @@ def get_facetexture_config(request, user):
             'characters': []
         })
 
+    characters = facetexture.characters['characters']
+
+    for character in characters:
+        bdo_class = BDOClass.objects.filter(id=character['class']).first()
+        character['class'] = {
+            'id': bdo_class.id,
+            'name': bdo_class.name,
+            'abbreviation': bdo_class.abbreviation,
+            'class_image': bdo_class.class_image.url
+        }
+
     return JsonResponse(facetexture.characters, safe=False)
 
 
