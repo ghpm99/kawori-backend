@@ -18,6 +18,7 @@ class Command(BaseCommand):
             print('Background criado com sucesso!')
         else:
             background.image = 'background/background.png'
+            background.save()
             print('Background atualizado com sucesso!')
 
     def handle(self, *args, **options):
