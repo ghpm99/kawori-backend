@@ -32,5 +32,6 @@ DATABASES = {
 }
 
 BASE_URL = os.environ.get('BASE_URL')
+BASE_URL_FRONT = os.environ.get('BASE_URL_FRONT')
 
-ALLOWED_HOSTS = [BASE_URL, '0.0.0.0']
+ALLOWED_HOSTS = [BASE_URL, BASE_URL_FRONT, '0.0.0.0']
