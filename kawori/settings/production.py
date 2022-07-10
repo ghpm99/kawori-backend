@@ -4,7 +4,7 @@ from kawori.settings.base import *
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DNS'),
