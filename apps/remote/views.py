@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from lib import pusher
 from remote.models import Config, Screenshot
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import add_cors_react_dev, validate_super_user
 from django.views.decorators.http import require_POST, require_GET
 from django.core.files import File
 from django.conf import settings
@@ -14,7 +14,7 @@ import os
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def send_command_view(request, user):
     pusher.send_command(json.loads(request.body).get('cmd'))
     return JsonResponse({'msg': 'ok'})
@@ -22,7 +22,7 @@ def send_command_view(request, user):
 
 @add_cors_react_dev
 @require_GET
-@validate_user
+@validate_super_user
 def screen_size_view(request, user):
     screen_size = get_object_or_404(Config, type=Config.CONFIG_SCREEN)
     data = json.loads(screen_size.value)
@@ -32,7 +32,7 @@ def screen_size_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def hotkey_view(request, user):
     data = json.loads(request.body)
     hotkey = data.get('hotkey')
@@ -43,7 +43,7 @@ def hotkey_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def key_press_view(request, user):
     data = json.loads(request.body)
     keys = data.get('keys')
@@ -54,7 +54,7 @@ def key_press_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def mouse_move_view(request, user):
     data = json.loads(request.body)
     x = data.get('x')
@@ -66,7 +66,7 @@ def mouse_move_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def mouse_button_view(request, user):
     data = json.loads(request.body)
     button = data.get('button')
@@ -77,7 +77,7 @@ def mouse_button_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def save_screenshot_view(request, user):
     req_files = request.FILES
     if not req_files.get('image'):
@@ -105,7 +105,7 @@ def save_screenshot_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def mouse_scroll_view(request, user):
     data = json.loads(request.body)
     value = data.get('value')
@@ -116,7 +116,7 @@ def mouse_scroll_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def mouse_move_and_button(request, user):
     data = json.loads(request.body)
     x = data.get('x')
@@ -128,7 +128,7 @@ def mouse_move_and_button(request, user):
 
 @add_cors_react_dev
 @require_GET
-@validate_user
+@validate_super_user
 def keyboard_keys(request, user):
     keys = ['\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', "'", '(',
             ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7',

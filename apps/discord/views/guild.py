@@ -2,12 +2,12 @@
 from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import paginate
 
 
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_GET
 def get_all_members(request, user):
     req = request.GET
@@ -41,7 +41,7 @@ def get_all_members(request, user):
 
 @add_cors_react_dev
 @require_GET
-@validate_user
+@validate_super_user
 def get_all_guilds(request, user):
     req = request.GET
 
@@ -76,7 +76,7 @@ def get_all_guilds(request, user):
 
 @add_cors_react_dev
 @require_GET
-@validate_user
+@validate_super_user
 def get_all_roles(request, user):
     req = request.GET
 

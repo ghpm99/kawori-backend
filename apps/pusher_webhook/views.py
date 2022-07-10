@@ -1,5 +1,5 @@
 from django.views.decorators.csrf import csrf_exempt
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import add_cors_react_dev, validate_super_user
 from django.views.decorators.http import require_POST
 from lib import pusher
 
@@ -14,7 +14,7 @@ def pusher_webhook(request):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_super_user
 def pusher_auth(request, user):
     values = request.body.decode('utf-8').split('&')
     socket_id = ''

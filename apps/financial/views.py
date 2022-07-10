@@ -7,7 +7,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date
 
 from financial.models import Payment
@@ -15,7 +15,7 @@ from financial.utils import calculate_installments
 
 
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_GET
 def get_all_view(request, user):
 
@@ -65,7 +65,7 @@ def get_all_view(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_POST
 def save_new_view(request, user):
 
@@ -98,7 +98,7 @@ def save_new_view(request, user):
 
 
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_GET
 def detail_view(request, id, user):
 
@@ -125,7 +125,7 @@ def detail_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_POST
 def save_detail_view(request, id, user):
 
@@ -155,7 +155,7 @@ def save_detail_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_POST
 def payoff_detail_view(request, id, user):
 
@@ -188,7 +188,7 @@ def payoff_detail_view(request, id, user):
 
 
 @add_cors_react_dev
-@validate_user
+@validate_super_user
 @require_GET
 def report_payment_view(request, user):
 
