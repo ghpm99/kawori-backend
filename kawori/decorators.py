@@ -1,15 +1,15 @@
 from base64 import b64decode
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.models import User
 
 
 def add_cors_react_dev(func):
     def add_cors_react_dev_response(response):
-        if settings.DEBUG:
-            response['Access-Control-Allow-Origin'] = '*'
-            response['Access-Control-Allow-Methods'] = '*'
-            response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, *'
+
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = '*'
+        response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, *'
+
         return response
 
     def inner(request, *args, **kwargs):
