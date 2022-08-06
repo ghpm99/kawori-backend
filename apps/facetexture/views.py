@@ -182,13 +182,15 @@ def download_background(request, user):
         backgrounds.append({'name': '', 'image': imageCrop})
 
     for index, character in enumerate(characters):
-        backgroundCharacter = backgrounds[character['order']]
+        backgroundCharacter = backgrounds[index]
+        backgroundCharacter['name'] = character['name']
+        if character['show'] is False:
+            continue
         bdoClass = BDOClass.objects.filter(id=character['class']).first()
 
         classImage = Image.open(bdoClass.image)
         classImage.thumbnail((50, 50), Image.ANTIALIAS)
 
-        backgroundCharacter['name'] = character['name']
         backgroundCharacter['image'].paste(classImage, (10, 10), classImage)
 
     with ZipFile('export.zip', 'w') as export_zip:
