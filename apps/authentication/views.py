@@ -11,7 +11,7 @@ import base64
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-def login_view(request):
+def signin_view(request):
     data = json.loads(request.body)
     if 'credentials' in data:
         username = data['credentials']['username']
@@ -54,7 +54,7 @@ def user_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-def register_view(request):
+def signup_view(request):
     data = json.loads(request.body)
 
     required_fields = ['username', 'password', 'email', 'name', 'last_name']
