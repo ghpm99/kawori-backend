@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date
 
-from financial.models import Payment
+from financial.models import Contract, Invoice, Payment
 from financial.utils import calculate_installments
 
 
@@ -410,3 +410,124 @@ def report_payment_view(request, user):
             'fixed_credit': fixed_credit
         }
     })
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def get_all_contract_view(request, user):
+    req = request.GET
+    filters = {}
+
+    if req.get('id'):
+        filters['id'] = req.get('id')
+
+    contracts = Contract.objects.filter(**filters).all()
+
+    contract = [{
+        'id': contract.id,
+        'name': contract.name
+    } for contract in contracts]
+
+    return JsonResponse({'data': contract})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def get_all_invoice_view(request, user):
+    req = request.GET
+    filters = {}
+
+    if req.get('status'):
+        filters['status'] = req.get('status')
+    if req.get('name__icontains'):
+        filters['name__icontains'] = req.get('name__icontains')
+    if req.get('installments'):
+        filters['installments'] = req.get('installments')
+    if req.get('date__gte'):
+        filters['date__gte'] = format_date(
+            req.get('date__gte')) or datetime(2018, 1, 1)
+    if req.get('date__lte'):
+        filters['date__lte'] = format_date(
+            req.get('date__lte')) or datetime.now() + timedelta(days=1)
+
+    datas = Invoice.objects.filter(**filters).all()
+
+    invoices = [{
+        'id': data.id,
+        'status': data.status,
+        'name': data.name,
+        'installments': data.installments,
+        'value': data.value,
+        'date': data.date,
+        'contract': data.contract.id,
+    } for data in datas]
+
+    return JsonResponse({'data': invoices})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def save_new_contract_view(request, user):
+    data = json.loads(request.body)
+    contract = Contract(
+        name=data.get('name')
+    )
+    contract.save()
+
+    return JsonResponse({'msg': 'Contrato incluso com sucesso'})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def detail_contract_view(request, id, user):
+
+    data = Contract.objects.filter(id=id).first()
+    invoices = Invoice.objects.filter(contract=id).all()
+
+    if(data is None):
+        return JsonResponse({'msg': 'Payment not found'}, status=404)
+
+    invoices = [{
+        'id': invoice.id,
+        'status': invoice.status,
+        'name': invoice.name,
+        'installments': invoice.installments,
+        'value': invoice.value,
+        'date': invoice.date
+    } for invoice in invoices]
+
+    contract = {
+        'id': data.id,
+        'name': data.name,
+        'invoices': invoices
+    }
+
+    return JsonResponse({'data': contract})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def include_new_invoice_view(request, id, user):
+    data = json.loads(request.body)
+
+    contract = Contract.objects.filter(id=id).first()
+    if contract is None:
+        return JsonResponse({'msg': 'Contract not found'}, status=404)
+
+    invoice = Invoice(
+        name=data.get('name'),
+        installments=data.get('installments'),
+        value=data.get('value'),
+        date=data.get('date'),
+        contract=contract
+    )
+    invoice.save()
+
+    return JsonResponse({'msg': 'Nota inclusa com sucesso'})

@@ -2,6 +2,26 @@ from django.db import models
 
 
 # Create your models here.
+class Contract(models.Model):
+    name = models.TextField(max_length=255)
+
+
+class Invoice(models.Model):
+    STATUS_OPEN = 0
+    STATUS_DONE = 1
+
+    STATUS = [
+        (STATUS_OPEN, 'open'),
+        (STATUS_DONE, 'done')
+    ]
+    status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
+    name = models.TextField(max_length=255)
+    installments = models.IntegerField()
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    date = models.DateField()
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
+
+
 class Payment(models.Model):
 
     TYPE_CREDIT = 0
@@ -29,6 +49,7 @@ class Payment(models.Model):
     fixed = models.BooleanField()
     active = models.BooleanField(default=True)
     value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, null=True)
 
 
 class Month(models.Model):
