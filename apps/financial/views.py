@@ -531,3 +531,25 @@ def include_new_invoice_view(request, id, user):
     invoice.save()
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def detail_invoice_view(request, id, user):
+
+    invoice = Invoice.objects.filter(id=id).first()
+
+    if(invoice is None):
+        return JsonResponse({'msg': 'Invoice not found'}, status=404)
+
+    invoice = {
+        'id': invoice.id,
+        'status': invoice.status,
+        'name': invoice.name,
+        'installments': invoice.installments,
+        'value': invoice.value,
+        'date': invoice.date
+    }
+
+    return JsonResponse({'data': invoice})

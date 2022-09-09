@@ -20,6 +20,9 @@ urlpatterns = [
     ])),
     path('invoice/', include([
         path('', views.get_all_invoice_view, name='financial_get_all_invoice'),
+        path('<int:id>/', include([
+            path('', views.detail_invoice_view, name='financial_detail_invoice'),
+        ]))
     ])),
 
 ]
