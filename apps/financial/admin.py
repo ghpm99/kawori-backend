@@ -1,11 +1,23 @@
 from django.contrib import admin
-from financial.models import Payment
+from financial.models import Contract, Invoice, Payment
 
 
 # Register your models here.
-class PaymentConfig(admin.ModelAdmin):
-    list_display = ('status', 'type', 'name', 'fixed', 'active', 'value')
+@admin.display(description='name')
+class ContractConfig(admin.ModelAdmin):
     pass
 
 
+class InvoiceConfig(admin.ModelAdmin):
+    list_display = ('status', 'type', 'name', 'fixed', 'active', 'value', 'contract')
+    pass
+
+
+class PaymentConfig(admin.ModelAdmin):
+    list_display = ('status', 'type', 'name', 'fixed', 'active', 'value', 'invoice')
+    pass
+
+
+admin.site.register(Contract, ContractConfig)
+admin.site.register(Invoice, InvoiceConfig)
 admin.site.register(Payment, PaymentConfig)

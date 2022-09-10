@@ -7,6 +7,15 @@ class Contract(models.Model):
 
 
 class Invoice(models.Model):
+
+    TYPE_CREDIT = 0
+    TYPE_DEBIT = 1
+
+    TYPES = [
+        (TYPE_CREDIT, 'credit'),
+        (TYPE_DEBIT, 'debit')
+    ]
+
     STATUS_OPEN = 0
     STATUS_DONE = 1
 
@@ -15,10 +24,14 @@ class Invoice(models.Model):
         (STATUS_DONE, 'done')
     ]
     status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
+    type = models.IntegerField(default=TYPE_CREDIT, choices=TYPES)
     name = models.TextField(max_length=255)
-    installments = models.IntegerField()
-    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     date = models.DateField()
+    installments = models.IntegerField()
+    payment_date = models.DateField(null=True)
+    fixed = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
 
 

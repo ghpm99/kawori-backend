@@ -11,7 +11,7 @@ from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date
 
 from financial.models import Contract, Invoice, Payment
-from financial.utils import calculate_installments
+from financial.utils import calculate_installments, generate_payments
 
 
 @add_cors_react_dev
@@ -104,7 +104,7 @@ def detail_view(request, id, user):
 
     data = Payment.objects.filter(id=id).first()
 
-    if(data is None):
+    if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
 
     payment = {
@@ -132,7 +132,7 @@ def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id).first()
 
-    if(data is None):
+    if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
 
     if data.get('type'):
@@ -489,7 +489,7 @@ def detail_contract_view(request, id, user):
     data = Contract.objects.filter(id=id).first()
     invoices = Invoice.objects.filter(contract=id).all()
 
-    if(data is None):
+    if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
 
     invoices = [{
@@ -522,13 +522,22 @@ def include_new_invoice_view(request, id, user):
         return JsonResponse({'msg': 'Contract not found'}, status=404)
 
     invoice = Invoice(
+        status=data.get('status'),
+        type=data.get('type'),
         name=data.get('name'),
-        installments=data.get('installments'),
-        value=data.get('value'),
         date=data.get('date'),
+        installments=data.get('installments'),
+        payment_date=data.get('payment_date'),
+        fixed=data.get('fixed'),
+        active=data.get('active'),
+        value=data.get('value'),
         contract=contract
     )
+    print('invoice')
+    print(invoice)
     invoice.save()
+
+    generate_payments(invoice)
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
 
@@ -539,9 +548,22 @@ def include_new_invoice_view(request, id, user):
 def detail_invoice_view(request, id, user):
 
     invoice = Invoice.objects.filter(id=id).first()
+    payments = Payment.objects.filter(invoice=id).all()
 
-    if(invoice is None):
+    if (invoice is None):
         return JsonResponse({'msg': 'Invoice not found'}, status=404)
+
+    payments = [{
+        'id': payment.id,
+        'status': payment.status,
+        'type': payment.type,
+        'name': payment.name,
+        'date': payment.date,
+        'installments': payment.installments,
+        'payment_date': payment.payment_date,
+        'fixed': payment.fixed,
+        'value': payment.value
+    } for payment in payments]
 
     invoice = {
         'id': invoice.id,
@@ -549,7 +571,8 @@ def detail_invoice_view(request, id, user):
         'name': invoice.name,
         'installments': invoice.installments,
         'value': invoice.value,
-        'date': invoice.date
+        'date': invoice.date,
+        'payments': payments
     }
 
     return JsonResponse({'data': invoice})
