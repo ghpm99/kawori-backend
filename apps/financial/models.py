@@ -4,6 +4,9 @@ from django.db import models
 # Create your models here.
 class Contract(models.Model):
     name = models.TextField(max_length=255)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value_open = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
 
 class Invoice(models.Model):
@@ -32,6 +35,8 @@ class Invoice(models.Model):
     fixed = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value_open = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
 
 

@@ -11,7 +11,7 @@ from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date
 
 from financial.models import Contract, Invoice, Payment
-from financial.utils import calculate_installments, generate_payments
+from financial.utils import calculate_installments, generate_payments, update_contract_value
 
 
 @add_cors_react_dev
@@ -487,6 +487,7 @@ def save_new_contract_view(request, user):
 def detail_contract_view(request, id, user):
 
     data = Contract.objects.filter(id=id).first()
+    update_contract_value(data)
     invoices = Invoice.objects.filter(contract=id).all()
 
     if (data is None):
@@ -498,12 +499,17 @@ def detail_contract_view(request, id, user):
         'name': invoice.name,
         'installments': invoice.installments,
         'value': invoice.value,
+        'value_open': invoice.value_open,
+        'value_closed': invoice.value_closed,
         'date': invoice.date
     } for invoice in invoices]
 
     contract = {
         'id': data.id,
         'name': data.name,
+        'value': data.value,
+        'value_open': data.value_open,
+        'value_closed': data.value_closed,
         'invoices': invoices
     }
 
@@ -576,3 +582,25 @@ def detail_invoice_view(request, id, user):
     }
 
     return JsonResponse({'data': invoice})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def merge_contract_view(request, id, user):
+    data = json.loads(request.body)
+
+    contract = Contract.objects.filter(id=id).first()
+    if contract is None:
+        return JsonResponse({'msg': 'Contract not found'}, status=404)
+    contracts = data.get('contracts')
+
+    for id in contracts:
+        invoices = Invoice.objects.filter(contract=id).all()
+        for invoice in invoices:
+            invoice.contract = contract
+            invoice.save()
+        contract_target = Contract.objects.filter(id=id).delete()
+
+    return JsonResponse({'msg': 'Contratos mesclados com sucesso!'})

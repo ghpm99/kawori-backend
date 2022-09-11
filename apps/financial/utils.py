@@ -1,6 +1,6 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from financial.models import Invoice, Payment
+from financial.models import Contract, Invoice, Payment
 
 
 def generate_payments(invoice: Invoice):
@@ -23,8 +23,6 @@ def generate_payments(invoice: Invoice):
             value=value_installments[i],
             invoice=invoice
         )
-        print('payment')
-        print(payment)
         payment.save()
         date_obj = datetime.strptime(payment_date, date_format)
         future_payment = date_obj + relativedelta(months=1)
@@ -54,3 +52,41 @@ def calculate_installments(value, installments):
             value_total = value_total - value_installments
 
     return values
+
+
+def update_contract_value(contract: Contract):
+
+    value = 0
+    value_open = 0
+    value_closed = 0
+
+    invoices = Invoice.objects.filter(contract=contract.id).all()
+
+    for invoice in invoices:
+
+        invoice_value = 0
+        invoice_value_open = 0
+        invoice_value_closed = 0
+
+        payments = Payment.objects.filter(invoice=invoice.id).all()
+
+        for payment in payments:
+            invoice_value = invoice_value + payment.value
+            if payment.status == Payment.STATUS_OPEN:
+                invoice_value_open = invoice_value_open + payment.value
+            elif payment.status == Payment.STATUS_DONE:
+                invoice_value_closed = invoice_value_closed + payment.value
+
+        invoice.value = invoice_value
+        invoice.value_open = invoice_value_open
+        invoice.value_closed = invoice_value_closed
+        invoice.save()
+
+        value = value + invoice_value
+        value_open = value_open + invoice_value_open
+        value_closed = value_closed + invoice_value_closed
+
+    contract.value = value
+    contract.value_open = value_open
+    contract.value_closed = value_closed
+    contract.save()

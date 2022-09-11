@@ -16,6 +16,7 @@ urlpatterns = [
         path('<int:id>/', include([
             path('', views.detail_contract_view, name='financial_detail_contract'),
             path('invoice/', views.include_new_invoice_view, name='financial_new_invoice'),
+            path('merge/', views.merge_contract_view, name='financial_merge_contract')
         ]))
     ])),
     path('invoice/', include([
