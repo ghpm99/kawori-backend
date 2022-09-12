@@ -166,23 +166,26 @@ def payoff_detail_view(request, id, user):
 
     date_format = '%Y-%m-%d'
 
-    if payment.fixed is True:
+    if payment.invoice.fixed is True:
         future_payment = payment.payment_date + relativedelta(months=1)
         payment_date = future_payment.strftime(date_format)
-        new_payment = Payment(
+        new_invoice = Invoice(
             type=payment.type,
             name=payment.name,
             date=payment.date,
             installments=payment.installments,
             payment_date=payment_date,
             fixed=payment.fixed,
-            value=payment.value
+            value=payment.value,
+            contract=payment.invoice.contract
         )
-        new_payment.save()
+        new_invoice.save()
+        generate_payments(new_invoice)
 
     payment.status = Payment.STATUS_DONE
-
     payment.save()
+
+    update_contract_value(payment.invoice.contract)
 
     return JsonResponse({'msg': 'Pagamento baixado'})
 
@@ -539,8 +542,6 @@ def include_new_invoice_view(request, id, user):
         value=data.get('value'),
         contract=contract
     )
-    print('invoice')
-    print(invoice)
     invoice.save()
 
     generate_payments(invoice)
@@ -569,7 +570,7 @@ def detail_invoice_view(request, id, user):
         'installments': payment.installments,
         'payment_date': payment.payment_date,
         'fixed': payment.fixed,
-        'value': payment.value
+        'value': payment.value,
     } for payment in payments]
 
     invoice = {
@@ -578,6 +579,8 @@ def detail_invoice_view(request, id, user):
         'name': invoice.name,
         'installments': invoice.installments,
         'value': invoice.value,
+        'value_open': invoice.value_open,
+        'value_closed': invoice.value_closed,
         'date': invoice.date,
         'payments': payments
     }
