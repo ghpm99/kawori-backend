@@ -422,7 +422,7 @@ def get_all_contract_view(request, user):
     if req.get('id'):
         filters['id'] = req.get('id')
 
-    contracts = Contract.objects.filter(**filters).all()
+    contracts = Contract.objects.filter(**filters).all().order_by('id')
 
     contract = [{
         'id': contract.id,
@@ -452,7 +452,7 @@ def get_all_invoice_view(request, user):
         filters['date__lte'] = format_date(
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
-    datas = Invoice.objects.filter(**filters).all()
+    datas = Invoice.objects.filter(**filters).all().order_by('id')
 
     invoices = [{
         'id': data.id,
@@ -487,8 +487,8 @@ def save_new_contract_view(request, user):
 def detail_contract_view(request, id, user):
 
     data = Contract.objects.filter(id=id).first()
-    update_contract_value(data)
-    invoices = Invoice.objects.filter(contract=id).all()
+    # update_contract_value(data)
+    invoices = Invoice.objects.filter(contract=id).all().order_by('id')
 
     if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
@@ -544,6 +544,7 @@ def include_new_invoice_view(request, id, user):
     invoice.save()
 
     generate_payments(invoice)
+    update_contract_value(contract)
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
 
@@ -554,7 +555,7 @@ def include_new_invoice_view(request, id, user):
 def detail_invoice_view(request, id, user):
 
     invoice = Invoice.objects.filter(id=id).first()
-    payments = Payment.objects.filter(invoice=id).all()
+    payments = Payment.objects.filter(invoice=id).all().order_by('id')
 
     if (invoice is None):
         return JsonResponse({'msg': 'Invoice not found'}, status=404)
@@ -601,6 +602,8 @@ def merge_contract_view(request, id, user):
         for invoice in invoices:
             invoice.contract = contract
             invoice.save()
-        contract_target = Contract.objects.filter(id=id).delete()
+        Contract.objects.filter(id=id).delete()
+
+    update_contract_value(contract)
 
     return JsonResponse({'msg': 'Contratos mesclados com sucesso!'})
