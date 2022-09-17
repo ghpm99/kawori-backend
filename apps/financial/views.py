@@ -117,7 +117,11 @@ def detail_view(request, id, user):
         'payment_date': data.payment_date,
         'fixed': data.fixed,
         'active': data.active,
-        'value': data.value
+        'value': data.value,
+        'invoice': data.invoice.id,
+        'invoice_name': data.invoice.name,
+        'contract': data.invoice.contract.id,
+        'contract_name': data.invoice.contract.name
     }
 
     return JsonResponse({'data': payment})
@@ -490,7 +494,6 @@ def save_new_contract_view(request, user):
 def detail_contract_view(request, id, user):
 
     data = Contract.objects.filter(id=id).first()
-    # update_contract_value(data)
     invoices = Invoice.objects.filter(contract=id).all().order_by('id')
 
     if (data is None):
@@ -582,7 +585,9 @@ def detail_invoice_view(request, id, user):
         'value_open': invoice.value_open,
         'value_closed': invoice.value_closed,
         'date': invoice.date,
-        'payments': payments
+        'contract': invoice.contract.id,
+        'contract_name': invoice.contract.name,
+        'payments': payments,
     }
 
     return JsonResponse({'data': invoice})
