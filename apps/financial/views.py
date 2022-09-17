@@ -153,6 +153,7 @@ def save_detail_view(request, id, user):
         payment.value = data.get('value')
 
     payment.save()
+    update_contract_value(payment.invoice.contract)
 
     return JsonResponse({'msg': 'ok'})
 
