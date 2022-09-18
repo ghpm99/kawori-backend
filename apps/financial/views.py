@@ -434,7 +434,10 @@ def get_all_contract_view(request, user):
 
     contract = [{
         'id': contract.id,
-        'name': contract.name
+        'name': contract.name,
+        'value': contract.value,
+        'value_open': contract.value_open,
+        'value_closed': contract.value_closed
     } for contract in contracts]
 
     return JsonResponse({'data': contract})
@@ -468,6 +471,8 @@ def get_all_invoice_view(request, user):
         'name': data.name,
         'installments': data.installments,
         'value': data.value,
+        'value_open': data.value_open,
+        'value_closed': data.value_closed,
         'date': data.date,
         'contract': data.contract.id,
     } for data in datas]

@@ -80,6 +80,10 @@ def update_contract_value(contract: Contract):
         invoice.value = invoice_value
         invoice.value_open = invoice_value_open
         invoice.value_closed = invoice_value_closed
+        if invoice.value_open == 0:
+            invoice.status = Invoice.STATUS_DONE
+        else:
+            invoice.status = Invoice.STATUS_OPEN
         invoice.save()
 
         value = value + invoice_value
