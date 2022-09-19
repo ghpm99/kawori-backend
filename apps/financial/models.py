@@ -87,3 +87,7 @@ class Month(models.Model):
     month = models.IntegerField()
     year = models.IntegerField()
     total = models.IntegerField()
+
+
+class Tag(models.Model):
+    name = models.TextField(max_length=255)
