@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date
 
-from financial.models import Contract, Invoice, Payment
+from financial.models import Contract, Invoice, Payment, Tag
 from financial.utils import calculate_installments, generate_payments, update_contract_value
 
 
@@ -621,3 +621,39 @@ def merge_contract_view(request, id, user):
     update_contract_value(contract)
 
     return JsonResponse({'msg': 'Contratos mesclados com sucesso!'})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def get_all_tag_view(request, user):
+    req = request.GET
+    filters = {}
+
+    if req.get('name__icontains'):
+        filters['name__icontains'] = req.get('name__icontains')
+
+    datas = Tag.objects.filter(**filters).all().order_by('id')
+
+    tags = [{
+        'id': data.id,
+        'name': data.name,
+    } for data in datas]
+
+    return JsonResponse({'data': tags})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def include_new_tag_view(request, user):
+    data = json.loads(request.body)
+
+    tag = Tag(
+        name=data.get('name')
+    )
+
+    tag.save()
+
+    return JsonResponse({'msg': 'Tag inclusa com sucesso'})

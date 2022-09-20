@@ -9,6 +9,10 @@ class Contract(models.Model):
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
 
+class Tag(models.Model):
+    name = models.TextField(max_length=255)
+
+
 class Invoice(models.Model):
 
     TYPE_CREDIT = 0
@@ -38,6 +42,7 @@ class Invoice(models.Model):
     value_open = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
+    tags = models.ManyToManyField(Tag)
 
 
 class Payment(models.Model):
@@ -87,7 +92,3 @@ class Month(models.Model):
     month = models.IntegerField()
     year = models.IntegerField()
     total = models.IntegerField()
-
-
-class Tag(models.Model):
-    name = models.TextField(max_length=255)

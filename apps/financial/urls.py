@@ -25,5 +25,8 @@ urlpatterns = [
             path('', views.detail_invoice_view, name='financial_detail_invoice'),
         ]))
     ])),
-
+    path('tag/', include([
+        path('', views.get_all_tag_view, name='financial_get_all_tags'),
+        path('new', views.include_new_tag_view, name='financial_include_tag'),
+    ]))
 ]
