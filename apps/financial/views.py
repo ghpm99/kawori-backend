@@ -475,6 +475,10 @@ def get_all_invoice_view(request, user):
         'value_closed': data.value_closed,
         'date': data.date,
         'contract': data.contract.id,
+        'tags': [{
+            'id': tag.id,
+            'name': tag.name
+        } for tag in data.tags.all()]
     } for data in datas]
 
     return JsonResponse({'data': invoices})
@@ -582,6 +586,11 @@ def detail_invoice_view(request, id, user):
         'value': payment.value,
     } for payment in payments]
 
+    tags = [{
+        'id': tag.id,
+        'name': tag.name
+    } for tag in invoice.tags.all()]
+
     invoice = {
         'id': invoice.id,
         'status': invoice.status,
@@ -594,6 +603,7 @@ def detail_invoice_view(request, id, user):
         'contract': invoice.contract.id,
         'contract_name': invoice.contract.name,
         'payments': payments,
+        'tags': tags
     }
 
     return JsonResponse({'data': invoice})
@@ -657,3 +667,21 @@ def include_new_tag_view(request, user):
     tag.save()
 
     return JsonResponse({'msg': 'Tag inclusa com sucesso'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def save_tag_invoice_view(request, id, user):
+
+    data = json.loads(request.body)
+
+    if (data is None):
+        return JsonResponse({'msg': 'Tags not found'}, status=404)
+
+    invoice = Invoice.objects.filter(id=id).first()
+    invoice.tags.set(data)
+    invoice.save()
+
+    return JsonResponse({'msg': 'ok'})
