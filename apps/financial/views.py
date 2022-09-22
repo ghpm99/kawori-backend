@@ -182,9 +182,11 @@ def payoff_detail_view(request, id, user):
             payment_date=payment_date,
             fixed=payment.fixed,
             value=payment.value,
-            contract=payment.invoice.contract
+            contract=payment.invoice.contract,
         )
         new_invoice.save()
+        tags = [tag.id for tag in payment.invoice.tags.all()]
+        new_invoice.tags.set(tags)
         generate_payments(new_invoice)
 
     payment.status = Payment.STATUS_DONE
@@ -477,7 +479,8 @@ def get_all_invoice_view(request, user):
         'contract': data.contract.id,
         'tags': [{
             'id': tag.id,
-            'name': tag.name
+            'name': tag.name,
+            'color': tag.color
         } for tag in data.tags.all()]
     } for data in datas]
 
@@ -517,7 +520,12 @@ def detail_contract_view(request, id, user):
         'value': invoice.value,
         'value_open': invoice.value_open,
         'value_closed': invoice.value_closed,
-        'date': invoice.date
+        'date': invoice.date,
+        'tags': [{
+            'id': tag.id,
+            'name': tag.name,
+            'color': tag.color
+        } for tag in invoice.tags.all()]
     } for invoice in invoices]
 
     contract = {
@@ -556,6 +564,8 @@ def include_new_invoice_view(request, id, user):
         contract=contract
     )
     invoice.save()
+    if data.get('tags'):
+        invoice.tags.set(data.get('tags'))
 
     generate_payments(invoice)
     update_contract_value(contract)
@@ -588,7 +598,8 @@ def detail_invoice_view(request, id, user):
 
     tags = [{
         'id': tag.id,
-        'name': tag.name
+        'name': tag.name,
+        'color': tag.color
     } for tag in invoice.tags.all()]
 
     invoice = {
@@ -648,6 +659,7 @@ def get_all_tag_view(request, user):
     tags = [{
         'id': data.id,
         'name': data.name,
+        'color': data.color
     } for data in datas]
 
     return JsonResponse({'data': tags})
@@ -661,7 +673,8 @@ def include_new_tag_view(request, user):
     data = json.loads(request.body)
 
     tag = Tag(
-        name=data.get('name')
+        name=data.get('name'),
+        color=data.get('color')
     )
 
     tag.save()

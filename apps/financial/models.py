@@ -11,6 +11,7 @@ class Contract(models.Model):
 
 class Tag(models.Model):
     name = models.TextField(max_length=255)
+    color = models.CharField(max_length=7, null=True)
 
 
 class Invoice(models.Model):
