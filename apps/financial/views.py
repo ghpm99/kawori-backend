@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_super_user
-from kawori.utils import boolean, format_date
+from kawori.utils import boolean, format_date, paginate
 
 from financial.models import Contract, Invoice, Payment, Tag
 from financial.utils import calculate_installments, generate_payments, update_contract_value
@@ -432,7 +432,8 @@ def get_all_contract_view(request, user):
     if req.get('id'):
         filters['id'] = req.get('id')
 
-    contracts = Contract.objects.filter(**filters).all().order_by('id')
+    contracts = Contract.objects.filter(**filters).order_by('id')
+    data = paginate(contracts, req.get('page'))
 
     contract = [{
         'id': contract.id,
@@ -440,9 +441,11 @@ def get_all_contract_view(request, user):
         'value': contract.value,
         'value_open': contract.value_open,
         'value_closed': contract.value_closed
-    } for contract in contracts]
+    } for contract in data.get('data')]
 
-    return JsonResponse({'data': contract})
+    data['data'] = contract
+
+    return JsonResponse(data)
 
 
 @add_cors_react_dev
