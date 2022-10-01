@@ -58,7 +58,7 @@ def get_all_view(request, user):
         'installments': data.installments,
         'payment_date': data.payment_date,
         'fixed': data.fixed,
-        'value': data.value
+        'value': float(data.value or 0)
     } for data in datas]
     return JsonResponse({'data': payments})
 
@@ -117,7 +117,7 @@ def detail_view(request, id, user):
         'payment_date': data.payment_date,
         'fixed': data.fixed,
         'active': data.active,
-        'value': data.value,
+        'value': float(data.value or 0),
         'invoice': data.invoice.id,
         'invoice_name': data.invoice.name,
         'contract': data.invoice.contract.id,
@@ -337,10 +337,10 @@ def report_payment_view(request, user):
 
     open = [{
         'label': str(math.trunc(data[0])) + '/' + str(math.trunc(data[1])),
-        'debit': data[2],
-        'credit': data[3],
-        'fixed_debit_open': data[4],
-        'fixed_credit_open': data[5]
+        'debit': float(data[2] or 0),
+        'credit': float(data[3] or 0),
+        'fixed_debit_open': float(data[4] or 0),
+        'fixed_credit_open': float(data[5] or 0)
     } for data in datas_open]
 
     query_closed = """
@@ -408,16 +408,16 @@ def report_payment_view(request, user):
 
     closed = [{
         'label': str(math.trunc(data[0])) + '/' + str(math.trunc(data[1])),
-        'debit': data[2],
-        'credit': data[3]
+        'debit': float(data[2] or 0),
+        'credit': float(data[3] or 0)
     } for data in datas_closed]
 
     return JsonResponse({
         'data': {
             'open': open,
             'closed': closed,
-            'fixed_debit': fixed_debit,
-            'fixed_credit': fixed_credit
+            'fixed_debit': float(fixed_debit[0] or 0),
+            'fixed_credit': float(fixed_credit[0] or 0)
         }
     })
 
@@ -438,9 +438,9 @@ def get_all_contract_view(request, user):
     contract = [{
         'id': contract.id,
         'name': contract.name,
-        'value': contract.value,
-        'value_open': contract.value_open,
-        'value_closed': contract.value_closed
+        'value': float(contract.value or 0),
+        'value_open': float(contract.value_open or 0),
+        'value_closed': float(contract.value_closed or 0)
     } for contract in data.get('data')]
 
     data['data'] = contract
@@ -469,15 +469,16 @@ def get_all_invoice_view(request, user):
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
     datas = Invoice.objects.filter(**filters).all().order_by('id')
+    data = paginate(datas, req.get('page'))
 
     invoices = [{
         'id': data.id,
         'status': data.status,
         'name': data.name,
         'installments': data.installments,
-        'value': data.value,
-        'value_open': data.value_open,
-        'value_closed': data.value_closed,
+        'value': float(data.value or 0),
+        'value_open': float(data.value_open or 0),
+        'value_closed': float(data.value_closed or 0),
         'date': data.date,
         'contract': data.contract.id,
         'tags': [{
@@ -485,9 +486,11 @@ def get_all_invoice_view(request, user):
             'name': tag.name,
             'color': tag.color
         } for tag in data.tags.all()]
-    } for data in datas]
+    } for data in data.get('data')]
 
-    return JsonResponse({'data': invoices})
+    data['data'] = invoices
+
+    return JsonResponse(data)
 
 
 @csrf_exempt
@@ -520,9 +523,9 @@ def detail_contract_view(request, id, user):
         'status': invoice.status,
         'name': invoice.name,
         'installments': invoice.installments,
-        'value': invoice.value,
-        'value_open': invoice.value_open,
-        'value_closed': invoice.value_closed,
+        'value': float(invoice.value or 0),
+        'value_open': float(invoice.value_open or 0),
+        'value_closed': float(invoice.value_closed or 0),
         'date': invoice.date,
         'tags': [{
             'id': tag.id,
@@ -534,9 +537,9 @@ def detail_contract_view(request, id, user):
     contract = {
         'id': data.id,
         'name': data.name,
-        'value': data.value,
-        'value_open': data.value_open,
-        'value_closed': data.value_closed,
+        'value': float(data.value or 0),
+        'value_open': float(data.value_open or 0),
+        'value_closed': float(data.value_closed or 0),
         'invoices': invoices
     }
 
@@ -596,7 +599,7 @@ def detail_invoice_view(request, id, user):
         'installments': payment.installments,
         'payment_date': payment.payment_date,
         'fixed': payment.fixed,
-        'value': payment.value,
+        'value': float(payment.value or 0),
     } for payment in payments]
 
     tags = [{
@@ -610,9 +613,9 @@ def detail_invoice_view(request, id, user):
         'status': invoice.status,
         'name': invoice.name,
         'installments': invoice.installments,
-        'value': invoice.value,
-        'value_open': invoice.value_open,
-        'value_closed': invoice.value_closed,
+        'value': float(invoice.value or 0),
+        'value_open': float(invoice.value_open or 0),
+        'value_closed': float(invoice.value_closed or 0),
         'date': invoice.date,
         'contract': invoice.contract.id,
         'contract_name': invoice.contract.name,
