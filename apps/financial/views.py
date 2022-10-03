@@ -136,8 +136,11 @@ def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id).first()
 
-    if (data is None):
+    if data is None:
         return JsonResponse({'msg': 'Payment not found'}, status=404)
+
+    if payment.status == Payment.STATUS_DONE:
+        return JsonResponse({'msg': 'Pagamento ja foi baixado'}, status=500)
 
     if data.get('type'):
         payment.type = data.get('type')
@@ -150,10 +153,20 @@ def save_detail_view(request, id, user):
     if data.get('active'):
         payment.active = data.get('active')
     if data.get('value'):
-        payment.value = data.get('value')
+        old_value = payment.value
+        new_value = data.get('value')
+
+        invoice_value = (payment.invoice.value_open - old_value) + new_value
+        payment.invoice.value_open = invoice_value
+        payment.invoice.save()
+
+        contract_value = (payment.invoice.contract.value_open - old_value) + new_value
+        payment.invoice.contract.value_open = contract_value
+        payment.invoice.contract.save()
+
+        payment.value = new_value
 
     payment.save()
-    update_contract_value(payment.invoice.contract)
 
     return JsonResponse({'msg': 'ok'})
 
@@ -192,7 +205,13 @@ def payoff_detail_view(request, id, user):
     payment.status = Payment.STATUS_DONE
     payment.save()
 
-    update_contract_value(payment.invoice.contract)
+    payment.invoice.value_open = payment.invoice.value_open - payment.value
+    payment.invoice.value_closed = payment.invoice.value_closed + payment.value
+    payment.invoice.save()
+
+    payment.invoice.contract.value_open = payment.invoice.contract.value_open - payment.value
+    payment.invoice.contract.value_closed = payment.invoice.contract.value_closed + payment.value
+    payment.invoice.contract.save()
 
     return JsonResponse({'msg': 'Pagamento baixado'})
 
@@ -567,6 +586,7 @@ def include_new_invoice_view(request, id, user):
         fixed=data.get('fixed'),
         active=data.get('active'),
         value=data.get('value'),
+        value_open=data.get('value'),
         contract=contract
     )
     invoice.save()
@@ -574,7 +594,10 @@ def include_new_invoice_view(request, id, user):
         invoice.tags.set(data.get('tags'))
 
     generate_payments(invoice)
-    update_contract_value(contract)
+
+    contract.value_open = contract.value_open + invoice.value
+    contract.value = contract.value + invoice.value
+    contract.save()
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
 
