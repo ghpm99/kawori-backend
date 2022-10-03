@@ -704,3 +704,14 @@ def save_tag_invoice_view(request, id, user):
     invoice.save()
 
     return JsonResponse({'msg': 'ok'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def update_all_contracts_value(request, user):
+    contracts = Contract.objects.all()
+    for contract in contracts:
+        update_contract_value(contract)
+    return JsonResponse({'msg': 'ok'})
