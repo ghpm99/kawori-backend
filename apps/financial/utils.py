@@ -21,7 +21,8 @@ def generate_payments(invoice: Invoice):
             payment_date=payment_date,
             fixed=invoice.fixed,
             value=value_installments[i],
-            invoice=invoice
+            invoice=invoice,
+            user=invoice.user
         )
         payment.save()
         date_obj = datetime.strptime(payment_date, date_format)

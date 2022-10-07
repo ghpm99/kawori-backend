@@ -47,7 +47,8 @@ def get_all_view(request, user):
     if req.get('active'):
         filters['active'] = boolean(req.get('active'))
 
-    datas = Payment.objects.filter(**filters).order_by('payment_date')
+    datas = Payment.objects.filter(
+        **filters, user=user).order_by('payment_date')
 
     payments = [{
         'id': data.id,
@@ -87,7 +88,8 @@ def save_new_view(request, user):
             installments=i + 1,
             payment_date=payment_date,
             fixed=data.get('fixed'),
-            value=value_installments[i]
+            value=value_installments[i],
+            user=user
         )
         payment.save()
         date_obj = datetime.strptime(payment_date, date_format)
@@ -102,7 +104,7 @@ def save_new_view(request, user):
 @require_GET
 def detail_view(request, id, user):
 
-    data = Payment.objects.filter(id=id).first()
+    data = Payment.objects.filter(id=id, user=user).first()
 
     if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
@@ -134,7 +136,7 @@ def detail_view(request, id, user):
 def save_detail_view(request, id, user):
 
     data = json.loads(request.body)
-    payment = Payment.objects.filter(id=id).first()
+    payment = Payment.objects.filter(id=id, user=user).first()
 
     if data is None:
         return JsonResponse({'msg': 'Payment not found'}, status=404)
@@ -160,7 +162,8 @@ def save_detail_view(request, id, user):
         payment.invoice.value_open = invoice_value
         payment.invoice.save()
 
-        contract_value = (payment.invoice.contract.value_open - old_value) + new_value
+        contract_value = (
+            payment.invoice.contract.value_open - old_value) + new_value
         payment.invoice.contract.value_open = contract_value
         payment.invoice.contract.save()
 
@@ -177,7 +180,7 @@ def save_detail_view(request, id, user):
 @require_POST
 def payoff_detail_view(request, id, user):
 
-    payment = Payment.objects.filter(id=id).first()
+    payment = Payment.objects.filter(id=id, user=user).first()
 
     if payment.status == 1:
         return JsonResponse({'msg': 'Pagamento ja baixado'}, status=400)
@@ -196,6 +199,7 @@ def payoff_detail_view(request, id, user):
             fixed=payment.fixed,
             value=payment.value,
             contract=payment.invoice.contract,
+            user=user
         )
         new_invoice.save()
         tags = [tag.id for tag in payment.invoice.tags.all()]
@@ -226,11 +230,16 @@ def report_payment_view(request, user):
             SUM(value) as fixed_debit_total
         FROM
             financial_payment AS fixed_debit
-        WHERE type=1 AND status=0 AND active=true AND fixed=true;
+        WHERE 1=1
+            AND user_id=%(user_id)s
+            AND type=1
+            AND status=0
+            AND active=true
+            AND fixed=true;
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_fixed_debit)
+        cursor.execute(query_fixed_debit, {'user_id': user.id})
         fixed_debit = cursor.fetchone()
 
     query_fixed_credit = """
@@ -238,11 +247,16 @@ def report_payment_view(request, user):
             SUM(value) as fixed_credit_total
         FROM
             financial_payment AS fixed_credit
-        WHERE type=0 AND status=0 AND active=true AND fixed=true;
+        WHERE 1=1
+            AND user_id=%(user_id)s
+            AND type=0
+            AND status=0
+            AND active=true
+            AND fixed=true;
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_fixed_credit)
+        cursor.execute(query_fixed_credit, {'user_id': user.id})
         fixed_credit = cursor.fetchone()
 
     queryOpen = """
@@ -253,7 +267,12 @@ def report_payment_view(request, user):
                 date_part('month', debit.payment_date) as debit_month
             FROM
                 financial_payment AS debit
-            WHERE type=1 AND status=0 AND active=true AND fixed=false
+            WHERE 1=1
+                AND type=1
+                AND status=0
+                AND active=true
+                AND fixed=false
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', debit.payment_date),
                 date_part('month', debit.payment_date)
@@ -268,7 +287,12 @@ def report_payment_view(request, user):
                 date_part('month', credit.payment_date) as credit_month
             FROM
                 financial_payment AS credit
-            WHERE type=0 AND status=0 AND active=true AND fixed=false
+            WHERE 1=1
+                AND type=0
+                AND status=0
+                AND active=true
+                AND fixed=false
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', credit.payment_date),
                 date_part('month', credit.payment_date)
@@ -283,7 +307,12 @@ def report_payment_view(request, user):
                 date_part('month', fixed_debit.payment_date) as fixed_debit_month
             FROM
                 financial_payment AS fixed_debit
-            WHERE type=1 AND status=0 AND active=true AND fixed=true
+            WHERE 1=1
+                AND type=1
+                AND status=0
+                AND active=true
+                AND fixed=true
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', fixed_debit.payment_date),
                 date_part('month', fixed_debit.payment_date)
@@ -298,7 +327,12 @@ def report_payment_view(request, user):
                 date_part('month', fixed_credit.payment_date) as fixed_credit_month
             FROM
                 financial_payment AS fixed_credit
-            WHERE type=0 AND status=0 AND active=true AND fixed=true
+            WHERE 1=1
+                AND type=0
+                AND status=0
+                AND active=true
+                AND fixed=true
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', fixed_credit.payment_date),
                 date_part('month', fixed_credit.payment_date)
@@ -339,7 +373,10 @@ def report_payment_view(request, user):
                 fixed_credit.fixed_credit_year = date_part('year', payment.payment_date)
             AND
                 fixed_credit.fixed_credit_month = date_part('month', payment.payment_date)
-        WHERE status=0 AND active=true
+        WHERE 1=1
+            AND status=0
+            AND active=true
+            AND user_id=%(user_id)s
         GROUP BY
             date_part('year', payment.payment_date),
             date_part('month', payment.payment_date),
@@ -351,7 +388,7 @@ def report_payment_view(request, user):
         """
 
     with connection.cursor() as cursor:
-        cursor.execute(queryOpen)
+        cursor.execute(queryOpen, {'user_id': user.id})
         datas_open = cursor.fetchall()
 
     open = [{
@@ -370,7 +407,11 @@ def report_payment_view(request, user):
                 date_part('month', debit.payment_date) as debit_month
             FROM
                 financial_payment AS debit
-            WHERE type=1 AND status=1 AND active=true
+            WHERE 1=1
+                AND type=1
+                AND status=1
+                AND active=true
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', debit.payment_date),
                 date_part('month', debit.payment_date)
@@ -385,7 +426,11 @@ def report_payment_view(request, user):
                 date_part('month', credit.payment_date) as credit_month
             FROM
                 financial_payment AS credit
-            WHERE type=0 AND status=1 AND active=true
+            WHERE 1=1
+                AND type=0
+                AND status=1
+                AND active=true
+                AND user_id=%(user_id)s
             GROUP BY
                 date_part('year', credit.payment_date),
                 date_part('month', credit.payment_date)
@@ -412,7 +457,10 @@ def report_payment_view(request, user):
                 credit.credit_year = date_part('year', payment.payment_date)
             AND
                 credit.credit_month = date_part('month', payment.payment_date)
-        WHERE status=1 AND active=true
+        WHERE 1=1
+            AND status=1
+            AND active=true
+            AND user_id=%(user_id)s
         GROUP BY
             date_part('year', payment.payment_date),
             date_part('month', payment.payment_date),
@@ -422,7 +470,7 @@ def report_payment_view(request, user):
         """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_closed)
+        cursor.execute(query_closed, {'user_id': user.id})
         datas_closed = cursor.fetchall()
 
     closed = [{
@@ -451,7 +499,7 @@ def get_all_contract_view(request, user):
     if req.get('id'):
         filters['id'] = req.get('id')
 
-    contracts = Contract.objects.filter(**filters).order_by('id')
+    contracts = Contract.objects.filter(**filters, user=user).order_by('id')
     data = paginate(contracts, req.get('page'))
 
     contract = [{
@@ -487,7 +535,7 @@ def get_all_invoice_view(request, user):
         filters['date__lte'] = format_date(
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
-    datas = Invoice.objects.filter(**filters).all().order_by('id')
+    datas = Invoice.objects.filter(**filters, user=user).all().order_by('id')
     data = paginate(datas, req.get('page'))
 
     invoices = [{
@@ -519,7 +567,8 @@ def get_all_invoice_view(request, user):
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
     contract = Contract(
-        name=data.get('name')
+        name=data.get('name'),
+        user=user
     )
     contract.save()
 
@@ -532,7 +581,8 @@ def save_new_contract_view(request, user):
 def detail_contract_view(request, id, user):
 
     data = Contract.objects.filter(id=id).first()
-    invoices = Invoice.objects.filter(contract=id).all().order_by('id')
+    invoices = Invoice.objects.filter(
+        contract=id, user=user).all().order_by('id')
 
     if (data is None):
         return JsonResponse({'msg': 'Payment not found'}, status=404)
@@ -572,7 +622,7 @@ def detail_contract_view(request, id, user):
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
 
-    contract = Contract.objects.filter(id=id).first()
+    contract = Contract.objects.filter(id=id, user=user).first()
     if contract is None:
         return JsonResponse({'msg': 'Contract not found'}, status=404)
 
@@ -587,7 +637,8 @@ def include_new_invoice_view(request, id, user):
         active=data.get('active'),
         value=data.get('value'),
         value_open=data.get('value'),
-        contract=contract
+        contract=contract,
+        user=user
     )
     invoice.save()
     if data.get('tags'):
@@ -595,8 +646,8 @@ def include_new_invoice_view(request, id, user):
 
     generate_payments(invoice)
 
-    contract.value_open = contract.value_open + invoice.value
-    contract.value = contract.value + invoice.value
+    contract.value_open = (contract.value_open or 0) + invoice.value
+    contract.value = (contract.value or 0) + invoice.value
     contract.save()
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
@@ -607,8 +658,9 @@ def include_new_invoice_view(request, id, user):
 @require_GET
 def detail_invoice_view(request, id, user):
 
-    invoice = Invoice.objects.filter(id=id).first()
-    payments = Payment.objects.filter(invoice=id).all().order_by('id')
+    invoice = Invoice.objects.filter(id=id, user=user).first()
+    payments = Payment.objects.filter(
+        invoice=id, user=user).all().order_by('id')
 
     if (invoice is None):
         return JsonResponse({'msg': 'Invoice not found'}, status=404)
@@ -656,13 +708,13 @@ def detail_invoice_view(request, id, user):
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
 
-    contract = Contract.objects.filter(id=id).first()
+    contract = Contract.objects.filter(id=id, user=user).first()
     if contract is None:
         return JsonResponse({'msg': 'Contract not found'}, status=404)
     contracts = data.get('contracts')
 
     for id in contracts:
-        invoices = Invoice.objects.filter(contract=id).all()
+        invoices = Invoice.objects.filter(contract=id, user=user).all()
         for invoice in invoices:
             invoice.contract = contract
             invoice.save()
@@ -683,7 +735,7 @@ def get_all_tag_view(request, user):
     if req.get('name__icontains'):
         filters['name__icontains'] = req.get('name__icontains')
 
-    datas = Tag.objects.filter(**filters).all().order_by('id')
+    datas = Tag.objects.filter(**filters, user=user).all().order_by('id')
 
     tags = [{
         'id': data.id,
@@ -703,7 +755,8 @@ def include_new_tag_view(request, user):
 
     tag = Tag(
         name=data.get('name'),
-        color=data.get('color')
+        color=data.get('color'),
+        user=user
     )
 
     tag.save()
@@ -722,7 +775,7 @@ def save_tag_invoice_view(request, id, user):
     if (data is None):
         return JsonResponse({'msg': 'Tags not found'}, status=404)
 
-    invoice = Invoice.objects.filter(id=id).first()
+    invoice = Invoice.objects.filter(id=id, user=user).first()
     invoice.tags.set(data)
     invoice.save()
 

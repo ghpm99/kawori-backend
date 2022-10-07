@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 # Create your models here.
@@ -7,11 +8,13 @@ class Contract(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     value_open = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
 
 
 class Tag(models.Model):
     name = models.TextField(max_length=255)
     color = models.CharField(max_length=7, null=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
 
 
 class Invoice(models.Model):
@@ -44,6 +47,7 @@ class Invoice(models.Model):
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
     tags = models.ManyToManyField(Tag)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
 
 
 class Payment(models.Model):
@@ -74,6 +78,7 @@ class Payment(models.Model):
     active = models.BooleanField(default=True)
     value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
 
 
 class Month(models.Model):
