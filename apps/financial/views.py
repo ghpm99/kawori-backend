@@ -158,11 +158,11 @@ def save_detail_view(request, id, user):
         old_value = payment.value
         new_value = data.get('value')
 
-        invoice_value = (payment.invoice.value_open - old_value) + new_value
+        invoice_value = float(payment.invoice.value_open - old_value) + new_value
         payment.invoice.value_open = invoice_value
         payment.invoice.save()
 
-        contract_value = (
+        contract_value = float(
             payment.invoice.contract.value_open - old_value) + new_value
         payment.invoice.contract.value_open = contract_value
         payment.invoice.contract.save()
@@ -198,6 +198,7 @@ def payoff_detail_view(request, id, user):
             payment_date=payment_date,
             fixed=payment.fixed,
             value=payment.value,
+            value_open=payment.value,
             contract=payment.invoice.contract,
             user=user
         )
@@ -206,15 +207,20 @@ def payoff_detail_view(request, id, user):
         new_invoice.tags.set(tags)
         generate_payments(new_invoice)
 
+        new_invoice.contract.value_open = (new_invoice.contract.value_open or 0) + new_invoice.value
+        new_invoice.contract.value = (new_invoice.contract.value or 0) + new_invoice.value
+        new_invoice.contract.save()
+
+
     payment.status = Payment.STATUS_DONE
     payment.save()
 
-    payment.invoice.value_open = payment.invoice.value_open - payment.value
-    payment.invoice.value_closed = payment.invoice.value_closed + payment.value
+    payment.invoice.value_open = (payment.invoice.value_open or 0) - payment.value
+    payment.invoice.value_closed = (payment.invoice.value_closed or 0) + payment.value
     payment.invoice.save()
 
-    payment.invoice.contract.value_open = payment.invoice.contract.value_open - payment.value
-    payment.invoice.contract.value_closed = payment.invoice.contract.value_closed + payment.value
+    payment.invoice.contract.value_open = (payment.invoice.contract.value_open or 0) - payment.value
+    payment.invoice.contract.value_closed = (payment.invoice.contract.value_closed or 0) + payment.value
     payment.invoice.contract.save()
 
     return JsonResponse({'msg': 'Pagamento baixado'})
