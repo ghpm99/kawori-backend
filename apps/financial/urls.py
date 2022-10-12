@@ -8,7 +8,13 @@ urlpatterns = [
         path('save', views.save_detail_view, name='financial_save_detail_view'),
         path('payoff', views.payoff_detail_view, name='financial_payoff_detail_view')
     ])),
-    path('report', views.report_payment_view, name='financial_report_payment_view'),
+    path('report/', include([
+        path('', views.report_payment_view, name='financial_report_payment_view'),
+        path('count_payment', views.report_count_payment_view, name='financial_report_count_payment'),
+        path('amount_payment', views.report_amount_payment_view, name='financial_report_amount_payment'),
+        path('amount_payment_open', views.report_amount_payment_open_view, name='financial_report_amount_payment_open'),
+        path('amount_payment_closed', views.report_amount_payment_closed_view, name='financial_report_amount_payment_closed'),
+    ])),
     path('new-payment', views.save_new_view, name='financial_save_new'),
     path('contract/', include([
         path('', views.get_all_contract_view, name='financial_get_all_contract'),

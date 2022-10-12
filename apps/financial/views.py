@@ -797,3 +797,138 @@ def update_all_contracts_value(request, user):
     for contract in contracts:
         update_contract_value(contract)
     return JsonResponse({'msg': 'ok'})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_count_payment_view(request, user):
+
+    date_referrer = datetime.now().date()
+
+    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    begin = date_referrer.replace(day=1)
+
+    params = {
+        'begin': begin,
+        'end': end,
+    }
+
+    count_payment = """
+        SELECT
+            COALESCE(COUNT(id), 0) as payment_total
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND user_id=%(user_id)s
+            AND type=1
+            AND active=true
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(count_payment, {**params, 'user_id': user.id})
+        payment_total = cursor.fetchone()
+
+    return JsonResponse({'data': payment_total})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_amount_payment_view(request, user):
+    date_referrer = datetime.now().date()
+
+    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    begin = date_referrer.replace(day=1)
+
+    params = {
+        'begin': begin,
+        'end': end,
+    }
+
+    count_payment = """
+        SELECT
+            COALESCE(SUM(value), 0) as amount_payment_total
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=1
+            AND fp.active=true
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(count_payment, {**params, 'user_id': user.id})
+        amount_payment_total = cursor.fetchone()
+
+    return JsonResponse({'data': amount_payment_total})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_amount_payment_open_view(request, user):
+    date_referrer = datetime.now().date()
+
+    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    begin = date_referrer.replace(day=1)
+
+    params = {
+        'begin': begin,
+        'end': end,
+    }
+
+    count_payment = """
+        SELECT
+            COALESCE(SUM(value), 0) as amount_payment_total
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=1
+            AND fp.status=0
+            AND fp.active=true
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(count_payment, {**params, 'user_id': user.id})
+        amount_payment_total = cursor.fetchone()
+
+    return JsonResponse({'data': amount_payment_total})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_amount_payment_closed_view(request, user):
+    date_referrer = datetime.now().date()
+
+    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    begin = date_referrer.replace(day=1)
+
+    params = {
+        'begin': begin,
+        'end': end,
+    }
+
+    count_payment = """
+        SELECT
+            COALESCE(SUM(value), 0) as amount_payment_total
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=1
+            AND fp.status=1
+            AND fp.active=true
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(count_payment, {**params, 'user_id': user.id})
+        amount_payment_total = cursor.fetchone()
+
+    return JsonResponse({'data': amount_payment_total})
