@@ -932,3 +932,40 @@ def report_amount_payment_closed_view(request, user):
         amount_payment_total = cursor.fetchone()
 
     return JsonResponse({'data': amount_payment_total})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_amount_invoice_by_tag_view(request, user):
+    amount_invoice = """
+        SELECT
+            ft.id,
+            ft."name",
+            ft.color,
+            sum(fi.value)
+        FROM
+            financial_tag ft
+        INNER JOIN financial_invoice_tags fit ON
+            ft.id = fit.tag_id
+        INNER JOIN financial_invoice fi ON
+            fit.invoice_id = fi.id
+        WHERE
+            ft.user_id=%(user_id)s
+        GROUP BY
+            ft.id
+        ORDER BY
+            sum(fi.value) DESC;
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(amount_invoice, {'user_id': user.id})
+        amount_invoice = cursor.fetchall()
+
+    tags = [{
+        'id': data[0],
+        'name': data[1],
+        'color': data[2],
+        'amount': float(data[3])
+    } for data in amount_invoice]
+
+    return JsonResponse({'data': tags})
