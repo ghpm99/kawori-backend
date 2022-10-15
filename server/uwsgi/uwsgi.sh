@@ -1,29 +1,29 @@
 #!/bin/bash
-cd /home/opc/kawori-backend/server/uwsgi
+cd /home/ubuntu/kawori-backend/server/uwsgi
 export LC_ALL=en_US.UTF8
 
 start (){
-/home/opc/kawori-backend/.venv/bin/uwsgi --ini /home/opc/kawori-backend/server/uwsgi/uwsgi.ini;
+/home/ubuntu/kawori-backend/.venv/bin/uwsgi --ini /home/ubuntu/kawori-backend/server/uwsgi/uwsgi.ini;
 }
 
 stop () {
 
-/home/opc/kawori-backend/.venv/bin/uwsgi --stop /home/opc/kawori-backend/server/uwsgi/uwsgi.pid;
+/home/ubuntu/kawori-backend/.venv/bin/uwsgi --stop /home/ubuntu/kawori-backend/server/uwsgi/uwsgi.pid;
 sleep 5;
 }
 
 reload () {
 
-/home/opc/kawori-backend/.venv/bin/uwsgi --reload /home/opc/kawori-backend/server/uwsgi/uwsgi.pid;
+/home/ubuntu/kawori-backend/.venv/bin/uwsgi --reload /home/ubuntu/kawori-backend/server/uwsgi/uwsgi.pid;
 
 }
 
 log () {
-    tail -f /home/opc/kawori-backend/server/log/error.log;
+    tail -f /home/ubuntu/kawori-backend/server/log/error.log;
 }
 
 stats () {
-    uwsgitop /home/opc/kawori-backend/server/uwsgi/stats.sock
+    uwsgitop /home/ubuntu/kawori-backend/server/uwsgi/stats.sock
 }
 
 ### main logic ###
