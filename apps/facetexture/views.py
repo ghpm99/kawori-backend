@@ -3,6 +3,7 @@ import json
 import os
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -80,7 +81,7 @@ def get_bdo_class(request, user):
         'id': bdo_class.id,
         'name': bdo_class.name,
         'abbreviation': bdo_class.abbreviation,
-        'class_image': bdo_class.class_image.url if bdo_class.class_image else '',
+        'class_image': settings.BASE_URL + bdo_class.class_image.url if bdo_class.class_image else '',
     } for bdo_class in bdo_classes]
 
     bdo_class.sort(key=orderFunc)

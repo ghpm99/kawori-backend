@@ -26,3 +26,5 @@ DATABASES = {
 }
 
 ALLOWED_HOSTS = ['*']
+
+BASE_URL = 'http://localhost:8000'
