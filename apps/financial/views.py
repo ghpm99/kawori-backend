@@ -942,7 +942,7 @@ def report_amount_invoice_by_tag_view(request, user):
         SELECT
             ft.id,
             ft."name",
-            ft.color,
+            COALESCE(ft.color, '#000'),
             sum(fi.value)
         FROM
             financial_tag ft
