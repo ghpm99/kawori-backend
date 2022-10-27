@@ -26,9 +26,7 @@ wsgi-prod.py
 /upload/
 **/*upload/**
 db.sqlite3
-**/local_*
-/kawori/settings/local_settings.py
-
+*/*/local_*
 .idea/
 
 .env
