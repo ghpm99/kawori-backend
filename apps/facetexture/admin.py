@@ -4,6 +4,7 @@ from facetexture.models import Facetexture, BDOClass, PreviewBackground
 
 # Register your models here.
 class FacetextureConfig(admin.ModelAdmin):
+    list_display = ('user', 'characters')
     pass
 
 
