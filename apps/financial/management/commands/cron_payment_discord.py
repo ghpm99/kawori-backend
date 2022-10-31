@@ -41,22 +41,26 @@ class Command(BaseCommand):
 
         url = settings.BASE_URL_WEBHOOK + '/financial'
 
+        payments = []
+
         for item in payments_list:
 
             type = Payment.TYPES[item[1]]
 
-            json = {
+            payments.append({
                 'id': item[0],
                 'type': type[1],
                 'name': item[2],
                 'payment_date': datetime.strptime(str(item[3]), "%Y-%m-%d").strftime("%d/%m/%Y"),
                 'value': float(item[4]),
                 'payment': settings.BASE_URL_FRONTEND + '/admin/financial/payments/details/' + str(item[0])
-            }
+            })
 
-            print(json)
-            response = requests.post(url, json=json)
-            print(response)
+        json = {
+            'data': payments
+        }
+
+        requests.post(url, json=json)
 
     def run_command(self):
 
