@@ -1,4 +1,3 @@
-import locale
 import time
 from datetime import datetime, timedelta
 from django.conf import settings
