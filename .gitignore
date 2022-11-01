@@ -27,7 +27,6 @@ wsgi-prod.py
 **/*upload/**
 db.sqlite3
 */*/local_*
-
 .idea/
 
 .env

@@ -652,8 +652,8 @@ def include_new_invoice_view(request, id, user):
 
     generate_payments(invoice)
 
-    contract.value_open = (contract.value_open or 0) + invoice.value
-    contract.value = (contract.value or 0) + invoice.value
+    contract.value_open = (float(contract.value_open) or 0) + float(invoice.value)
+    contract.value = (float(contract.value) or 0) + float(invoice.value)
     contract.save()
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
@@ -942,7 +942,7 @@ def report_amount_invoice_by_tag_view(request, user):
         SELECT
             ft.id,
             ft."name",
-            ft.color,
+            COALESCE(ft.color, '#000'),
             sum(fi.value)
         FROM
             financial_tag ft

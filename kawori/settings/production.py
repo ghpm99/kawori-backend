@@ -31,7 +31,7 @@ DATABASES = {
     }
 }
 
-BASE_URL = os.environ.get('BASE_URL')
-BASE_URL_FRONT = os.environ.get('BASE_URL_FRONT')
-
-ALLOWED_HOSTS = [BASE_URL, BASE_URL_FRONT, '0.0.0.0']
+try:
+    from kawori.settings.local_settings import *  # noqa: F403, F401
+except ImportError:
+    pass
