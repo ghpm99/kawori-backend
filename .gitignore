@@ -26,6 +26,7 @@ wsgi-prod.py
 /upload/
 **/*upload/**
 db.sqlite3
+*/*/local_*
 
 .idea/
 
