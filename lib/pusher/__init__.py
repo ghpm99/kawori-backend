@@ -1,14 +1,15 @@
 import os
 from django.http import JsonResponse
+from django.conf import settings
 import pusher
 from remote.models import Config
 
 
 pusher_client = pusher.Pusher(
-    app_id=os.environ.get('ENV_PUSHER_APP_ID'),
-    key=os.environ.get('ENV_PUSHER_KEY'),
-    secret=os.environ.get('ENV_PUSHER_SECRET'),
-    cluster=os.environ.get('ENV_PUSHER_CLUSTER'),
+    app_id=settings.ENV_PUSHER_APP_ID,
+    key=settings.ENV_PUSHER_KEY,
+    secret=settings.ENV_PUSHER_SECRET,
+    cluster=settings.ENV_PUSHER_CLUSTER,
     ssl=True
 )
 

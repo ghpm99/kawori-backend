@@ -122,3 +122,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 STATIC_URL = '/static/'
+
+ENV_PUSHER_APP_ID=''
+ENV_PUSHER_KEY=''
+ENV_PUSHER_SECRET=''
+ENV_PUSHER_CLUSTER=''
