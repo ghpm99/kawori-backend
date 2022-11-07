@@ -506,7 +506,6 @@ def get_all_contract_view(request, user):
         filters['id'] = req.get('id')
 
     contracts = Contract.objects.filter(**filters, user=user).order_by('id')
-    data = paginate(contracts, req.get('page'))
 
     contract = [{
         'id': contract.id,
@@ -514,11 +513,9 @@ def get_all_contract_view(request, user):
         'value': float(contract.value or 0),
         'value_open': float(contract.value_open or 0),
         'value_closed': float(contract.value_closed or 0)
-    } for contract in data.get('data')]
+    } for contract in contracts]
 
-    data['data'] = contract
-
-    return JsonResponse(data)
+    return JsonResponse({'data': contract})
 
 
 @add_cors_react_dev
@@ -542,7 +539,6 @@ def get_all_invoice_view(request, user):
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
     datas = Invoice.objects.filter(**filters, user=user).all().order_by('id')
-    data = paginate(datas, req.get('page'))
 
     invoices = [{
         'id': data.id,
@@ -559,11 +555,9 @@ def get_all_invoice_view(request, user):
             'name': tag.name,
             'color': tag.color
         } for tag in data.tags.all()]
-    } for data in data.get('data')]
+    } for data in datas]
 
-    data['data'] = invoices
-
-    return JsonResponse(data)
+    return JsonResponse({'data': invoices})
 
 
 @csrf_exempt
