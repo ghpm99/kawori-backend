@@ -646,8 +646,8 @@ def include_new_invoice_view(request, id, user):
 
     generate_payments(invoice)
 
-    contract.value_open = (float(contract.value_open) or 0) + float(invoice.value)
-    contract.value = (float(contract.value) or 0) + float(invoice.value)
+    contract.value_open = float(contract.value_open or 0) + float(invoice.value)
+    contract.value = float(contract.value or 0) + float(invoice.value)
     contract.save()
 
     return JsonResponse({'msg': 'Nota inclusa com sucesso'})
