@@ -47,21 +47,26 @@ def get_all_view(request, user):
     if req.get('active'):
         filters['active'] = boolean(req.get('active'))
 
-    datas = Payment.objects.filter(
+    payments_query = Payment.objects.filter(
         **filters, user=user).order_by('payment_date')
 
+    data = paginate(payments_query, req.get('page'))
+
     payments = [{
-        'id': data.id,
-        'status': data.status,
-        'type': data.type,
-        'name': data.name,
-        'date': data.date,
-        'installments': data.installments,
-        'payment_date': data.payment_date,
-        'fixed': data.fixed,
-        'value': float(data.value or 0)
-    } for data in datas]
-    return JsonResponse({'data': payments})
+        'id': payment.id,
+        'status': payment.status,
+        'type': payment.type,
+        'name': payment.name,
+        'date': payment.date,
+        'installments': payment.installments,
+        'payment_date': payment.payment_date,
+        'fixed': payment.fixed,
+        'value': float(payment.value or 0)
+    } for payment in data.get('data')]
+
+    data['data'] = payments
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
