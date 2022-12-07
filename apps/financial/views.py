@@ -800,7 +800,7 @@ def report_count_payment_view(request, user):
 
     date_referrer = datetime.now().date()
 
-    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    end = date_referrer + relativedelta(months=1, day=1)
     begin = date_referrer.replace(day=1)
 
     params = {
@@ -833,7 +833,7 @@ def report_count_payment_view(request, user):
 def report_amount_payment_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    end = date_referrer + relativedelta(months=1, day=1)
     begin = date_referrer.replace(day=1)
 
     params = {
@@ -866,7 +866,7 @@ def report_amount_payment_view(request, user):
 def report_amount_payment_open_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    end = date_referrer + relativedelta(months=1, day=1)
     begin = date_referrer.replace(day=1)
 
     params = {
@@ -900,7 +900,7 @@ def report_amount_payment_open_view(request, user):
 def report_amount_payment_closed_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer.replace(day=1, month=date_referrer.month+1) - timedelta(days=1)
+    end = date_referrer + relativedelta(months=1, day=1)
     begin = date_referrer.replace(day=1)
 
     params = {
