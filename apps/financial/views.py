@@ -231,6 +231,11 @@ def payoff_detail_view(request, id, user):
 @require_GET
 def report_payment_view(request, user):
 
+    date_referrer = datetime.now().date()
+
+    end = date_referrer + relativedelta(months=12, day=1)
+    begin = date_referrer.replace(day=1) - relativedelta(months=3)
+
     query_fixed_debit = """
         SELECT
             SUM(value) as fixed_debit_total
@@ -279,6 +284,7 @@ def report_payment_view(request, user):
                 AND active=true
                 AND fixed=false
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', debit.payment_date),
                 date_part('month', debit.payment_date)
@@ -299,6 +305,7 @@ def report_payment_view(request, user):
                 AND active=true
                 AND fixed=false
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', credit.payment_date),
                 date_part('month', credit.payment_date)
@@ -319,6 +326,7 @@ def report_payment_view(request, user):
                 AND active=true
                 AND fixed=true
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', fixed_debit.payment_date),
                 date_part('month', fixed_debit.payment_date)
@@ -339,6 +347,7 @@ def report_payment_view(request, user):
                 AND active=true
                 AND fixed=true
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', fixed_credit.payment_date),
                 date_part('month', fixed_credit.payment_date)
@@ -383,6 +392,7 @@ def report_payment_view(request, user):
             AND status=0
             AND active=true
             AND user_id=%(user_id)s
+            AND payment_date BETWEEN %(begin)s AND %(end)s
         GROUP BY
             date_part('year', payment.payment_date),
             date_part('month', payment.payment_date),
@@ -394,7 +404,11 @@ def report_payment_view(request, user):
         """
 
     with connection.cursor() as cursor:
-        cursor.execute(queryOpen, {'user_id': user.id})
+        cursor.execute(queryOpen, {
+            'user_id': user.id,
+            'begin': begin,
+            'end': end
+        })
         datas_open = cursor.fetchall()
 
     open = [{
@@ -418,6 +432,7 @@ def report_payment_view(request, user):
                 AND status=1
                 AND active=true
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', debit.payment_date),
                 date_part('month', debit.payment_date)
@@ -437,6 +452,7 @@ def report_payment_view(request, user):
                 AND status=1
                 AND active=true
                 AND user_id=%(user_id)s
+                AND payment_date BETWEEN %(begin)s AND %(end)s
             GROUP BY
                 date_part('year', credit.payment_date),
                 date_part('month', credit.payment_date)
@@ -467,6 +483,7 @@ def report_payment_view(request, user):
             AND status=1
             AND active=true
             AND user_id=%(user_id)s
+            AND payment_date BETWEEN %(begin)s AND %(end)s
         GROUP BY
             date_part('year', payment.payment_date),
             date_part('month', payment.payment_date),
@@ -476,7 +493,11 @@ def report_payment_view(request, user):
         """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_closed, {'user_id': user.id})
+        cursor.execute(query_closed, {
+            'user_id': user.id,
+            'begin': begin,
+            'end': end
+        })
         datas_closed = cursor.fetchall()
 
     closed = [{
