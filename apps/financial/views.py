@@ -47,21 +47,26 @@ def get_all_view(request, user):
     if req.get('active'):
         filters['active'] = boolean(req.get('active'))
 
-    datas = Payment.objects.filter(
+    payments_query = Payment.objects.filter(
         **filters, user=user).order_by('payment_date')
 
+    data = paginate(payments_query, req.get('page'), req.get('page_size'))
+
     payments = [{
-        'id': data.id,
-        'status': data.status,
-        'type': data.type,
-        'name': data.name,
-        'date': data.date,
-        'installments': data.installments,
-        'payment_date': data.payment_date,
-        'fixed': data.fixed,
-        'value': float(data.value or 0)
-    } for data in datas]
-    return JsonResponse({'data': payments})
+        'id': payment.id,
+        'status': payment.status,
+        'type': payment.type,
+        'name': payment.name,
+        'date': payment.date,
+        'installments': payment.installments,
+        'payment_date': payment.payment_date,
+        'fixed': payment.fixed,
+        'value': float(payment.value or 0)
+    } for payment in data.get('data')]
+
+    data['data'] = payments
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
@@ -526,17 +531,21 @@ def get_all_contract_view(request, user):
     if req.get('id'):
         filters['id'] = req.get('id')
 
-    contracts = Contract.objects.filter(**filters, user=user).order_by('id')
+    contracts_query = Contract.objects.filter(**filters, user=user).order_by('id')
 
-    contract = [{
+    data = paginate(contracts_query, req.get('page'), req.get('page_size'))
+
+    contracts = [{
         'id': contract.id,
         'name': contract.name,
         'value': float(contract.value or 0),
         'value_open': float(contract.value_open or 0),
         'value_closed': float(contract.value_closed or 0)
-    } for contract in contracts]
+    } for contract in data.get('data')]
 
-    return JsonResponse({'data': contract})
+    data['data'] = contracts
+
+    return JsonResponse({'data': data})
 
 
 @add_cors_react_dev
@@ -559,26 +568,30 @@ def get_all_invoice_view(request, user):
         filters['date__lte'] = format_date(
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
-    datas = Invoice.objects.filter(**filters, user=user).all().order_by('id')
+    invoices_query = Invoice.objects.filter(**filters, user=user).all().order_by('id')
+
+    data = paginate(invoices_query, req.get('page'), req.get('page_size'))
 
     invoices = [{
-        'id': data.id,
-        'status': data.status,
-        'name': data.name,
-        'installments': data.installments,
-        'value': float(data.value or 0),
-        'value_open': float(data.value_open or 0),
-        'value_closed': float(data.value_closed or 0),
-        'date': data.date,
-        'contract': data.contract.id,
+        'id': invoice.id,
+        'status': invoice.status,
+        'name': invoice.name,
+        'installments': invoice.installments,
+        'value': float(invoice.value or 0),
+        'value_open': float(invoice.value_open or 0),
+        'value_closed': float(invoice.value_closed or 0),
+        'date': invoice.date,
+        'contract': invoice.contract.id,
         'tags': [{
             'id': tag.id,
             'name': tag.name,
             'color': tag.color
-        } for tag in data.tags.all()]
-    } for data in datas]
+        } for tag in invoice.tags.all()]
+    } for invoice in data.get('data')]
 
-    return JsonResponse({'data': invoices})
+    data['data'] = invoices
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
@@ -602,11 +615,30 @@ def save_new_contract_view(request, user):
 def detail_contract_view(request, id, user):
 
     data = Contract.objects.filter(id=id).first()
-    invoices = Invoice.objects.filter(
-        contract=id, user=user).all().order_by('id')
 
     if (data is None):
-        return JsonResponse({'msg': 'Payment not found'}, status=404)
+        return JsonResponse({'msg': 'Contract not found'}, status=404)
+
+    contract = {
+        'id': data.id,
+        'name': data.name,
+        'value': float(data.value or 0),
+        'value_open': float(data.value_open or 0),
+        'value_closed': float(data.value_closed or 0)
+    }
+
+    return JsonResponse({'data': contract})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def detail_contract_invoices_view(request, id, user):
+    req = request.GET
+
+    invoices_query = Invoice.objects.filter(contract=id, user=user).all().order_by('id')
+
+    data = paginate(invoices_query, req.get('page'), req.get('page_size'))
 
     invoices = [{
         'id': invoice.id,
@@ -622,18 +654,11 @@ def detail_contract_view(request, id, user):
             'name': tag.name,
             'color': tag.color
         } for tag in invoice.tags.all()]
-    } for invoice in invoices]
+    } for invoice in data.get('data')]
 
-    contract = {
-        'id': data.id,
-        'name': data.name,
-        'value': float(data.value or 0),
-        'value_open': float(data.value_open or 0),
-        'value_closed': float(data.value_closed or 0),
-        'invoices': invoices
-    }
+    data['data'] = invoices
 
-    return JsonResponse({'data': contract})
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
@@ -680,23 +705,9 @@ def include_new_invoice_view(request, id, user):
 def detail_invoice_view(request, id, user):
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
-    payments = Payment.objects.filter(
-        invoice=id, user=user).all().order_by('id')
 
     if (invoice is None):
         return JsonResponse({'msg': 'Invoice not found'}, status=404)
-
-    payments = [{
-        'id': payment.id,
-        'status': payment.status,
-        'type': payment.type,
-        'name': payment.name,
-        'date': payment.date,
-        'installments': payment.installments,
-        'payment_date': payment.payment_date,
-        'fixed': payment.fixed,
-        'value': float(payment.value or 0),
-    } for payment in payments]
 
     tags = [{
         'id': tag.id,
@@ -715,11 +726,37 @@ def detail_invoice_view(request, id, user):
         'date': invoice.date,
         'contract': invoice.contract.id,
         'contract_name': invoice.contract.name,
-        'payments': payments,
         'tags': tags
     }
 
     return JsonResponse({'data': invoice})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def detail_invoice_payments_view(request, id, user):
+    req = request.GET
+    payments_query = Payment.objects.filter(
+        invoice=id, user=user).all().order_by('id')
+
+    data = paginate(payments_query, req.get('page'), req.get('page_size'))
+
+    payments = [{
+        'id': payment.id,
+        'status': payment.status,
+        'type': payment.type,
+        'name': payment.name,
+        'date': payment.date,
+        'installments': payment.installments,
+        'payment_date': payment.payment_date,
+        'fixed': payment.fixed,
+        'value': float(payment.value or 0),
+    } for payment in data.get('data')]
+
+    data['data'] = payments
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
