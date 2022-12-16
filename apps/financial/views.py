@@ -50,7 +50,7 @@ def get_all_view(request, user):
     payments_query = Payment.objects.filter(
         **filters, user=user).order_by('payment_date')
 
-    data = paginate(payments_query, req.get('page'))
+    data = paginate(payments_query, req.get('page'), req.get('page_size'))
 
     payments = [{
         'id': payment.id,
@@ -510,17 +510,21 @@ def get_all_contract_view(request, user):
     if req.get('id'):
         filters['id'] = req.get('id')
 
-    contracts = Contract.objects.filter(**filters, user=user).order_by('id')
+    contracts_query = Contract.objects.filter(**filters, user=user).order_by('id')
 
-    contract = [{
+    data = paginate(contracts_query, req.get('page'), req.get('page_size'))
+
+    contracts = [{
         'id': contract.id,
         'name': contract.name,
         'value': float(contract.value or 0),
         'value_open': float(contract.value_open or 0),
         'value_closed': float(contract.value_closed or 0)
-    } for contract in contracts]
+    } for contract in data.get('data')]
 
-    return JsonResponse({'data': contract})
+    data['data'] = contracts
+
+    return JsonResponse({'data': data})
 
 
 @add_cors_react_dev
@@ -543,26 +547,30 @@ def get_all_invoice_view(request, user):
         filters['date__lte'] = format_date(
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
-    datas = Invoice.objects.filter(**filters, user=user).all().order_by('id')
+    invoices_query = Invoice.objects.filter(**filters, user=user).all().order_by('id')
+
+    data = paginate(invoices_query, req.get('page'), req.get('page_size'))
 
     invoices = [{
-        'id': data.id,
-        'status': data.status,
-        'name': data.name,
-        'installments': data.installments,
-        'value': float(data.value or 0),
-        'value_open': float(data.value_open or 0),
-        'value_closed': float(data.value_closed or 0),
-        'date': data.date,
-        'contract': data.contract.id,
+        'id': invoice.id,
+        'status': invoice.status,
+        'name': invoice.name,
+        'installments': invoice.installments,
+        'value': float(invoice.value or 0),
+        'value_open': float(invoice.value_open or 0),
+        'value_closed': float(invoice.value_closed or 0),
+        'date': invoice.date,
+        'contract': invoice.contract.id,
         'tags': [{
             'id': tag.id,
             'name': tag.name,
             'color': tag.color
-        } for tag in data.tags.all()]
-    } for data in datas]
+        } for tag in invoice.tags.all()]
+    } for invoice in data.get('data')]
 
-    return JsonResponse({'data': invoices})
+    data['data'] = invoices
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
