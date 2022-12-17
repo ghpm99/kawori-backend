@@ -568,7 +568,7 @@ def get_all_invoice_view(request, user):
         filters['date__lte'] = format_date(
             req.get('date__lte')) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user).all().order_by('id')
+    invoices_query = Invoice.objects.filter(**filters, user=user).order_by('id')
 
     data = paginate(invoices_query, req.get('page'), req.get('page_size'))
 
@@ -636,7 +636,7 @@ def detail_contract_view(request, id, user):
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
-    invoices_query = Invoice.objects.filter(contract=id, user=user).all().order_by('id')
+    invoices_query = Invoice.objects.filter(contract=id, user=user).order_by('id')
 
     data = paginate(invoices_query, req.get('page'), req.get('page_size'))
 
@@ -738,7 +738,7 @@ def detail_invoice_view(request, id, user):
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
     payments_query = Payment.objects.filter(
-        invoice=id, user=user).all().order_by('id')
+        invoice=id, user=user).order_by('id')
 
     data = paginate(payments_query, req.get('page'), req.get('page_size'))
 
