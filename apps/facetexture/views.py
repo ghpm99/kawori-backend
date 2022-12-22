@@ -109,7 +109,7 @@ def preview_background(request, user):
     file = request.FILES.get('background').file
     image = Image.open(file)
 
-    image = image.resize(size=(920, 670))
+    image = image.resize(size=(920, 837))
 
     width = 125
     height = 160
@@ -156,7 +156,7 @@ def download_background(request, user):
     file = request.FILES.get('background').file
     image = Image.open(file)
 
-    image = image.resize(size=(920, 670))
+    image = image.resize(size=(920, 837))
 
     width = 125
     height = 160
