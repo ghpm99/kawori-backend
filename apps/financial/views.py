@@ -797,7 +797,7 @@ def get_all_tag_view(request, user):
     if req.get('name__icontains'):
         filters['name__icontains'] = req.get('name__icontains')
 
-    datas = Tag.objects.filter(**filters, user=user).all().order_by('id')
+    datas = Tag.objects.filter(**filters, user=user).all().order_by('name')
 
     tags = [{
         'id': data.id,
