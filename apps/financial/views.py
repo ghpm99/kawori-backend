@@ -243,7 +243,45 @@ def report_payment_view(request, user):
     date_referrer = datetime.now().date()
 
     end = date_referrer + relativedelta(months=12, day=1)
-    begin = date_referrer.replace(day=1) - relativedelta(months=3)
+    begin = date_referrer.replace(day=1) - relativedelta(months=12)
+
+    query_payments = """
+        SELECT
+            fp.payments_date AS payments_date,
+            fp.debit AS debit_total,
+            fp.credit AS credit_total,
+            fp.total AS total
+        FROM
+            financial_paymentsummary fp
+        WHERE
+            1 = 1
+            AND fp.payments_date BETWEEN %(begin)s
+            AND %(end)s
+            AND fp.user_id = %(user_id)s
+        ORDER BY
+            fp.payments_date
+    """
+
+    filters = {
+        'user_id': user.id,
+        'begin': begin,
+        'end': end
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute(query_payments, filters)
+        payments = cursor.fetchall()
+
+    payments_data = [{
+        'label': data[0],
+        'debit': float(data[1] or 0),
+        'credit': float(data[2] or 0),
+        'total': data[3]
+    } for data in payments]
+
+    filters = {
+        'user_id': user.id
+    }
 
     query_fixed_debit = """
         SELECT
@@ -259,7 +297,7 @@ def report_payment_view(request, user):
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_fixed_debit, {'user_id': user.id})
+        cursor.execute(query_fixed_debit, filters)
         fixed_debit = cursor.fetchone()
 
     query_fixed_credit = """
@@ -276,252 +314,17 @@ def report_payment_view(request, user):
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_fixed_credit, {'user_id': user.id})
+        cursor.execute(query_fixed_credit, filters)
         fixed_credit = cursor.fetchone()
 
-    queryOpen = """
-        WITH debit AS (
-            SELECT
-                SUM(value) as debit_total,
-                date_part('year', debit.payment_date) as debit_year,
-                date_part('month', debit.payment_date) as debit_month
-            FROM
-                financial_payment AS debit
-            WHERE 1=1
-                AND type=1
-                AND status=0
-                AND active=true
-                AND fixed=false
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', debit.payment_date),
-                date_part('month', debit.payment_date)
-            ORDER BY
-                date_part('year', debit.payment_date),
-                date_part('month', debit.payment_date)
-        ),
-        credit AS (
-            SELECT
-                SUM(value) as credit_total,
-                date_part('year', credit.payment_date) as credit_year,
-                date_part('month', credit.payment_date) as credit_month
-            FROM
-                financial_payment AS credit
-            WHERE 1=1
-                AND type=0
-                AND status=0
-                AND active=true
-                AND fixed=false
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', credit.payment_date),
-                date_part('month', credit.payment_date)
-            ORDER BY
-                date_part('year', credit.payment_date),
-                date_part('month', credit.payment_date)
-        ),
-        fixed_debit AS (
-            SELECT
-                SUM(value) as fixed_debit_total,
-                date_part('year', fixed_debit.payment_date) as fixed_debit_year,
-                date_part('month', fixed_debit.payment_date) as fixed_debit_month
-            FROM
-                financial_payment AS fixed_debit
-            WHERE 1=1
-                AND type=1
-                AND status=0
-                AND active=true
-                AND fixed=true
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', fixed_debit.payment_date),
-                date_part('month', fixed_debit.payment_date)
-            ORDER BY
-                date_part('year', fixed_debit.payment_date),
-                date_part('month', fixed_debit.payment_date)
-        ),
-        fixed_credit AS (
-            SELECT
-                SUM(value) as fixed_credit_total,
-                date_part('year', fixed_credit.payment_date) as fixed_credit_year,
-                date_part('month', fixed_credit.payment_date) as fixed_credit_month
-            FROM
-                financial_payment AS fixed_credit
-            WHERE 1=1
-                AND type=0
-                AND status=0
-                AND active=true
-                AND fixed=true
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', fixed_credit.payment_date),
-                date_part('month', fixed_credit.payment_date)
-            ORDER BY
-                date_part('year', fixed_credit.payment_date),
-                date_part('month', fixed_credit.payment_date)
-        )
-        SELECT
-            date_part('month', payment.payment_date) AS payment_month,
-            date_part('year', payment.payment_date) AS payment_year,
-            debit.debit_total as debit_total,
-            credit.credit_total as credit_total,
-            fixed_debit.fixed_debit_total as fixed_debit_open,
-            fixed_credit.fixed_credit_total as fixed_credit_open
-        FROM
-            financial_payment AS payment
-        LEFT JOIN
-            debit
-            ON
-                debit.debit_year = date_part('year', payment.payment_date)
-            AND
-                debit.debit_month = date_part('month', payment.payment_date)
-        LEFT JOIN
-            credit
-            ON
-                credit.credit_year = date_part('year', payment.payment_date)
-            AND
-                credit.credit_month = date_part('month', payment.payment_date)
-        LEFT JOIN
-            fixed_debit
-            ON
-                fixed_debit.fixed_debit_year = date_part('year', payment.payment_date)
-            AND
-                fixed_debit.fixed_debit_month = date_part('month', payment.payment_date)
-        LEFT JOIN
-            fixed_credit
-            ON
-                fixed_credit.fixed_credit_year = date_part('year', payment.payment_date)
-            AND
-                fixed_credit.fixed_credit_month = date_part('month', payment.payment_date)
-        WHERE 1=1
-            AND status=0
-            AND active=true
-            AND user_id=%(user_id)s
-            AND payment_date BETWEEN %(begin)s AND %(end)s
-        GROUP BY
-            date_part('year', payment.payment_date),
-            date_part('month', payment.payment_date),
-            debit_total,
-            credit_total,
-            fixed_debit_total,
-            fixed_credit_total
-        ORDER BY payment_year, payment_month;
-        """
-
-    with connection.cursor() as cursor:
-        cursor.execute(queryOpen, {
-            'user_id': user.id,
-            'begin': begin,
-            'end': end
-        })
-        datas_open = cursor.fetchall()
-
-    open = [{
-        'label': str(math.trunc(data[0])) + '/' + str(math.trunc(data[1])),
-        'debit': float(data[2] or 0),
-        'credit': float(data[3] or 0),
-        'fixed_debit_open': float(data[4] or 0),
-        'fixed_credit_open': float(data[5] or 0)
-    } for data in datas_open]
-
-    query_closed = """
-        WITH debit AS (
-            SELECT
-                SUM(value) as debit_total,
-                date_part('year', debit.payment_date) as debit_year,
-                date_part('month', debit.payment_date) as debit_month
-            FROM
-                financial_payment AS debit
-            WHERE 1=1
-                AND type=1
-                AND status=1
-                AND active=true
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', debit.payment_date),
-                date_part('month', debit.payment_date)
-            ORDER BY
-                date_part('year', debit.payment_date),
-                date_part('month', debit.payment_date)
-        ),
-        credit AS (
-            SELECT
-                SUM(value) as credit_total,
-                date_part('year', credit.payment_date) as credit_year,
-                date_part('month', credit.payment_date) as credit_month
-            FROM
-                financial_payment AS credit
-            WHERE 1=1
-                AND type=0
-                AND status=1
-                AND active=true
-                AND user_id=%(user_id)s
-                AND payment_date BETWEEN %(begin)s AND %(end)s
-            GROUP BY
-                date_part('year', credit.payment_date),
-                date_part('month', credit.payment_date)
-            ORDER BY
-                date_part('year', credit.payment_date),
-                date_part('month', credit.payment_date)
-        )
-        SELECT
-            date_part('month', payment.payment_date) AS payment_month,
-            date_part('year', payment.payment_date) AS payment_year,
-            debit.debit_total as debit_total,
-            credit.credit_total as credit_total
-        FROM
-            financial_payment AS payment
-        LEFT JOIN
-            debit
-            ON
-                debit.debit_year = date_part('year', payment.payment_date)
-            AND
-                debit.debit_month = date_part('month', payment.payment_date)
-        LEFT JOIN
-            credit
-            ON
-                credit.credit_year = date_part('year', payment.payment_date)
-            AND
-                credit.credit_month = date_part('month', payment.payment_date)
-        WHERE 1=1
-            AND status=1
-            AND active=true
-            AND user_id=%(user_id)s
-            AND payment_date BETWEEN %(begin)s AND %(end)s
-        GROUP BY
-            date_part('year', payment.payment_date),
-            date_part('month', payment.payment_date),
-            debit_total,
-            credit_total
-        ORDER BY payment_year, payment_month;
-        """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query_closed, {
-            'user_id': user.id,
-            'begin': begin,
-            'end': end
-        })
-        datas_closed = cursor.fetchall()
-
-    closed = [{
-        'label': str(math.trunc(data[0])) + '/' + str(math.trunc(data[1])),
-        'debit': float(data[2] or 0),
-        'credit': float(data[3] or 0)
-    } for data in datas_closed]
+    data = {
+        'payments': payments_data,
+        'fixed_debit': float(fixed_debit[0] or 0),
+        'fixed_credit': float(fixed_credit[0] or 0)
+    }
 
     return JsonResponse({
-        'data': {
-            'open': open,
-            'closed': closed,
-            'fixed_debit': float(fixed_debit[0] or 0),
-            'fixed_credit': float(fixed_credit[0] or 0)
-        }
+        'data': data
     })
 
 
