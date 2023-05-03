@@ -252,7 +252,7 @@ def report_payment_view(request, user):
             fp.credit AS credit_total,
             fp.total AS total,
             fp.dif AS dif,
-            fp.acumulado AS accumulated
+            fp.accumulated AS accumulated
         FROM
             financial_paymentsummary fp
         WHERE
