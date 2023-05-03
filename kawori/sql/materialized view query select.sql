@@ -1,4 +1,4 @@
-CREATE MATERIALIZED VIEW public.financial_paymentsummary TABLESPACE pg_default AS WITH payments AS (
+WITH payments AS (
     SELECT
         date_trunc('month', payments.payment_date) :: date AS payments_date,
         COUNT(payments.id) AS payment_total,
@@ -212,4 +212,4 @@ GROUP BY
     debit,
     credit
 ORDER BY
-    payments_date WITH DATA;
+    payments_date;

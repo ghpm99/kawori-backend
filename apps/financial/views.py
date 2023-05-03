@@ -250,7 +250,9 @@ def report_payment_view(request, user):
             fp.payments_date AS payments_date,
             fp.debit AS debit_total,
             fp.credit AS credit_total,
-            fp.total AS total
+            fp.total AS total,
+            fp.dif AS dif,
+            fp.acumulado AS accumulated
         FROM
             financial_paymentsummary fp
         WHERE
@@ -276,7 +278,9 @@ def report_payment_view(request, user):
         'label': data[0],
         'debit': float(data[1] or 0),
         'credit': float(data[2] or 0),
-        'total': data[3]
+        'total': data[3],
+        'difference': float(data[4] or 0),
+        'accumulated': float(data[5] or 0),
     } for data in payments]
 
     filters = {

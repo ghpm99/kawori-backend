@@ -1,2 +1,0 @@
-CREATE MATERIALIZED VIEW public.kawori_financialsummary
-TABLESPACE pg_default AS
