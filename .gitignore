@@ -28,7 +28,7 @@ wsgi-prod.py
 db.sqlite3
 */*/local_*
 .idea/
-
-.env
-
 /media/
+.env
+media
+**/media/**
