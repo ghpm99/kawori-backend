@@ -64,7 +64,9 @@ payments_current AS (
         1 = 1
         AND active = true
         AND payment_date BETWEEN date_trunc('month', now()) :: date
-        AND NOW() :: date
+        AND (
+            date_trunc('month', now()) + interval '1 month' - interval '1 day'
+        ) :: date
     GROUP BY
         payments_date,
         user_id
@@ -124,7 +126,7 @@ payments_open AS (
             1 = 1
             AND active = TRUE
             AND fixed = FALSE
-            AND payment_date > NOW() :: date
+            AND payment_date > (date_trunc('month', now()) + interval '1 month') :: date
         GROUP BY
             payments_date,
             user_id
