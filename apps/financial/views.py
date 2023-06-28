@@ -1,5 +1,4 @@
 import json
-import math
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
@@ -219,7 +218,6 @@ def payoff_detail_view(request, id, user):
         new_invoice.contract.value_open = (new_invoice.contract.value_open or 0) + new_invoice.value
         new_invoice.contract.value = (new_invoice.contract.value or 0) + new_invoice.value
         new_invoice.contract.save()
-
 
     payment.status = Payment.STATUS_DONE
     payment.save()

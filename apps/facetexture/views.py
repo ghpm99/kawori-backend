@@ -3,7 +3,6 @@ import json
 import os
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -47,7 +46,7 @@ def save_detail_view(request, user):
     data = json.loads(request.body)
     facetexture = Facetexture.objects.filter(user=user).first()
 
-    if(facetexture is None):
+    if facetexture is None:
         facetexture = Facetexture(
             user=user,
             characters=data
