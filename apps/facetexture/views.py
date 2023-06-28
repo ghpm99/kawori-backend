@@ -7,7 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_user
-from facetexture.models import Facetexture, BDOClass, PreviewBackground
+from facetexture.models import Facetexture, BDOClass, PreviewBackground, Character
 from PIL import Image
 
 
@@ -23,18 +23,29 @@ def get_facetexture_config(request, user):
             'characters': []
         })
 
-    characters = facetexture.characters['characters']
+    characters = Character.objects.filter(facetexture=facetexture).all()
+
+    data = []
 
     for character in characters:
-        bdo_class = BDOClass.objects.filter(id=character['class']).first()
-        character['class'] = {
-            'id': bdo_class.id,
-            'name': bdo_class.name,
-            'abbreviation': bdo_class.abbreviation,
-            'class_image': bdo_class.class_image.url
+        character_data = {
+            'id': character.id,
+            'name': character.name,
+            'show': character.show,
+            'image': character.image,
+            'order': character.order,
+            'upload': character.upload,
+            'class': {
+                'id': character.bdoClass.id,
+                'name': character.bdoClass.name,
+                'abbreviation': character.bdoClass.abbreviation,
+                'class_image': character.bdoClass.class_image.url
+            }
         }
 
-    return JsonResponse(facetexture.characters, safe=False)
+        data.append(character_data)
+
+    return JsonResponse({'characters': data})
 
 
 @csrf_exempt
@@ -116,7 +127,7 @@ def preview_background(request, user):
     countX = 0
     countY = 0
 
-    characters = facetexture.characters['characters']
+    characters = Character.objects.filter(facetexture=facetexture).all()
 
     background = Image.open(backgroundModel.image)
 
@@ -163,7 +174,7 @@ def download_background(request, user):
     countX = 0
     countY = 0
 
-    characters = facetexture.characters['characters']
+    characters = Character.objects.filter(facetexture=facetexture).all()
 
     backgrounds = []
 
@@ -183,12 +194,11 @@ def download_background(request, user):
 
     for index, character in enumerate(characters):
         backgroundCharacter = backgrounds[index]
-        backgroundCharacter['name'] = character['name']
-        if character['show'] is False:
+        backgroundCharacter['name'] = character.name
+        if character.show is False:
             continue
-        bdoClass = BDOClass.objects.filter(id=character['class']).first()
 
-        classImage = Image.open(bdoClass.image)
+        classImage = Image.open(character.bdoClass.image)
         classImage.thumbnail((50, 50), Image.ANTIALIAS)
 
         backgroundCharacter['image'].paste(classImage, (10, 10), classImage)
