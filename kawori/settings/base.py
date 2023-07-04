@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 import os
 import sys
 from pathlib import Path
+from datetime import timedelta
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,18 +27,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Application definition
 
 INSTALLED_APPS = [
-    'apps.financial',
-    'apps.remote',
-    'apps.pusher_webhook',
-    'apps.authentication',
-    'apps.discord',
-    'apps.facetexture',
     'django.contrib.auth',
     'django.contrib.admin',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework_simplejwt',
+    'apps.financial',
+    'apps.remote',
+    'apps.pusher_webhook',
+    'apps.authentication',
+    'apps.discord',
+    'apps.facetexture',
 ]
 
 MIDDLEWARE = [
@@ -94,6 +96,23 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Rest framework config
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+# JWT
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=45),
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
@@ -123,7 +142,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 STATIC_URL = '/static/'
 
-ENV_PUSHER_APP_ID=''
-ENV_PUSHER_KEY=''
-ENV_PUSHER_SECRET=''
-ENV_PUSHER_CLUSTER=''
+ENV_PUSHER_APP_ID = ''
+ENV_PUSHER_KEY = ''
+ENV_PUSHER_SECRET = ''
+ENV_PUSHER_CLUSTER = ''
