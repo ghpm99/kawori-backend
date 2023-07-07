@@ -1,5 +1,4 @@
 from base64 import b64decode
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.models import User
 
