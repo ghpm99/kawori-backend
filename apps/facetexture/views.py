@@ -1,6 +1,7 @@
 import io
 import json
 import os
+from django.db import connection
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
 from django.http import HttpResponse, JsonResponse
@@ -16,14 +17,7 @@ from PIL import Image
 @require_GET
 def get_facetexture_config(request, user):
 
-    facetexture = Facetexture.objects.filter(user=user).first()
-
-    if facetexture is None:
-        return JsonResponse({
-            'characters': []
-        })
-
-    characters = Character.objects.filter(facetexture=facetexture).all()
+    characters = Character.objects.filter(user=user).all().order_by('order')
 
     data = []
 
@@ -219,3 +213,69 @@ def download_background(request, user):
     response['Content-Disposition'] = content_disposition
     os.remove('export.zip')
     return response
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def reorder_character(request, user):
+
+    data = json.loads(request.body)
+    facetexture_id = data.get('facetexture_id')
+    index_destination = data.get('index_destination')
+
+    character = Character.objects.filter(id=facetexture_id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    query = """
+        UPDATE
+            facetexture_character
+        SET
+            "order" = %(order)s
+        WHERE
+            1 = 1
+            AND id = %(id)s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            'order': index_destination,
+            'id': facetexture_id
+        })
+
+    query = """
+        UPDATE
+            facetexture_character
+        SET
+            "order" = (
+                CASE
+                    WHEN %(new_order)s > %(current_order)s THEN ("order" - 1)
+                    WHEN %(new_order)s < %(current_order)s THEN ("order" + 1)
+                END
+            )
+        WHERE
+            1 = 1
+            AND CASE
+                WHEN %(new_order)s > %(current_order)s THEN (
+                    "order" <= %(new_order)s
+                    AND "order" > %(current_order)s
+                )
+                WHEN %(new_order)s < %(current_order)s THEN (
+                    "order" >= %(new_order)s
+                    AND "order" < %(current_order)s
+                )
+            END
+            AND id <> %(id)s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            'current_order': character.order,
+            'new_order': index_destination,
+            'id': facetexture_id
+        })
+
+    return JsonResponse({'data': 'data'})

@@ -27,7 +27,7 @@ class PreviewBackground(models.Model):
 
 
 class Character(models.Model):
-    facetexture = models.ForeignKey(Facetexture, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=128)
     show = models.BooleanField()
     bdoClass = models.ForeignKey(BDOClass, on_delete=models.PROTECT)

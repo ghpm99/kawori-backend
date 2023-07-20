@@ -25,12 +25,11 @@ class Command(BaseCommand):
                     name=character_old.get('name'),
                     show=character_old.get('show'),
                     image=character_old.get('image'),
-                    order=character_old.get(
-                        'order') if character_old.get('order') else index,
+                    order=index,
                     upload=character_old.get(
                         'upload') if character_old.get('upload') else False,
                     bdoClass=bdo_class,
-                    facetexture=facetexture_obj,
+                    user=facetexture_obj.user,
                 )
 
                 character.save()
