@@ -278,4 +278,31 @@ def reorder_character(request, user):
             'id': facetexture_id
         })
 
-    return JsonResponse({'data': 'data'})
+    return JsonResponse({'data': 'Ordem alterada com sucesso'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def change_class_character(request, user):
+
+    data = json.loads(request.body)
+
+    character_id = data.get('character_id')
+    new_class = data.get('new_class')
+
+    character = Character.objects.filter(id=character_id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    bdo_class = BDOClass.objects.filter(id=new_class).first()
+
+    if bdo_class is None:
+        return JsonResponse({'data': 'Não foi encontrado classe'})
+
+    character.bdoClass = bdo_class
+    character.save()
+
+    return JsonResponse({'image': bdo_class.image.url})
