@@ -305,4 +305,51 @@ def change_class_character(request, user):
     character.bdoClass = bdo_class
     character.save()
 
-    return JsonResponse({'image': bdo_class.image.url})
+    return JsonResponse({
+        'class': {
+            'id': bdo_class.id,
+            'name': bdo_class.name,
+            'abbreviation': bdo_class.abbreviation,
+            'class_image': bdo_class.class_image.url
+        }
+    })
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def new_character(request, user):
+    bdo_class = BDOClass.objects.first()
+
+    last_order = Character.objects.filter(user=user).latest('order').order
+
+    character = Character(
+        name='default{}'.format(last_order),
+        show=True,
+        image=bdo_class.class_image.url,
+        order=last_order,
+        upload=False,
+        bdoClass=bdo_class,
+        user=user,
+    )
+    character.save()
+
+    character_data = {
+        'id': character.id,
+        'name': character.name,
+        'show': character.show,
+        'image': character.image,
+        'order': character.order,
+        'upload': character.upload,
+        'class': {
+            'id': character.bdoClass.id,
+            'name': character.bdoClass.name,
+            'abbreviation': character.bdoClass.abbreviation,
+            'class_image': character.bdoClass.class_image.url
+        }
+    }
+
+    return JsonResponse({
+        'character': character_data
+    })

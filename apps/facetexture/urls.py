@@ -8,4 +8,6 @@ urlpatterns = [
     path('preview', views.preview_background, name='facetexture_preview_background'),
     path('download', views.download_background, name='facetexture_download_background'),
     path('reorder', views.reorder_character, name='facetexture_reorder_character'),
+    path('change-class', views.change_class_character, name='facetexture_change_class'),
+    path('new', views.new_character, name='facetexture_new_character'),
 ]
