@@ -27,6 +27,7 @@ class PreviewBackground(models.Model):
 
 
 class Character(models.Model):
+    active = models.BooleanField(default=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=128)
     show = models.BooleanField()

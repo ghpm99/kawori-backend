@@ -1,0 +1,6 @@
+{
+	"semi": false,
+	"singleQuote": true,
+	"useTabs": false,
+	"prettier.disableLanguages": ["django-html"]
+}

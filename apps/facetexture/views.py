@@ -17,7 +17,7 @@ from PIL import Image
 @require_GET
 def get_facetexture_config(request, user):
 
-    characters = Character.objects.filter(user=user).all().order_by('order')
+    characters = Character.objects.filter(user=user, active=True).all().order_by('order')
 
     data = []
 
@@ -102,8 +102,8 @@ def preview_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    facetexture = Facetexture.objects.filter(user=user).first()
-    if not facetexture:
+    characters = Character.objects.filter(user=user, active=True).all()
+    if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
 
     backgroundModel = PreviewBackground.objects.first()
@@ -120,8 +120,6 @@ def preview_background(request, user):
 
     countX = 0
     countY = 0
-
-    characters = Character.objects.filter(facetexture=facetexture).all()
 
     background = Image.open(backgroundModel.image)
 
@@ -153,8 +151,8 @@ def download_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    facetexture = Facetexture.objects.filter(user=user).first()
-    if not facetexture:
+    characters = Character.objects.filter(user=user, active=True).all()
+    if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
 
     file = request.FILES.get('background').file
@@ -167,8 +165,6 @@ def download_background(request, user):
 
     countX = 0
     countY = 0
-
-    characters = Character.objects.filter(facetexture=facetexture).all()
 
     backgrounds = []
 
@@ -219,13 +215,12 @@ def download_background(request, user):
 @add_cors_react_dev
 @require_POST
 @validate_user
-def reorder_character(request, user):
+def reorder_character(request, user, id):
 
     data = json.loads(request.body)
-    facetexture_id = data.get('facetexture_id')
     index_destination = data.get('index_destination')
 
-    character = Character.objects.filter(id=facetexture_id, user=user).first()
+    character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
         return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
@@ -243,7 +238,7 @@ def reorder_character(request, user):
     with connection.cursor() as cursor:
         cursor.execute(query, {
             'order': index_destination,
-            'id': facetexture_id
+            'id': id
         })
 
     query = """
@@ -269,13 +264,14 @@ def reorder_character(request, user):
                 )
             END
             AND id <> %(id)s
+            AND active = true
     """
 
     with connection.cursor() as cursor:
         cursor.execute(query, {
             'current_order': character.order,
             'new_order': index_destination,
-            'id': facetexture_id
+            'id': id
         })
 
     return JsonResponse({'data': 'Ordem alterada com sucesso'})
@@ -285,14 +281,12 @@ def reorder_character(request, user):
 @add_cors_react_dev
 @require_POST
 @validate_user
-def change_class_character(request, user):
+def change_class_character(request, user, id):
 
     data = json.loads(request.body)
-
-    character_id = data.get('character_id')
     new_class = data.get('new_class')
 
-    character = Character.objects.filter(id=character_id, user=user).first()
+    character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
         return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
@@ -319,13 +313,12 @@ def change_class_character(request, user):
 @add_cors_react_dev
 @require_POST
 @validate_user
-def change_character_name(request, user):
+def change_character_name(request, user, id):
 
     data = json.loads(request.body)
-    character_id = data.get('character_id')
     new_name = data.get('name')
 
-    character = Character.objects.filter(id=character_id, user=user).first()
+    character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
         return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
@@ -374,3 +367,39 @@ def new_character(request, user):
     return JsonResponse({
         'character': character_data
     })
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def change_show_class_icon(request, user, id):
+
+    data = json.loads(request.body)
+    new_value = data.get('show')
+
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    character.show = new_value
+    character.save()
+
+    return JsonResponse({'data': 'Visibilidade atualizado com sucesso'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def delete_character(request, user, id):
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    character.active = False
+    character.save()
+
+    return JsonResponse({'data': 'Personagem deletado com sucesso'})
