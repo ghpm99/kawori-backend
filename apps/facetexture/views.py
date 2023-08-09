@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_user
 from facetexture.models import Facetexture, BDOClass, PreviewBackground, Character
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 @add_cors_react_dev
@@ -135,7 +135,11 @@ def preview_background(request, user):
 
         imageCrop = image.crop((x, y, x + width, y + height))
 
-        background.paste(im=imageCrop, box=(x, y))
+        if character.name.__len__() < 20:
+            imageCrop = ImageOps.expand(imageCrop, border=(3, 3, 3, 3), fill='red')
+            background.paste(im=imageCrop, box=(x-3, y-3))
+        else:
+            background.paste(im=imageCrop, box=(x, y))
 
     response = HttpResponse(content_type="image/png")
     background.save(response, 'PNG')
