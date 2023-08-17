@@ -278,7 +278,19 @@ def reorder_character(request, user, id):
             'id': id
         })
 
-    return JsonResponse({'data': 'Ordem alterada com sucesso'})
+    characters = Character.objects.filter(user=user, active=True).all().order_by('order')
+
+    data = []
+
+    for character in characters:
+        character_data = {
+            'id': character.id,
+            'order': character.order
+        }
+
+        data.append(character_data)
+
+    return JsonResponse({'data': data})
 
 
 @csrf_exempt
