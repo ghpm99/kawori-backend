@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import math
 from django.db import connection
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
@@ -102,7 +103,7 @@ def preview_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    characters = Character.objects.filter(user=user, active=True).all()
+    characters = Character.objects.filter(user=user, active=True).order_by('order').all()
     if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
 
@@ -121,7 +122,9 @@ def preview_background(request, user):
     countX = 0
     countY = 0
 
-    background = Image.open(backgroundModel.image)
+    height_background = math.ceil(characters.__len__() / 7)
+
+    background = Image.new(mode="RGB", size=(930, height_background*170))
 
     for index, character in enumerate(characters):
         x = countX * (width + 5) + 11
@@ -134,6 +137,12 @@ def preview_background(request, user):
             countX = countX + 1
 
         imageCrop = image.crop((x, y, x + width, y + height))
+
+        if character.show is True:
+            classImage = Image.open(character.bdoClass.image)
+            classImage.thumbnail((50, 50), Image.ANTIALIAS)
+
+            imageCrop.paste(classImage, (10, 10), classImage)
 
         if character.name.__len__() < 20:
             imageCrop = ImageOps.expand(imageCrop, border=(3, 3, 3, 3), fill='red')
@@ -155,7 +164,7 @@ def download_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    characters = Character.objects.filter(user=user, active=True).all()
+    characters = Character.objects.filter(user=user, active=True).order_by('order').all()
     if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
 
@@ -184,18 +193,13 @@ def download_background(request, user):
 
         imageCrop = image.crop((x, y, x + width, y + height))
 
-        backgrounds.append({'name': '', 'image': imageCrop})
+        if character.show is True:
+            classImage = Image.open(character.bdoClass.image)
+            classImage.thumbnail((50, 50), Image.ANTIALIAS)
 
-    for index, character in enumerate(characters):
-        backgroundCharacter = backgrounds[index]
-        backgroundCharacter['name'] = character.name
-        if character.show is False:
-            continue
+            imageCrop.paste(classImage, (10, 10), classImage)
 
-        classImage = Image.open(character.bdoClass.image)
-        classImage.thumbnail((50, 50), Image.ANTIALIAS)
-
-        backgroundCharacter['image'].paste(classImage, (10, 10), classImage)
+        backgrounds.append({'name': character.name, 'image': imageCrop})
 
     with ZipFile('export.zip', 'w') as export_zip:
         for index, background in enumerate(backgrounds):
@@ -352,7 +356,7 @@ def change_character_name(request, user, id):
 def new_character(request, user):
     bdo_class = BDOClass.objects.first()
 
-    last_order = Character.objects.filter(user=user).latest('order').order
+    last_order = Character.objects.filter(user=user, active=True).latest('order').order + 1
 
     character = Character(
         name='default{}'.format(last_order),
