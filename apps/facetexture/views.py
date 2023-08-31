@@ -354,15 +354,32 @@ def change_character_name(request, user, id):
 @require_POST
 @validate_user
 def new_character(request, user):
-    bdo_class = BDOClass.objects.first()
+    character_count = Character.objects.filter(user=user, active=True).count()
+    print(character_count)
+    if character_count >= 30:
+        return JsonResponse({'data': 'O limite de facetexture são 30!'}, status=400)
 
-    last_order = Character.objects.filter(user=user, active=True).latest('order').order + 1
+    data = json.loads(request.body)
+    name = data.get('name', '')
+    visible_class = data.get('visible')
+    class_id = data.get('classId')
+
+    bdo_class = BDOClass.objects.filter(id=class_id).first()
+    if bdo_class is None:
+        return JsonResponse({'data': 'Classe não encontrada'}, status=400)
+
+    last_order = Character.objects.filter(user=user, active=True).latest('order')
+
+    if last_order is None:
+        new_order = 0
+    else:
+        new_order = last_order.order + 1
 
     character = Character(
-        name='default{}'.format(last_order),
-        show=True,
+        name=name,
+        show=visible_class,
         image=bdo_class.class_image.url,
-        order=last_order,
+        order=new_order,
         upload=False,
         bdoClass=bdo_class,
         user=user,
