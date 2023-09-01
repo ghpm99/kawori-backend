@@ -1,15 +1,16 @@
 import io
 import json
 import os
+import math
+from django.db import connection
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_user
-from facetexture.models import Facetexture, BDOClass, PreviewBackground
-from PIL import Image
+from facetexture.models import Facetexture, BDOClass, Character
+from PIL import Image, ImageOps
 
 
 @add_cors_react_dev
@@ -17,25 +18,29 @@ from PIL import Image
 @require_GET
 def get_facetexture_config(request, user):
 
-    facetexture = Facetexture.objects.filter(user=user).first()
+    characters = Character.objects.filter(user=user, active=True).all().order_by('order')
 
-    if facetexture is None:
-        return JsonResponse({
-            'characters': []
-        })
-
-    characters = facetexture.characters['characters']
+    data = []
 
     for character in characters:
-        bdo_class = BDOClass.objects.filter(id=character['class']).first()
-        character['class'] = {
-            'id': bdo_class.id,
-            'name': bdo_class.name,
-            'abbreviation': bdo_class.abbreviation,
-            'class_image': bdo_class.class_image.url
+        character_data = {
+            'id': character.id,
+            'name': character.name,
+            'show': character.show,
+            'image': character.image,
+            'order': character.order,
+            'upload': character.upload,
+            'class': {
+                'id': character.bdoClass.id,
+                'name': character.bdoClass.name,
+                'abbreviation': character.bdoClass.abbreviation,
+                'class_image': character.bdoClass.class_image.url
+            }
         }
 
-    return JsonResponse(facetexture.characters, safe=False)
+        data.append(character_data)
+
+    return JsonResponse({'characters': data})
 
 
 @csrf_exempt
@@ -47,7 +52,7 @@ def save_detail_view(request, user):
     data = json.loads(request.body)
     facetexture = Facetexture.objects.filter(user=user).first()
 
-    if(facetexture is None):
+    if facetexture is None:
         facetexture = Facetexture(
             user=user,
             characters=data
@@ -98,13 +103,9 @@ def preview_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    facetexture = Facetexture.objects.filter(user=user).first()
-    if not facetexture:
-        return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
-
-    backgroundModel = PreviewBackground.objects.first()
-    if not backgroundModel:
-        return JsonResponse({'msg': 'Fundo nao cadastrado'}, status=404)
+    characters = Character.objects.filter(user=user, active=True).order_by('order').all()
+    if not characters:
+        return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=400)
 
     file = request.FILES.get('background').file
     image = Image.open(file)
@@ -117,9 +118,9 @@ def preview_background(request, user):
     countX = 0
     countY = 0
 
-    characters = facetexture.characters['characters']
+    height_background = math.ceil(characters.__len__() / 7)
 
-    background = Image.open(backgroundModel.image)
+    background = Image.new(mode="RGB", size=(930, height_background*170))
 
     for index, character in enumerate(characters):
         x = countX * (width + 5) + 11
@@ -133,7 +134,17 @@ def preview_background(request, user):
 
         imageCrop = image.crop((x, y, x + width, y + height))
 
-        background.paste(im=imageCrop, box=(x, y))
+        if character.show is True:
+            classImage = Image.open(character.bdoClass.image)
+            classImage.thumbnail((50, 50), Image.ANTIALIAS)
+
+            imageCrop.paste(classImage, (10, 10), classImage)
+
+        if character.name.__len__() < 20:
+            imageCrop = ImageOps.expand(imageCrop, border=(3, 3, 3, 3), fill='red')
+            background.paste(im=imageCrop, box=(x-3, y-3))
+        else:
+            background.paste(im=imageCrop, box=(x, y))
 
     response = HttpResponse(content_type="image/png")
     background.save(response, 'PNG')
@@ -149,8 +160,8 @@ def download_background(request, user):
     if not req_files.get('background'):
         return JsonResponse({'msg': 'Nao existe nenhum background'}, status=400)
 
-    facetexture = Facetexture.objects.filter(user=user).first()
-    if not facetexture:
+    characters = Character.objects.filter(user=user, active=True).order_by('order').all()
+    if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
 
     file = request.FILES.get('background').file
@@ -163,8 +174,6 @@ def download_background(request, user):
 
     countX = 0
     countY = 0
-
-    characters = facetexture.characters['characters']
 
     backgrounds = []
 
@@ -180,19 +189,13 @@ def download_background(request, user):
 
         imageCrop = image.crop((x, y, x + width, y + height))
 
-        backgrounds.append({'name': '', 'image': imageCrop})
+        if character.show is True:
+            classImage = Image.open(character.bdoClass.image)
+            classImage.thumbnail((50, 50), Image.ANTIALIAS)
 
-    for index, character in enumerate(characters):
-        backgroundCharacter = backgrounds[index]
-        backgroundCharacter['name'] = character['name']
-        if character['show'] is False:
-            continue
-        bdoClass = BDOClass.objects.filter(id=character['class']).first()
+            imageCrop.paste(classImage, (10, 10), classImage)
 
-        classImage = Image.open(bdoClass.image)
-        classImage.thumbnail((50, 50), Image.ANTIALIAS)
-
-        backgroundCharacter['image'].paste(classImage, (10, 10), classImage)
+        backgrounds.append({'name': character.name, 'image': imageCrop})
 
     with ZipFile('export.zip', 'w') as export_zip:
         for index, background in enumerate(backgrounds):
@@ -210,3 +213,225 @@ def download_background(request, user):
     response['Content-Disposition'] = content_disposition
     os.remove('export.zip')
     return response
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def reorder_character(request, user, id):
+
+    data = json.loads(request.body)
+    index_destination = data.get('index_destination')
+
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    query = """
+        UPDATE
+            facetexture_character
+        SET
+            "order" = %(order)s
+        WHERE
+            1 = 1
+            AND id = %(id)s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            'order': index_destination,
+            'id': id
+        })
+
+    query = """
+        UPDATE
+            facetexture_character
+        SET
+            "order" = (
+                CASE
+                    WHEN %(new_order)s > %(current_order)s THEN ("order" - 1)
+                    WHEN %(new_order)s < %(current_order)s THEN ("order" + 1)
+                END
+            )
+        WHERE
+            1 = 1
+            AND CASE
+                WHEN %(new_order)s > %(current_order)s THEN (
+                    "order" <= %(new_order)s
+                    AND "order" > %(current_order)s
+                )
+                WHEN %(new_order)s < %(current_order)s THEN (
+                    "order" >= %(new_order)s
+                    AND "order" < %(current_order)s
+                )
+            END
+            AND id <> %(id)s
+            AND active = true
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            'current_order': character.order,
+            'new_order': index_destination,
+            'id': id
+        })
+
+    characters = Character.objects.filter(user=user, active=True).all().order_by('order')
+
+    data = []
+
+    for character in characters:
+        character_data = {
+            'id': character.id,
+            'order': character.order
+        }
+
+        data.append(character_data)
+
+    return JsonResponse({'data': data})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def change_class_character(request, user, id):
+
+    data = json.loads(request.body)
+    new_class = data.get('new_class')
+
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    bdo_class = BDOClass.objects.filter(id=new_class).first()
+
+    if bdo_class is None:
+        return JsonResponse({'data': 'Não foi encontrado classe'})
+
+    character.bdoClass = bdo_class
+    character.save()
+
+    return JsonResponse({
+        'class': {
+            'id': bdo_class.id,
+            'name': bdo_class.name,
+            'abbreviation': bdo_class.abbreviation,
+            'class_image': bdo_class.class_image.url
+        }
+    })
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def change_character_name(request, user, id):
+
+    data = json.loads(request.body)
+    new_name = data.get('name')
+
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    character.name = new_name
+    character.save()
+
+    return JsonResponse({'data': 'Nome atualizado com sucesso'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def new_character(request, user):
+    character_count = Character.objects.filter(user=user, active=True).count()
+
+    if character_count >= 30:
+        return JsonResponse({'data': 'O limite de facetexture são 30!'}, status=400)
+
+    data = json.loads(request.body)
+    name = data.get('name', '')
+    visible_class = data.get('visible')
+    class_id = data.get('classId')
+
+    bdo_class = BDOClass.objects.filter(id=class_id).first()
+    if bdo_class is None:
+        return JsonResponse({'data': 'Classe não encontrada'}, status=400)
+
+    if character_count == 0:
+        new_order = 0
+    else:
+        last_order = Character.objects.filter(user=user, active=True).latest('order')
+        new_order = last_order.order + 1
+
+    character = Character(
+        name=name,
+        show=visible_class,
+        image=bdo_class.class_image.url,
+        order=new_order,
+        upload=False,
+        bdoClass=bdo_class,
+        user=user,
+    )
+    character.save()
+
+    character_data = {
+        'id': character.id,
+        'name': character.name,
+        'show': character.show,
+        'image': character.image,
+        'order': character.order,
+        'upload': character.upload,
+        'class': {
+            'id': character.bdoClass.id,
+            'name': character.bdoClass.name,
+            'abbreviation': character.bdoClass.abbreviation,
+            'class_image': character.bdoClass.class_image.url
+        }
+    }
+
+    return JsonResponse({
+        'character': character_data
+    })
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def change_show_class_icon(request, user, id):
+
+    data = json.loads(request.body)
+    new_value = data.get('show')
+
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    character.show = new_value
+    character.save()
+
+    return JsonResponse({'data': 'Visibilidade atualizado com sucesso'})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@require_POST
+@validate_user
+def delete_character(request, user, id):
+    character = Character.objects.filter(id=id, user=user).first()
+
+    if character is None:
+        return JsonResponse({'data': 'Não foi encontrado personagem com esse ID'})
+
+    character.active = False
+    character.save()
+
+    return JsonResponse({'data': 'Personagem deletado com sucesso'})

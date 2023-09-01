@@ -24,3 +24,14 @@ class BDOClass(models.Model):
 
 class PreviewBackground(models.Model):
     image = models.ImageField(upload_to='background/')
+
+
+class Character(models.Model):
+    active = models.BooleanField(default=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    name = models.CharField(max_length=128)
+    show = models.BooleanField()
+    bdoClass = models.ForeignKey(BDOClass, on_delete=models.PROTECT)
+    image = models.CharField(max_length=128)
+    order = models.IntegerField()
+    upload = models.BooleanField()
