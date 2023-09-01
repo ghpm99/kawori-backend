@@ -9,7 +9,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from kawori.decorators import add_cors_react_dev, validate_user
-from facetexture.models import Facetexture, BDOClass, PreviewBackground, Character
+from facetexture.models import Facetexture, BDOClass, Character
 from PIL import Image, ImageOps
 
 
@@ -106,10 +106,6 @@ def preview_background(request, user):
     characters = Character.objects.filter(user=user, active=True).order_by('order').all()
     if not characters:
         return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
-
-    backgroundModel = PreviewBackground.objects.first()
-    if not backgroundModel:
-        return JsonResponse({'msg': 'Fundo nao cadastrado'}, status=404)
 
     file = request.FILES.get('background').file
     image = Image.open(file)
@@ -355,7 +351,7 @@ def change_character_name(request, user, id):
 @validate_user
 def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
-    print(character_count)
+
     if character_count >= 30:
         return JsonResponse({'data': 'O limite de facetexture são 30!'}, status=400)
 
@@ -368,11 +364,10 @@ def new_character(request, user):
     if bdo_class is None:
         return JsonResponse({'data': 'Classe não encontrada'}, status=400)
 
-    last_order = Character.objects.filter(user=user, active=True).latest('order')
-
-    if last_order is None:
+    if character_count == 0:
         new_order = 0
     else:
+        last_order = Character.objects.filter(user=user, active=True).latest('order')
         new_order = last_order.order + 1
 
     character = Character(
