@@ -105,7 +105,7 @@ def preview_background(request, user):
 
     characters = Character.objects.filter(user=user, active=True).order_by('order').all()
     if not characters:
-        return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=404)
+        return JsonResponse({'msg': 'Facetexture nao encontrado'}, status=400)
 
     file = request.FILES.get('background').file
     image = Image.open(file)
