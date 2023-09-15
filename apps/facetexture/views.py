@@ -237,12 +237,14 @@ def reorder_character(request, user, id):
         WHERE
             1 = 1
             AND id = %(id)s
+            AND user_id = %(user)s
     """
 
     with connection.cursor() as cursor:
         cursor.execute(query, {
             'order': index_destination,
-            'id': id
+            'id': id,
+            'user': user.id
         })
 
     query = """
@@ -269,13 +271,15 @@ def reorder_character(request, user, id):
             END
             AND id <> %(id)s
             AND active = true
+            AND user_id = %(user)s
     """
 
     with connection.cursor() as cursor:
         cursor.execute(query, {
             'current_order': character.order,
             'new_order': index_destination,
-            'id': id
+            'id': id,
+            'user': user.id
         })
 
     characters = Character.objects.filter(user=user, active=True).all().order_by('order')
