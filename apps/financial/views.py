@@ -810,8 +810,6 @@ def report_amount_invoice_by_tag_view(request, user):
         'user_id': user.id
     }
 
-    print(params)
-
     amount_invoice = """
         SELECT
             ft.id,
