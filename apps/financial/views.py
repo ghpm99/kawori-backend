@@ -241,7 +241,7 @@ def report_payment_view(request, user):
     date_referrer = datetime.now().date()
 
     end = date_referrer + relativedelta(months=12, day=1)
-    begin = date_referrer.replace(day=1) - relativedelta(months=12)
+    begin = date_referrer.replace(day=1) - relativedelta(months=1)
 
     query_payments = """
         SELECT
@@ -799,27 +799,43 @@ def report_amount_payment_closed_view(request, user):
 @validate_super_user
 @require_GET
 def report_amount_invoice_by_tag_view(request, user):
+    date_referrer = datetime.now().date()
+
+    end = date_referrer + relativedelta(months=1, day=1)
+    begin = date_referrer.replace(day=1)
+
+    params = {
+        'begin': begin,
+        'end': end,
+        'user_id': user.id
+    }
+
+    print(params)
+
     amount_invoice = """
         SELECT
             ft.id,
             ft."name",
             COALESCE(ft.color, '#000'),
-            sum(fi.value)
+            sum(fp.value)
         FROM
             financial_tag ft
         INNER JOIN financial_invoice_tags fit ON
             ft.id = fit.tag_id
         INNER JOIN financial_invoice fi ON
             fit.invoice_id = fi.id
+        INNER JOIN financial_payment fp ON
+            fp.invoice_id = fi.id
         WHERE
             ft.user_id=%(user_id)s
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s
         GROUP BY
             ft.id
         ORDER BY
-            sum(fi.value) DESC;
+            sum(fp.value) DESC;
     """
     with connection.cursor() as cursor:
-        cursor.execute(amount_invoice, {'user_id': user.id})
+        cursor.execute(amount_invoice, params)
         amount_invoice = cursor.fetchall()
 
     tags = [{
