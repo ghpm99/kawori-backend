@@ -1,6 +1,5 @@
 import time
 from django.core.management.base import BaseCommand
-from facetexture.models import PreviewBackground
 from financial.models import Contract, Invoice, Payment
 
 
@@ -76,7 +75,6 @@ class Command(BaseCommand):
             invoice.value_closed = invoice.value_closed + value_closed
             invoice.installments = invoice.installments + 1
             invoice.save()
-
 
     def handle(self, *args, **options):
         begin = time.time()
