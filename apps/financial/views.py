@@ -691,7 +691,7 @@ def report_count_payment_view(request, user):
         cursor.execute(count_payment, {**params, 'user_id': user.id})
         payment_total = cursor.fetchone()
 
-    return JsonResponse({'data': payment_total})
+    return JsonResponse({'data': float(payment_total[0])})
 
 
 @add_cors_react_dev
@@ -724,7 +724,7 @@ def report_amount_payment_view(request, user):
         cursor.execute(count_payment, {**params, 'user_id': user.id})
         amount_payment_total = cursor.fetchone()
 
-    return JsonResponse({'data': amount_payment_total})
+    return JsonResponse({'data': float(amount_payment_total[0])})
 
 
 @add_cors_react_dev
@@ -758,7 +758,7 @@ def report_amount_payment_open_view(request, user):
         cursor.execute(count_payment, {**params, 'user_id': user.id})
         amount_payment_total = cursor.fetchone()
 
-    return JsonResponse({'data': amount_payment_total})
+    return JsonResponse({'data': float(amount_payment_total[0])})
 
 
 @add_cors_react_dev
@@ -792,7 +792,7 @@ def report_amount_payment_closed_view(request, user):
         cursor.execute(count_payment, {**params, 'user_id': user.id})
         amount_payment_total = cursor.fetchone()
 
-    return JsonResponse({'data': amount_payment_total})
+    return JsonResponse({'data': float(amount_payment_total[0])})
 
 
 @add_cors_react_dev
