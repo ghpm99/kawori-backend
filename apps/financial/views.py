@@ -146,7 +146,7 @@ def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id, user=user).first()
 
-    if data is None:
+    if data is None or payment is None:
         return JsonResponse({'msg': 'Payment not found'}, status=404)
 
     if payment.status == Payment.STATUS_DONE:
@@ -189,6 +189,9 @@ def save_detail_view(request, id, user):
 def payoff_detail_view(request, id, user):
 
     payment = Payment.objects.filter(id=id, user=user).first()
+
+    if payment is None:
+        return JsonResponse({'msg': 'Pagamento não encontrado'}, status=400)
 
     if payment.status == 1:
         return JsonResponse({'msg': 'Pagamento ja baixado'}, status=400)
@@ -844,3 +847,41 @@ def report_amount_invoice_by_tag_view(request, user):
     } for data in amount_invoice]
 
     return JsonResponse({'data': tags})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def report_forecast_amount_value(request, user):
+    date_referrer = datetime.now().date()
+
+    end = date_referrer + relativedelta(months=6, day=1)
+    begin = date_referrer.replace(day=1) - relativedelta(months=6)
+
+    params = {
+        'begin': begin,
+        'end': end,
+        'user_id': user.id
+    }
+
+    query_forecast = """
+        SELECT
+            AVG(fp.debit) AS avg_debit
+        FROM
+            financial_paymentsummary fp
+        WHERE
+            1 = 1
+            AND fp.payments_date BETWEEN %(begin)s
+            AND %(end)s
+            AND fp.user_id = %(user_id)s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(query_forecast, params)
+        avg_value = cursor.fetchone()
+
+    avg_value = avg_value[0] if avg_value else 0
+
+    forecast_value = (float(avg_value or 0) * 3) or 0
+
+    return JsonResponse({'data': forecast_value})
