@@ -2,5 +2,6 @@
     "makefile.extensionOutputFolder": "./.vscode",
     "python.analysis.extraPaths": [
         "./apps"
-    ]
+    ],
+    "python.analysis.autoImportCompletions": true
 }
