@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 
+from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db import connection
 from django.http import JsonResponse
@@ -70,6 +71,34 @@ def get_all_view(request, user):
     data['data'] = payments
 
     return JsonResponse({'data': data})
+
+
+@add_cors_react_dev
+@validate_super_user
+@require_GET
+def get_payments_month(request, user):
+
+    date_referrer = datetime.now().date()
+    date_start = date_referrer.replace(day=1)
+    date_end = date_referrer + relativedelta(months=1, day=1)
+    filters = {
+        'invoice__payment__payment_date__gte': date_start,
+        'invoice__payment__payment_date__lte': date_end,
+    }
+
+    contracts_query = Contract.objects.filter(
+        **filters, user=user).values(
+            'id', 'name', 'invoice__payment__type'
+        ).annotate(total_value=Sum("invoice__payment__value")).all()
+
+    payments = [{
+        'id': contract.get('id'),
+        'name': contract.get('name'),
+        'type': contract.get('invoice__payment__type'),
+        'total_value': float(contract.get('total_value') or 0),
+    } for contract in contracts_query]
+
+    return JsonResponse({'data': payments})
 
 
 @csrf_exempt
