@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from kawori.settings.base import *
+from kawori.settings.base import *  # noqa: F403, F401
 
 
 load_dotenv()

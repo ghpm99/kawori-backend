@@ -34,12 +34,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework_simplejwt',
-    'apps.financial',
-    'apps.remote',
-    'apps.pusher_webhook',
-    'apps.authentication',
-    'apps.discord',
-    'apps.facetexture',
+    'financial',
+    'remote',
+    'pusher_webhook',
+    'authentication',
+    'discord',
+    'facetexture',
 ]
 
 MIDDLEWARE = [
@@ -134,7 +134,7 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 PROJECT_ROOT = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, '../../apps'))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, '../..'))
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
