@@ -87,9 +87,13 @@ def get_payments_month(request, user):
     }
 
     contracts_query = Contract.objects.filter(
-        **filters, user=user).values(
-            'id', 'name', 'invoice__payment__type'
-        ).annotate(total_value=Sum("invoice__payment__value")).all()
+        **filters, user=user).select_related('invoice', 'payment').values(
+            'id', 'name', 'invoice__payment__status', 'invoice__payment__type'
+        ).annotate(
+            total_value=Sum('invoice__payment__value')
+        )
+
+    print(contracts_query.query)
 
     payments = [{
         'id': contract.get('id'),
