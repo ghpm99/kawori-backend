@@ -1,7 +1,6 @@
 import json
 from datetime import datetime, timedelta
 
-from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db import connection
 from django.http import JsonResponse
@@ -81,26 +80,77 @@ def get_payments_month(request, user):
     date_referrer = datetime.now().date()
     date_start = date_referrer.replace(day=1)
     date_end = date_referrer + relativedelta(months=1, day=1)
+
     filters = {
-        'invoice__payment__payment_date__gte': date_start,
-        'invoice__payment__payment_date__lte': date_end,
+        'begin': date_start,
+        'end': date_end,
     }
 
-    contracts_query = Contract.objects.filter(
-        **filters, user=user).select_related('invoice', 'payment').values(
-            'id', 'name', 'invoice__payment__status', 'invoice__payment__type'
-        ).annotate(
-            total_value=Sum('invoice__payment__value')
-        )
+    contracts_query = """
+        SELECT
+            fc.id,
+            fc.name,
+            SUM(
+                CASE
+                    fp.type
+                    WHEN 0 THEN fp.value
+                    ELSE 0
+                END
+            ) AS total_value_credit,
+            SUM(
+                CASE
+                    fp.type
+                    WHEN 1 THEN fp.value
+                    ELSE 0
+                END
+            ) AS total_value_debit,
+            SUM(
+                CASE
+                    fp.status
+                    WHEN 0 THEN fp.value
+                    ELSE 0
+                END
+            ) AS total_value_open,
+            SUM(
+                CASE
+                    fp.status
+                    WHEN 1 THEN fp.value
+                    ELSE 0
+                END
+            ) AS total_value_closed,
+            COUNT(*) AS total_payments
+        FROM
+            financial_contract AS fc
+            INNER JOIN financial_invoice fi ON (fc.id = fi.contract_id)
+            INNER JOIN financial_payment fp ON (fi.id = fp.invoice_id)
+        WHERE
+            (
+                0 = 0
+                AND fc.user_id = %(user_id)s
+                AND fp.payment_date BETWEEN %(begin)s AND %(end)s
+            )
+        GROUP BY
+            fc.id,
+            fc.name
+        ORDER BY
+            fc.id;
+    """
 
-    print(contracts_query.query)
+    with connection.cursor() as cursor:
+        cursor.execute(contracts_query, {**filters, 'user_id': user.id})
+        contracts = cursor.fetchall()
+
+    print(contracts_query)
 
     payments = [{
-        'id': contract.get('id'),
-        'name': contract.get('name'),
-        'type': contract.get('invoice__payment__type'),
-        'total_value': float(contract.get('total_value') or 0),
-    } for contract in contracts_query]
+        'id': contract[0],
+        'name': contract[1],
+        'total_value_credit': float(contract[2] or 0),
+        'total_value_debit': float(contract[3] or 0),
+        'total_value_open': float(contract[4] or 0),
+        'total_value_closed': float(contract[5] or 0),
+        'total_payments': contract[6]
+    } for contract in contracts]
 
     return JsonResponse({'data': payments})
 
