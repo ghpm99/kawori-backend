@@ -140,8 +140,6 @@ def get_payments_month(request, user):
         cursor.execute(contracts_query, {**filters, 'user_id': user.id})
         contracts = cursor.fetchall()
 
-    print(contracts_query)
-
     payments = [{
         'id': contract[0],
         'name': contract[1],
