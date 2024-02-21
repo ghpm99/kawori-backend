@@ -128,6 +128,7 @@ def get_payments_month(request, user):
                 0 = 0
                 AND fc.user_id = %(user_id)s
                 AND fp.payment_date BETWEEN %(begin)s AND %(end)s
+                AND fp.active = true
             )
         GROUP BY
             fc.id,
@@ -239,9 +240,9 @@ def save_detail_view(request, id, user):
         payment.name = data.get('name')
     if data.get('payment_date'):
         payment.payment_date = data.get('payment_date')
-    if data.get('fixed'):
+    if data.get('fixed') is not None:
         payment.fixed = data.get('fixed')
-    if data.get('active'):
+    if data.get('active') is not None:
         payment.active = data.get('active')
     if data.get('value'):
         old_value = payment.value
