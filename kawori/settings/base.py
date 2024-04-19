@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'authentication',
     'discord',
     'facetexture',
+    'classification',
 ]
 
 MIDDLEWARE = [

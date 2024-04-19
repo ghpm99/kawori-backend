@@ -13,6 +13,7 @@ urlpatterns = [
         path('financial/', include('financial.urls')),
         path('discord/', include('discord.urls')),
         path('facetexture/', include('facetexture.urls')),
+        path('classification/', include('classification.urls')),
     ])),
 ]
 
