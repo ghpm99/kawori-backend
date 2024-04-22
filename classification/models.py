@@ -16,8 +16,8 @@ class Answer(models.Model):
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     vote = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    like_count = models.IntegerField()
-    dislike_count = models.IntegerField()
+    like_count = models.IntegerField(default=0)
+    dislike_count = models.IntegerField(default=0)
 
 
 class Path(models.Model):
