@@ -1,40 +1,52 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from kawori.decorators import add_cors_react_dev, validate_user
-from django.views.decorators.http import require_POST, require_GET
+import json
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-import json
-import base64
+from django.http import HttpRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+
+from authentication.utils import get_token
+from kawori.decorators import add_cors_react_dev, validate_user
 
 
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-def signin_view(request):
-    data = json.loads(request.body)
-    if 'credentials' in data:
-        username = data['credentials']['username']
-        password = data['credentials']['password']
-        user = authenticate(
-            username=username,
-            password=password
-        )
-        if user is not None:
-            return JsonResponse({
-                'token': base64.b64encode(bytes(f'{user.id}|{user.username}', 'utf-8')).decode('ascii')
-            })
-        else:
-            return JsonResponse({'msg': 'user not found'}, status=404)
+def obtain_token_pair(request: HttpRequest) -> JsonResponse:
+    req = json.loads(request.body)
+    err = []
 
-    return JsonResponse({'msg': 'credentials is missing'}, status=400)
+    if not req.get('username'):
+        err.append({'username': 'Este campo é obrigatório'})
+    if not req.get('password'):
+        err.append({'password': 'Este campo é obrigatório'})
+    # if not req.get('captchaToken'):
+    #     err.append({'captcha': 'Captcha inválido'})
+    if err:
+        return JsonResponse({'errors': err}, status=400)
+
+    # _, error = verify_captcha(req.get('captchaToken'))
+    # if error:
+    #     return JsonResponse({'errors': [{'captcha': str(error)}]}, status=400)
+
+    user = authenticate(username=req.get('username'), password=req.get('password'))
+
+    if not user:
+        return JsonResponse({'msg': 'Dados incorretos.'}, status=404)
+    if not user.is_active:
+        return JsonResponse({'msg': 'Este usuário não está ativo.'}, status=403)
+
+    tokens = get_token(user)
+
+    return JsonResponse({'tokens': tokens})
 
 
 @csrf_exempt
 @add_cors_react_dev
 @validate_user
 @require_GET
-def user_view(request, user):
+def user_view(request: HttpRequest, user: User) -> JsonResponse:
 
     return JsonResponse({
         'id': user.id,
@@ -54,7 +66,7 @@ def user_view(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-def signup_view(request):
+def signup_view(request: HttpRequest) -> JsonResponse:
     data = json.loads(request.body)
 
     required_fields = ['username', 'password', 'email', 'name', 'last_name']
