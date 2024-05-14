@@ -11,9 +11,17 @@ from kawori.decorators import add_cors_react_dev
 from . import views
 
 urlpatterns = [
-    path('token/', views.obtain_token_pair, name='da_token_obtain_pair'),
-    path('token/refresh/', csrf_exempt(add_cors_react_dev(TokenRefreshView.as_view())), name='da_token_refresh'),
-    path('token/verify/', csrf_exempt(add_cors_react_dev(TokenVerifyView.as_view())), name='da_token_verify'),
-    path('user', views.user_view, name='auth_user'),
-    path('signup', views.signup_view, name='auth_signup'),
+    path("token/", views.obtain_token_pair, name="da_token_obtain_pair"),
+    path(
+        "token/verify/",
+        csrf_exempt(add_cors_react_dev(TokenVerifyView.as_view())),
+        name="da_token_verify",
+    ),
+    path(
+        "token/refresh/",
+        csrf_exempt(add_cors_react_dev(TokenRefreshView.as_view())),
+        name="da_token_refresh",
+    ),
+    path("user", views.user_view, name="auth_user"),
+    path("signup", views.signup_view, name="auth_signup"),
 ]
