@@ -11,11 +11,12 @@ from django.views.decorators.csrf import csrf_exempt
 @validate_user
 @require_GET
 def get_all_questions(request, user):
-    question_list = Question.objects.all()
+    question_list = Question.objects.order_by('id')
 
     data = [{
         'id': question.id,
         'question_text': question.question_text,
+        'question_details': question.question_details,
         'pub_date': question.pub_date
     } for question in question_list]
 
