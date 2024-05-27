@@ -76,3 +76,19 @@ def register_answer(request, user):
     )
 
     return JsonResponse({'msg': 'Voto registrado com sucesso!'})
+
+
+@add_cors_react_dev
+@validate_user
+@require_GET
+def get_bdo_class(request, user):
+
+    bdo_classes = BDOClass.objects.order_by('abbreviation')
+
+    bdo_class = [{
+        'id': bdo_class.id,
+        'name': bdo_class.name,
+        'abbreviation': bdo_class.abbreviation,
+    } for bdo_class in bdo_classes]
+
+    return JsonResponse({'class': bdo_class})
