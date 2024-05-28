@@ -31,8 +31,9 @@ def get_all_answers(request, user):
 
     data = [{
         'id': answer.id,
-        'question': answer.question,
-        'bdo_class': answer.bdo_class,
+        'question': answer.question.question_text,
+        'vote': answer.vote,
+        'bdo_class': answer.bdo_class.abbreviation,
         'created_at': answer.created_at,
     } for answer in answer_list]
 
