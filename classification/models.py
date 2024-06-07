@@ -13,6 +13,15 @@ class Question(models.Model):
 
 
 class Answer(models.Model):
+    AWAKENING = 0
+    SUCCESSION = 1
+
+    COMBAT_STYLES = [
+        (AWAKENING, 'Despertar'),
+        (SUCCESSION, 'Sucessão')
+    ]
+
+    combat_style = models.IntegerField(default=AWAKENING, choices=COMBAT_STYLES, null=True)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
