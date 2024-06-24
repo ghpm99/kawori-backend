@@ -15,7 +15,7 @@ class AnswerConfig(admin.ModelAdmin):
 
 
 class PathConfig(admin.ModelAdmin):
-    list_display = ('url', 'affected_class', 'created_at')
+    list_display = ('url', 'affected_class', 'date_path', 'created_at')
     pass
 
 

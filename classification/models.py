@@ -13,25 +13,42 @@ class Question(models.Model):
 
 
 class Answer(models.Model):
-    AWAKENING = 0
-    SUCCESSION = 1
+    AWAKENING = 1
+    SUCCESSION = 2
 
     COMBAT_STYLES = [
         (AWAKENING, 'Despertar'),
         (SUCCESSION, 'Sucessão')
     ]
 
+    bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
     combat_style = models.IntegerField(default=AWAKENING, choices=COMBAT_STYLES, null=True)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     vote = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
     like_count = models.IntegerField(default=0)
     dislike_count = models.IntegerField(default=0)
 
 
+class AnswerSummary(models.Model):
+    AWAKENING = 1
+    SUCCESSION = 2
+
+    COMBAT_STYLES = [
+        (AWAKENING, 'Despertar'),
+        (SUCCESSION, 'Sucessão')
+    ]
+
+    bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    updated_at = models.DateField(auto_now=True)
+    resume = models.JSONField(default=dict)
+
+
 class Path(models.Model):
     url = models.CharField(max_length=200)
     affected_class = ArrayField(models.IntegerField())
+    date_path = models.DateField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -27,13 +27,14 @@ def get_all_questions(request, user):
 @validate_user
 @require_GET
 def get_all_answers(request, user):
-    answer_list = Answer.objects.filter(user=user)
+    answer_list = Answer.objects.filter(user=user).order_by('-id')
 
     data = [{
         'id': answer.id,
         'question': answer.question.question_text,
         'vote': answer.vote,
         'bdo_class': answer.bdo_class.abbreviation,
+        'combat_style': answer.combat_style,
         'created_at': answer.created_at,
     } for answer in answer_list]
 
@@ -55,6 +56,12 @@ def register_answer(request, user):
     if not question:
         return JsonResponse({'msg': 'Questão não encontrada!'}, status=404)
 
+    combat_style = data.get('combat_style')
+    if not combat_style:
+        return JsonResponse({'msg': 'Estilo de combate não informado!'}, status=400)
+    if isinstance(combat_style, int) is False:
+        return JsonResponse({'msg': 'Estilo de combate invalido'}, status=400)
+
     bdo_class_id = data.get('bdo_class_id')
     if not bdo_class_id:
         return JsonResponse({'msg': 'ID da classe não informado!'}, status=400)
@@ -72,6 +79,7 @@ def register_answer(request, user):
     Answer.objects.create(
         question_id=question_id,
         bdo_class_id=bdo_class_id,
+        combat_style=combat_style,
         user=user,
         vote=vote
     )
@@ -80,9 +88,8 @@ def register_answer(request, user):
 
 
 @add_cors_react_dev
-@validate_user
 @require_GET
-def get_bdo_class(request, user):
+def get_bdo_class(request):
 
     bdo_classes = BDOClass.objects.order_by('abbreviation')
 
