@@ -27,12 +27,22 @@ class Command(BaseCommand):
             }
             if last_path:
                 filters['created_at__gte'] = last_path['date_path']
-            print(filters)
 
-            answer_list = Answer.objects.filter(**filters).values('combat_style').annotate(votes=Avg('vote'))
+            answer_list = Answer.objects.filter(
+                **filters
+            ).values('combat_style', 'question').annotate(votes=Avg('vote'))
+
+            class_data: dict = {}
             for answer in answer_list:
-                print(answer)
-
+                if class_data[answer['combat_style']]:
+                    class_data[answer['combat_style']] = {
+                        answer['question']:  answer['votes']
+                    }
+                else:
+                    class_data[answer['combat_style']].update({
+                        answer['question']: answer['votes']
+                    })
+            print(class_data)
 
     def handle(self, *args, **options):
         begin = time.time()
