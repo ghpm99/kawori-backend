@@ -42,7 +42,6 @@ class AnswerSummary(models.Model):
     ]
 
     bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
     updated_at = models.DateField(auto_now=True)
     resume = models.JSONField(default=dict)
 

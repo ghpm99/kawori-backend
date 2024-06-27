@@ -3,7 +3,7 @@ import time
 from django.core.management.base import BaseCommand
 from django.db.models import Avg
 
-from classification.models import Answer, Path
+from classification.models import Answer, AnswerSummary, Path
 from facetexture.models import BDOClass
 
 
@@ -34,15 +34,24 @@ class Command(BaseCommand):
 
             class_data: dict = {}
             for answer in answer_list:
-                if class_data[answer['combat_style']]:
-                    class_data[answer['combat_style']] = {
-                        answer['question']:  answer['votes']
-                    }
-                else:
-                    class_data[answer['combat_style']].update({
-                        answer['question']: answer['votes']
-                    })
+                class_dict = class_data.get(answer['combat_style'], {})
+                class_dict.update({
+                    answer['question']: answer['votes']
+                })
+                class_data[answer['combat_style']] = class_dict
             print(class_data)
+            last_summary = AnswerSummary.objects.filter(
+                bdo_class=bdo_class,
+                updated_at__gte=last_path['date_path']
+            ).order_by('-updated_at').first()
+            if last_summary:
+                last_summary.resume = class_data
+                last_summary.save()
+            else:
+                AnswerSummary.objects.create(
+                    bdo_class=bdo_class,
+                    resume=class_data
+                )
 
     def handle(self, *args, **options):
         begin = time.time()
