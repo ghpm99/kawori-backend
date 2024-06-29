@@ -21,6 +21,17 @@ class Answer(models.Model):
         (SUCCESSION, 'Sucessão')
     ]
 
+    STATUS_OPEN = 1
+    STATUS_PROCESSING = 2
+    STATUS_DONE = 3
+
+    STATUS = [
+        (STATUS_OPEN, 'Aguardando'),
+        (STATUS_PROCESSING, 'Processando'),
+        (STATUS_DONE, 'Processado'),
+    ]
+
+    status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
     bdo_class = models.ForeignKey(BDOClass, on_delete=models.CASCADE)
     combat_style = models.IntegerField(default=AWAKENING, choices=COMBAT_STYLES, null=True)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
@@ -30,6 +41,7 @@ class Answer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     like_count = models.IntegerField(default=0)
     dislike_count = models.IntegerField(default=0)
+    height = models.FloatField(default=1)
 
 
 class AnswerSummary(models.Model):

@@ -1,7 +1,6 @@
 import time
 
 from django.core.management.base import BaseCommand
-from django.db.models import Avg
 
 from classification.models import Answer, AnswerSummary, Path
 from facetexture.models import BDOClass
@@ -30,27 +29,35 @@ class Command(BaseCommand):
 
             answer_list = Answer.objects.filter(
                 **filters
-            ).values('combat_style', 'question').annotate(votes=Avg('vote'))
+            ).all()
 
-            class_data: dict = {}
+            answer_data: dict = {}
             for answer in answer_list:
-                class_dict = class_data.get(answer['combat_style'], {})
-                class_dict.update({
-                    answer['question']: answer['votes']
-                })
-                class_data[answer['combat_style']] = class_dict
-            print(class_data)
+                real_vote = answer.vote * answer.height
+
+                class_data = answer_data.get(answer.combat_style, {})
+
+                class_data[answer.question_id] = class_data.get(answer.question_id, 0) + real_vote
+                computed_answer = class_data.get('answer', [])
+
+                computed_answer.append(answer.id)
+
+                class_data['answer'] = computed_answer
+
+                answer_data[answer.combat_style] = class_data
+
+            print(answer_data)
             last_summary = AnswerSummary.objects.filter(
                 bdo_class=bdo_class,
                 updated_at__gte=last_path['date_path']
             ).order_by('-updated_at').first()
             if last_summary:
-                last_summary.resume = class_data
+                last_summary.resume = answer_data
                 last_summary.save()
             else:
                 AnswerSummary.objects.create(
                     bdo_class=bdo_class,
-                    resume=class_data
+                    resume=answer_data
                 )
 
     def handle(self, *args, **options):
