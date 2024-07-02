@@ -356,7 +356,7 @@ def change_character_name(request, user, id):
 def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
 
-    if character_count >= 32:
+    if character_count >= 35:
         return JsonResponse({'data': 'O limite de facetexture são 32!'}, status=400)
 
     data = json.loads(request.body)
