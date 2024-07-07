@@ -20,6 +20,7 @@ class BDOClass(models.Model):
     abbreviation = models.CharField(max_length=32, unique=True)
     image = models.ImageField(upload_to='bdoclass/')
     class_image = models.ImageField(upload_to='classimage/', null=True)
+    color = models.CharField(max_length=7, null=True)
 
 
 class PreviewBackground(models.Model):

@@ -98,6 +98,7 @@ def get_bdo_class(request):
         'name': bdo_class.name,
         'abbreviation': bdo_class.abbreviation,
         'class_image': bdo_class.class_image.url if bdo_class.class_image else '',
+        'color': bdo_class.color if bdo_class.color else ''
     } for bdo_class in bdo_classes]
 
     return JsonResponse({'class': bdo_class})
