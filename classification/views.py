@@ -120,6 +120,10 @@ def answer_by_class(request):
     data = []
     for bdo_class in bdo_classes:
         answers_count = Answer.objects.filter(bdo_class=bdo_class).count()
-        data.append({'class': bdo_class.abbreviation, 'answers_count': answers_count})
+        data.append({
+            'class': bdo_class.abbreviation,
+            'answers_count': answers_count,
+            'color': bdo_class.color if bdo_class.color else ''
+        })
 
     return JsonResponse({'data': data})
