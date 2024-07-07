@@ -101,3 +101,24 @@ def get_bdo_class(request):
     } for bdo_class in bdo_classes]
 
     return JsonResponse({'class': bdo_class})
+
+
+@add_cors_react_dev
+@require_GET
+def total_votes(request):
+    total_votes = Answer.objects.count()
+
+    return JsonResponse({'total_votes': total_votes})
+
+
+@add_cors_react_dev
+@require_GET
+def answer_by_class(request):
+    bdo_classes = BDOClass.objects.order_by('abbreviation')
+
+    data = []
+    for bdo_class in bdo_classes:
+        answers_count = Answer.objects.filter(bdo_class=bdo_class).count()
+        data.append({'class': bdo_class.abbreviation, 'answers_count': answers_count})
+
+    return JsonResponse({'data': data})
