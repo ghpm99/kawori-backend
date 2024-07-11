@@ -8,4 +8,5 @@ urlpatterns = [
     path('get-class/', views.get_bdo_class, name='classification_get_bdo_class'),
     path('total-votes/', views.total_votes, name='classification_total_votes'),
     path('answer-by-class/', views.answer_by_class, name='classification_answer_by_class'),
+    path('get-answer-summary/', views.get_answer_summary, name='classification_get_answer_summary'),
 ]

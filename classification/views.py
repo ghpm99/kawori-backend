@@ -1,6 +1,6 @@
 import json
 from django.http import JsonResponse
-from classification.models import Answer, Question
+from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from kawori.decorators import add_cors_react_dev, validate_user
 from django.views.decorators.http import require_GET, require_POST
@@ -124,6 +124,23 @@ def answer_by_class(request):
             'class': bdo_class.abbreviation,
             'answers_count': answers_count,
             'color': bdo_class.color if bdo_class.color else ''
+        })
+
+    return JsonResponse({'data': data})
+
+
+@add_cors_react_dev
+@require_GET
+def get_answer_summary(request):
+    answers = AnswerSummary.objects.all()
+
+    data = []
+    for answer in answers:
+        data.append({
+            'id': answer.id,
+            'bdo_class': answer.bdo_class.id,
+            'updated_at': answer.updated_at,
+            'resume': answer.resume
         })
 
     return JsonResponse({'data': data})
