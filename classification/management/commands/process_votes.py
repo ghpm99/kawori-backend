@@ -50,6 +50,8 @@ class Command(BaseCommand):
                 question_data["answer"] = computed_answer
                 question_data["sum_votes"] = sum_votes
                 question_data["avg_votes"] = avg_votes
+                question_data['question_text'] = answer.question.text
+                question_data['question_details'] = answer.question.question_details
 
                 class_data[answer.question_id] = question_data
                 answer_data[answer.combat_style] = class_data

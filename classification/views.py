@@ -129,6 +129,25 @@ def answer_by_class(request):
     return JsonResponse({'data': data})
 
 
+def process_style_resume(resume):
+    answer = []
+    for key in resume:
+        answer.append({
+            'text': resume[key]['question_text'],
+            'details': resume[key]['question_details'],
+            'avg_votes': resume[key]['avg_votes'],
+            'answer': resume[key]['answer']
+        })
+
+    return answer
+
+
+def process_resume(resume):
+    for key in resume:
+        resume[key] = process_style_resume(resume[key])
+    return resume
+
+
 @add_cors_react_dev
 @require_GET
 def get_answer_summary(request):
@@ -140,7 +159,7 @@ def get_answer_summary(request):
             'id': answer.id,
             'bdo_class': answer.bdo_class.id,
             'updated_at': answer.updated_at,
-            'resume': answer.resume
+            'resume': process_resume(answer.resume)
         })
 
     return JsonResponse({'data': data})
