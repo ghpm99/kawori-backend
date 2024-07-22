@@ -38,7 +38,11 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     if not user.is_active:
         return JsonResponse({'msg': 'Este usuário não está ativo.'}, status=403)
 
-    user.last_login = datetime.now(tz=user.last_login.tzinfo)
+    if user.last_login:
+        user.last_login = datetime.now(tz=user.last_login.tzinfo)
+    else:
+        user.last_login = datetime.now()
+
     user.save()
     tokens = get_token(user)
 
