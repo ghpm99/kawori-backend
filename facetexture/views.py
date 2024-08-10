@@ -136,7 +136,7 @@ def preview_background(request, user):
 
         if character.show is True:
             classImage = Image.open(character.bdoClass.image)
-            classImage.thumbnail((50, 50), Image.ANTIALIAS)
+            classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
@@ -191,7 +191,7 @@ def download_background(request, user):
 
         if character.show is True:
             classImage = Image.open(character.bdoClass.image)
-            classImage.thumbnail((50, 50), Image.ANTIALIAS)
+            classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
