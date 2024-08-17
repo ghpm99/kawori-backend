@@ -1,33 +1,17 @@
 
-import json
-from django.test import TestCase, Client
+from django.test import TestCase
 from django.contrib.auth.models import User
 from financial.models import Contract
 
 
 class ContractTestCase(TestCase):
-
     def setUp(self) -> None:
 
-        user = User.objects.create_superuser(
+        user = User.objects.create_user(
             username='test',
             email='test@test.com',
             password='123'
         )
-
-        token = self.client.post(
-            '/auth/token/',
-            content_type='application/json',
-            data={
-                'username': 'test',
-                'password': '123'
-            }
-        )
-
-        token_json = json.loads(token.content)
-
-        self.client = Client()
-        self.client.defaults['HTTP_AUTHORIZATION'] = 'Bearer ' + token_json['tokens']['access']
 
         Contract.objects.create(
             name="test 1",
@@ -47,8 +31,8 @@ class ContractTestCase(TestCase):
 
     def test_contract_value_total(self):
         """Valor total = valor aberto + valor fechado"""
-        response = self.client.get('/financial/', data={
-            'page': 1,
-            'page_size': 5
-        })
-        print(response)
+        test_1 = Contract.objects.get(name='test 1')
+        test_2 = Contract.objects.get(name='test 2')
+
+        self.assertEqual(test_1.value, (test_1.value_open + test_1.value_closed))
+        self.assertEqual(test_2.value, (test_2.value_open + test_2.value_closed))
