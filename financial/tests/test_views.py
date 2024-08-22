@@ -23,136 +23,99 @@ class FinancialTestCase(TestCase):
         cls.token_json = json.loads(token.content)
 
         contract_1 = Contract.objects.create(
-            name="test 1", value=0, value_open=0, value_closed=0, user=user
+            name="test 1", user=user
         )
 
         invoice_1 = Invoice.objects.create(
-            status=Invoice.STATUS_OPEN,
             type=Invoice.TYPE_DEBIT,
             name="test invoice 1",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
-            value_open=100,
-            value_closed=0,
             contract=contract_1,
             user=user,
         )
 
-        Payment.objects.create(
-            status=Payment.STATUS_OPEN,
+        payment_1 = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="test payment 1",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
             invoice=invoice_1,
             user=user,
         )
 
+        payment_1.set_value(100)
+
         invoice_2 = Invoice.objects.create(
-            status=Invoice.STATUS_OPEN,
             type=Invoice.TYPE_DEBIT,
             name="test invoice 2",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
-            value_open=0,
-            value_closed=100,
             contract=contract_1,
             user=user,
         )
 
-        Payment.objects.create(
-            status=Payment.STATUS_OPEN,
+        payment_2 = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="test payment 2",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
             invoice=invoice_2,
             user=user,
         )
 
-        Payment.objects.create(
-            status=Payment.STATUS_OPEN,
+        payment_2.set_value(100)
+        payment_2.close_value()
+
+        payment_3 = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="test payment 3",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
             invoice=invoice_2,
             user=user,
         )
 
+        payment_3.set_value(100)
+
         contract_2 = Contract.objects.create(
-            name="test 2", value=100, value_open=0, value_closed=100, user=user
+            name="test 2", user=user
         )
 
         invoice_3 = Invoice.objects.create(
-            status=Invoice.STATUS_OPEN,
             type=Invoice.TYPE_DEBIT,
             name="test invoice 3",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
-            value_open=0,
-            value_closed=100,
             contract=contract_2,
             user=user,
         )
 
-        Payment.objects.create(
-            status=Payment.STATUS_DONE,
+        payment_4 = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="test payment 4",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
             invoice=invoice_3,
             user=user,
         )
 
+        payment_4.set_value(100)
+
         contract_3 = Contract.objects.create(
-            name="test 3", value=100, value_open=100, value_closed=0, user=user
+            name="test 3", user=user
         )
 
-        Invoice.objects.create(
-            status=Invoice.STATUS_OPEN,
+        payment_5 = Invoice.objects.create(
             type=Invoice.TYPE_DEBIT,
             name="test invoice 4",
             date=datetime.now().date(),
-            installments=1,
             payment_date=datetime.now().date(),
-            fixed=False,
-            active=True,
-            value=100,
-            value_open=0,
-            value_closed=100,
             contract=contract_3,
             user=user,
         )
+
+        payment_5.set_value(100)
 
     def setUp(self) -> None:
         self.client.defaults["HTTP_AUTHORIZATION"] = (
@@ -344,10 +307,22 @@ class FinancialTestCase(TestCase):
 
     def test_payment_list(self):
         """Testa se retorna todos pagamentos"""
-        response = self.client.get(
-            "/financial/", data={"page": 1, "page_size": 5}
-        )
+        response = self.client.get("/financial/", data={"page": 1, "page_size": 5})
         response_body = json.loads(response.content)
         payment_data = response_body["data"]["data"]
 
         self.assertEqual(payment_data.__len__(), 4)
+
+    def test_contract_value(self):
+        """Testa os valores de contrato"""
+        response = self.client.get("/financial/contract/3/")
+        response_body = json.loads(response.content)
+        contract_data = response_body['data']
+
+        value = contract_data.get('value')
+        value_open = contract_data.get('value_open')
+        value_closed = contract_data.get('value_closed')
+
+        self.assertEqual(value, 300)
+        self.assertEqual(value_open, 200)
+        self.assertEqual(value_closed, 100)
