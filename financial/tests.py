@@ -35,23 +35,21 @@ class FinancialTestCase(TestCase):
             user=user,
         )
 
-        payment_1 = Payment.objects.create(
-            type=Payment.TYPE_DEBIT,
-            name="test payment 1",
-            date=datetime.now().date(),
-            payment_date=datetime.now().date(),
-            invoice=invoice_1,
-            user=user,
-        )
-
-        payment_1.set_value(100)
-
         invoice_2 = Invoice.objects.create(
             type=Invoice.TYPE_DEBIT,
             name="test invoice 2",
             date=datetime.now().date(),
             payment_date=datetime.now().date(),
             contract=contract_1,
+            user=user,
+        )
+
+        payment_1 = Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="test payment 1",
+            date=datetime.now().date(),
+            payment_date=datetime.now().date(),
+            invoice=invoice_1,
             user=user,
         )
 
@@ -64,9 +62,6 @@ class FinancialTestCase(TestCase):
             user=user,
         )
 
-        payment_2.set_value(100)
-        payment_2.close_value()
-
         payment_3 = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="test payment 3",
@@ -75,8 +70,6 @@ class FinancialTestCase(TestCase):
             invoice=invoice_2,
             user=user,
         )
-
-        payment_3.set_value(100)
 
         contract_2 = Contract.objects.create(
             name="test 2", user=user
@@ -100,8 +93,6 @@ class FinancialTestCase(TestCase):
             user=user,
         )
 
-        payment_4.set_value(100)
-
         contract_3 = Contract.objects.create(
             name="test 3", user=user
         )
@@ -115,12 +106,39 @@ class FinancialTestCase(TestCase):
             user=user,
         )
 
+        payment_1.set_value(100)
+
+        payment_2.set_value(100)
+        payment_2.close_value()
+
+        payment_3.set_value(100)
+
+        payment_4.set_value(100)
+
         payment_5.set_value(100)
 
     def setUp(self) -> None:
         self.client.defaults["HTTP_AUTHORIZATION"] = (
             "Bearer " + self.token_json["tokens"]["access"]
         )
+
+    def test_contract_value_total(self):
+        """Valor total = valor aberto + valor fechado"""
+        test_1 = Contract.objects.get(name='test 1')
+        test_2 = Contract.objects.get(name='test 2')
+
+        self.assertEqual(test_1.value, (test_1.value_open + test_1.value_closed))
+        self.assertEqual(test_2.value, (test_2.value_open + test_2.value_closed))
+
+    def test_invoice_value_total(self):
+        """Valor total = valor aberto + valor fechado"""
+        test_1 = Invoice.objects.get(name='test invoice 1')
+        test_2 = Invoice.objects.get(name='test invoice 2')
+        test_3 = Invoice.objects.get(name='test invoice 3')
+
+        self.assertEqual(test_1.value, (test_1.value_open + test_1.value_closed))
+        self.assertEqual(test_2.value, (test_2.value_open + test_2.value_closed))
+        self.assertEqual(test_3.value, (test_3.value_open + test_3.value_closed))
 
     def test_contract_not_super_user(self):
         """Testa se usuario normal tem acesso"""
@@ -315,7 +333,7 @@ class FinancialTestCase(TestCase):
 
     def test_contract_value(self):
         """Testa os valores de contrato"""
-        response = self.client.get("/financial/contract/3/")
+        response = self.client.get("/financial/contract/1/")
         response_body = json.loads(response.content)
         contract_data = response_body['data']
 
