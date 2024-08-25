@@ -14,14 +14,6 @@ class FinancialTestCase(TestCase):
             username="test", email="test@test.com", password="123"
         )
 
-        token = cls.client.post(
-            "/auth/token/",
-            content_type="application/json",
-            data={"username": "test", "password": "123"},
-        )
-
-        cls.token_json = json.loads(token.content)
-
         contract_1 = Contract.objects.create(
             name="test 1", user=user
         )
@@ -116,6 +108,14 @@ class FinancialTestCase(TestCase):
         payment_4.set_value(100)
 
         payment_5.set_value(100)
+
+        token = cls.client.post(
+            "/auth/token/",
+            content_type="application/json",
+            data={"username": "test", "password": "123"},
+        )
+
+        cls.token_json = json.loads(token.content)
 
     def setUp(self) -> None:
         self.client.defaults["HTTP_AUTHORIZATION"] = (
