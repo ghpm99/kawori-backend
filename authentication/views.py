@@ -22,14 +22,8 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         err.append({'username': 'Este campo é obrigatório'})
     if not req.get('password'):
         err.append({'password': 'Este campo é obrigatório'})
-    # if not req.get('captchaToken'):
-    #     err.append({'captcha': 'Captcha inválido'})
     if err:
         return JsonResponse({'errors': err}, status=400)
-
-    # _, error = verify_captcha(req.get('captchaToken'))
-    # if error:
-    #     return JsonResponse({'errors': [{'captcha': str(error)}]}, status=400)
 
     user = authenticate(username=req.get('username'), password=req.get('password'))
 
