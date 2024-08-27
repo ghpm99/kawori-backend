@@ -21,7 +21,7 @@ class AuthenticationTestCase(TestCase):
             email="test@active.com",
             password="user123",
             first_name="test",
-            last_name="inactive"
+            last_name="inactive",
         )
         inactive.is_active = False
         inactive.save()
@@ -84,10 +84,15 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         response_json = json.loads(response.content)
 
-        self.assertEqual(response_json, {'errors': [
-            {'username': 'Este campo é obrigatório'},
-            {'password': 'Este campo é obrigatório'}
-        ]})
+        self.assertEqual(
+            response_json,
+            {
+                "errors": [
+                    {"username": "Este campo é obrigatório"},
+                    {"password": "Este campo é obrigatório"},
+                ]
+            },
+        )
 
         response = self.client.post(
             "/auth/token/",
@@ -98,7 +103,7 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
         response_json = json.loads(response.content)
 
-        self.assertEqual(response_json, {'msg': 'Dados incorretos.'})
+        self.assertEqual(response_json, {"msg": "Dados incorretos."})
 
         response = self.client.post(
             "/auth/token/",
@@ -109,7 +114,7 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
         response_json = json.loads(response.content)
 
-        self.assertEqual(response_json, {'msg': 'Dados incorretos.'})
+        self.assertEqual(response_json, {"msg": "Dados incorretos."})
 
     def test_user_view(self):
         """Testa view de dados de usuario"""
@@ -134,9 +139,9 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response_user.status_code, 200)
 
         response_user_json = json.loads(response_user.content)
-        del response_user_json['id']
-        del response_user_json['last_login']
-        del response_user_json['date_joined']
+        del response_user_json["id"]
+        del response_user_json["last_login"]
+        del response_user_json["date_joined"]
 
         self.assertDictEqual(
             response_user_json,
