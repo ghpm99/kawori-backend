@@ -38,7 +38,7 @@ def validate_user(func):
 
         if not token:
             return JsonResponse({'msg': 'Empty authorization.'}, status=403)
-
+        return JsonResponse({'msg': ''}, status=401)
         try:
             user_data = AccessToken(token)
         except Exception as err:
