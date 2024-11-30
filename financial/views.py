@@ -1,4 +1,5 @@
 import json
+import numpy
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
@@ -937,8 +938,8 @@ def report_amount_invoice_by_tag_view(request, user):
 def report_forecast_amount_value(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=6, day=1)
-    begin = date_referrer.replace(day=1) - relativedelta(months=6)
+    end = date_referrer + relativedelta(months=12, day=1)
+    begin = date_referrer.replace(day=1) - relativedelta(months=12)
 
     params = {
         'begin': begin,
@@ -948,7 +949,7 @@ def report_forecast_amount_value(request, user):
 
     query_forecast = """
         SELECT
-            AVG(fp.debit) AS avg_debit
+            fp.debit
         FROM
             financial_paymentsummary fp
         WHERE
@@ -960,10 +961,12 @@ def report_forecast_amount_value(request, user):
 
     with connection.cursor() as cursor:
         cursor.execute(query_forecast, params)
-        avg_value = cursor.fetchone()
+        debit_values = cursor.fetchall()
 
-    avg_value = avg_value[0] if avg_value else 0
+    values = [float(value[0]) for value in debit_values]
 
-    forecast_value = (float(avg_value or 0) * 3) or 0
+    debit_percentil = numpy.percentile(values, 90)
+
+    forecast_value = debit_percentil * 6
 
     return JsonResponse({'data': forecast_value})
