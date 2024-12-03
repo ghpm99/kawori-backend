@@ -8,3 +8,5 @@ makemigrations:
 	python manage.py makemigrations --settings=kawori.settings.development
 migrate:
 	python manage.py migrate --settings=kawori.settings.development
+test:
+	python manage.py test --settings=kawori.settings.development

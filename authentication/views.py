@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from django.utils import timezone
 
 from authentication.utils import get_token
 from kawori.decorators import add_cors_react_dev, validate_user
@@ -22,14 +23,8 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         err.append({'username': 'Este campo é obrigatório'})
     if not req.get('password'):
         err.append({'password': 'Este campo é obrigatório'})
-    # if not req.get('captchaToken'):
-    #     err.append({'captcha': 'Captcha inválido'})
     if err:
         return JsonResponse({'errors': err}, status=400)
-
-    # _, error = verify_captcha(req.get('captchaToken'))
-    # if error:
-    #     return JsonResponse({'errors': [{'captcha': str(error)}]}, status=400)
 
     user = authenticate(username=req.get('username'), password=req.get('password'))
 
@@ -41,7 +36,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     if user.last_login:
         user.last_login = datetime.now(tz=user.last_login.tzinfo)
     else:
-        user.last_login = datetime.now()
+        user.last_login = datetime.now(tz=timezone.utc)
 
     user.save()
     tokens = get_token(user)
