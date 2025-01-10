@@ -55,6 +55,31 @@ def calculate_installments(value, installments):
     return values
 
 
+def update_invoice_value(invoice: Invoice):
+    invoice_value = 0
+    invoice_value_open = 0
+    invoice_value_closed = 0
+
+    payments = Payment.objects.filter(invoice=invoice.id).all()
+
+    for payment in payments:
+        invoice_value = invoice_value + payment.value
+        if payment.status == Payment.STATUS_OPEN:
+            invoice_value_open = invoice_value_open + payment.value
+        elif payment.status == Payment.STATUS_DONE:
+            invoice_value_closed = invoice_value_closed + payment.value
+
+    invoice.value = invoice_value
+    invoice.value_open = invoice_value_open
+    invoice.value_closed = invoice_value_closed
+
+    if invoice.value_open == 0:
+        invoice.status = Invoice.STATUS_DONE
+    else:
+        invoice.status = Invoice.STATUS_OPEN
+    invoice.save()
+
+
 def update_contract_value(contract: Contract):
 
     value = 0
@@ -65,31 +90,11 @@ def update_contract_value(contract: Contract):
 
     for invoice in invoices:
 
-        invoice_value = 0
-        invoice_value_open = 0
-        invoice_value_closed = 0
+        update_invoice_value(invoice)
 
-        payments = Payment.objects.filter(invoice=invoice.id).all()
-
-        for payment in payments:
-            invoice_value = invoice_value + payment.value
-            if payment.status == Payment.STATUS_OPEN:
-                invoice_value_open = invoice_value_open + payment.value
-            elif payment.status == Payment.STATUS_DONE:
-                invoice_value_closed = invoice_value_closed + payment.value
-
-        invoice.value = invoice_value
-        invoice.value_open = invoice_value_open
-        invoice.value_closed = invoice_value_closed
-        if invoice.value_open == 0:
-            invoice.status = Invoice.STATUS_DONE
-        else:
-            invoice.status = Invoice.STATUS_OPEN
-        invoice.save()
-
-        value = value + invoice_value
-        value_open = value_open + invoice_value_open
-        value_closed = value_closed + invoice_value_closed
+        value = value + invoice.value
+        value_open = value_open + invoice.value_open
+        value_closed = value_closed + invoice.value_closed
 
     contract.value = value
     contract.value_open = value_open

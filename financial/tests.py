@@ -325,7 +325,7 @@ class FinancialTestCase(TestCase):
 
     def test_payment_list(self):
         """Testa se retorna todos pagamentos"""
-        response = self.client.get("/financial/", data={"page": 1, "page_size": 5})
+        response = self.client.get("/financial/payment/", data={"page": 1, "page_size": 5})
         response_body = json.loads(response.content)
         payment_data = response_body["data"]["data"]
 
