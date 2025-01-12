@@ -7,10 +7,12 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from financial.models import Invoice, Payment
+
 from financial.utils import calculate_installments, generate_payments
+from invoice.models import Invoice
 from kawori.decorators import add_cors_react_dev, validate_super_user
 from kawori.utils import boolean, format_date, paginate
+from payment.models import Payment
 
 
 @add_cors_react_dev

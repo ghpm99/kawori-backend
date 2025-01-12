@@ -10,3 +10,7 @@ migrate:
 	python manage.py migrate --settings=kawori.settings.development
 test:
 	python manage.py test --settings=kawori.settings.development
+restore-dump:
+	psql -U postgres -h localhost -c "drop database kawori;"
+	psql -U postgres -h localhost -c "create database kawori;"
+	psql -U postgres -h localhost kawori < ~/dump/kawori.tar

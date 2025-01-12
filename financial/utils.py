@@ -1,16 +1,19 @@
 from datetime import datetime
+
 from dateutil.relativedelta import relativedelta
-from financial.models import Contract, Invoice, Payment
+
+from contract.models import Contract
+from invoice.models import Invoice
+from payment.models import Payment
 
 
 def generate_payments(invoice: Invoice):
-
     installments = invoice.installments
     payment_date = invoice.payment_date
 
     value_installments = calculate_installments(invoice.value, installments)
 
-    date_format = '%Y-%m-%d'
+    date_format = "%Y-%m-%d"
 
     for i in range(installments):
         payment = Payment(
@@ -22,7 +25,7 @@ def generate_payments(invoice: Invoice):
             fixed=invoice.fixed,
             value=value_installments[i],
             invoice=invoice,
-            user=invoice.user
+            user=invoice.user,
         )
         payment.save()
         date_obj = datetime.strptime(payment_date, date_format)
@@ -31,9 +34,8 @@ def generate_payments(invoice: Invoice):
 
 
 def calculate_installments(value, installments):
-
     def round(num):
-        return float('%.2f' % (num))
+        return float("%.2f" % (num))
 
     values = []
 
@@ -81,7 +83,6 @@ def update_invoice_value(invoice: Invoice):
 
 
 def update_contract_value(contract: Contract):
-
     value = 0
     value_open = 0
     value_closed = 0
@@ -89,7 +90,6 @@ def update_contract_value(contract: Contract):
     invoices = Invoice.objects.filter(contract=contract.id).all()
 
     for invoice in invoices:
-
         update_invoice_value(invoice)
 
         value = value + invoice.value

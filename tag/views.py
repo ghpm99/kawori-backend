@@ -4,8 +4,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from financial.models import Tag
+
 from kawori.decorators import add_cors_react_dev, validate_super_user
+from tag.models import Tag
 
 
 @add_cors_react_dev

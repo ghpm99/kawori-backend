@@ -1,15 +1,19 @@
 import time
+
 from django.core.management.base import BaseCommand
-from financial.models import Contract, Invoice, Payment
+
+from contract.models import Contract
+from invoice.models import Invoice
+from payment.models import Payment
 
 
 class Command(BaseCommand):
     """
-        Create invoice
+    Create invoice
     """
 
     def run_command(self):
-        payments = Payment.objects.all().order_by('id')
+        payments = Payment.objects.all().order_by("id")
         for payment in payments:
             invoice = Invoice.objects.filter(name=payment.name).first()
 
@@ -22,12 +26,7 @@ class Command(BaseCommand):
                 value_closed = payment.value
 
             if invoice is None:
-                contract = Contract(
-                    name=payment.name,
-                    value=payment.value,
-                    value_open=value_open,
-                    value_closed=value_closed
-                )
+                contract = Contract(name=payment.name, value=payment.value, value_open=value_open, value_closed=value_closed)
                 contract.save()
                 invoice = Invoice(
                     status=payment.status,
@@ -41,7 +40,7 @@ class Command(BaseCommand):
                     value=payment.value,
                     value_open=value_open,
                     value_closed=value_closed,
-                    contract=contract
+                    contract=contract,
                 )
                 invoice.save()
                 payment.invoice = invoice
@@ -61,7 +60,7 @@ class Command(BaseCommand):
                     value=payment.value,
                     value_open=value_open,
                     value_closed=value_closed,
-                    contract=invoice.contract
+                    contract=invoice.contract,
                 )
                 invoice.save()
                 payment.invoice = invoice
@@ -79,10 +78,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         begin = time.time()
 
-        self.stdout.write(self.style.SUCCESS('Running...'))
+        self.stdout.write(self.style.SUCCESS("Running..."))
 
         self.run_command()
 
-        self.stdout.write(self.style.SUCCESS('Success! :)'))
-        self.stdout.write(self.style.SUCCESS(
-            f'Done with {time.time() - begin}s'))
+        self.stdout.write(self.style.SUCCESS("Success! :)"))
+        self.stdout.write(self.style.SUCCESS(f"Done with {time.time() - begin}s"))
