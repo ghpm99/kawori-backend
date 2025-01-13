@@ -17,6 +17,16 @@ from payment.models import Payment
 from tag.models import Tag
 
 
+
+
+
+
+
+
+
+
+
+
 @add_cors_react_dev
 @validate_super_user
 @require_GET

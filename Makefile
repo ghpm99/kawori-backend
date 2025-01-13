@@ -1,6 +1,4 @@
 build:
-	# Build the backend
-	npm run scss
 	python manage.py collectstatic --no-input
 run:
 	python manage.py runserver --settings=kawori.settings.development
@@ -13,4 +11,4 @@ test:
 restore-dump:
 	psql -U postgres -h localhost -c "drop database kawori;"
 	psql -U postgres -h localhost -c "create database kawori;"
-	psql -U postgres -h localhost kawori < ~/dump/kawori.tar
+	psql -U postgres -h localhost kawori < ~/documents/dump/kawori.tar
