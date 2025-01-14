@@ -10,6 +10,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
+from facetexture.utils import get_image_class, get_symbol_class
 from kawori.decorators import add_cors_react_dev, validate_user
 from facetexture.models import Facetexture, BDOClass, Character
 from PIL import Image, ImageOps
@@ -446,7 +447,32 @@ def delete_character(request, user, id):
 
 @add_cors_react_dev
 @require_GET
-def get_symbol_class(request, id):
+def get_symbol_class_view(request, id):
+
+    filters = {
+        'id': id
+    }
+
+    bdo_class_order = BDOClass.objects.filter(**filters).values('class_order')
+
+    if bdo_class_order is None:
+        return JsonResponse({'data': 'Não foi encontrado classe com esse ID'}, status=404)
+
+    class_order = bdo_class_order[0].get('class_order', 1)
+    class_image = get_symbol_class(class_order)
+
+    buffer = io.BytesIO()
+
+    class_image.save(buffer, format='PNG')
+
+    buffer.seek(0)
+
+    return FileResponse(buffer, content_type='image/png')
+
+
+@add_cors_react_dev
+@require_GET
+def get_image_class_view(request, id):
 
     filters = {
         'id': id
@@ -459,7 +485,7 @@ def get_symbol_class(request, id):
 
     class_order = bdo_class_order[0].get('class_order', 1)
 
-    class_image = get_symbol_class(class_order)
+    class_image = get_image_class(class_order)
 
     buffer = io.BytesIO()
 
