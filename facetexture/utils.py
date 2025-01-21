@@ -22,10 +22,8 @@ def get_symbol_class(order: int) -> Image:
 
 def get_image_class(order: int) -> Image:
     image = Image.open(CLASSES_IMAGE_SPR_URL)
-    # calculo calc((100% / 9) * 2) calc((100% / 2) * 2)
-    # ()
-    x = (CLASS_IMAGE_SPR_PIXEL_X * (order % 10))
-    y = (order * CLASS_IMAGE_SPR_PIXEL_Y) -CLASS_IMAGE_SPR_PIXEL_Y
+    x = (CLASS_IMAGE_SPR_PIXEL_X * ((order % 10) -1))
+    y = ((int(order / 10)) * CLASS_IMAGE_SPR_PIXEL_Y)
 
     image_crop_box = (x, y, x + CLASS_IMAGE_SPR_PIXEL_X, y + CLASS_IMAGE_SPR_PIXEL_Y)
     print(image_crop_box)

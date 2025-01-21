@@ -15,7 +15,11 @@ from kawori.decorators import add_cors_react_dev, validate_user
 from facetexture.models import Facetexture, BDOClass, Character
 from PIL import Image, ImageOps
 from django.templatetags.static import static
+from django.urls import reverse
 
+
+def get_bdo_class_image_url(class_id):
+    return settings.BASE_URL + reverse('facetexture_get_image_class', args=[class_id])
 
 @add_cors_react_dev
 @validate_user
@@ -38,7 +42,7 @@ def get_facetexture_config(request, user):
                 'id': character.bdoClass.id,
                 'name': character.bdoClass.name,
                 'abbreviation': character.bdoClass.abbreviation,
-                'class_image': character.bdoClass.class_image.url
+                'class_image': get_bdo_class_image_url(character.bdoClass.id)
             }
         }
 
@@ -90,7 +94,7 @@ def get_bdo_class(request, user):
         'id': bdo_class.id,
         'name': bdo_class.name,
         'abbreviation': bdo_class.abbreviation,
-        'class_image': bdo_class.class_image.url if bdo_class.class_image else '',
+        'class_image': get_bdo_class_image_url(bdo_class.id),
     } for bdo_class in bdo_classes]
 
     bdo_class.sort(key=orderFunc)
@@ -139,7 +143,7 @@ def preview_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height))
 
         if character.show is True:
-            classImage = Image.open(character.bdoClass.image)
+            classImage = get_symbol_class(character.bdoClass.class_order)
             classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
             imageCrop.paste(classImage, (10, 10), classImage)
@@ -378,10 +382,12 @@ def new_character(request, user):
         last_order = Character.objects.filter(user=user, active=True).latest('order')
         new_order = last_order.order + 1
 
+    image_url = get_bdo_class_image_url(bdo_class.id)
+
     character = Character(
         name=name,
         show=visible_class,
-        image=bdo_class.class_image.url,
+        image=image_url,
         order=new_order,
         upload=False,
         bdoClass=bdo_class,
@@ -400,7 +406,7 @@ def new_character(request, user):
             'id': character.bdoClass.id,
             'name': character.bdoClass.name,
             'abbreviation': character.bdoClass.abbreviation,
-            'class_image': character.bdoClass.class_image.url
+            'class_image': image_url
         }
     }
 
