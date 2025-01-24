@@ -10,7 +10,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
-from facetexture.utils import get_image_class, get_symbol_class
+from kawori.utils import get_image_class, get_symbol_class
 from kawori.decorators import add_cors_react_dev, validate_user
 from facetexture.models import Facetexture, BDOClass, Character
 from PIL import Image, ImageOps
@@ -21,15 +21,16 @@ from django.urls import reverse
 def get_bdo_class_image_url(class_id):
     return settings.BASE_URL + reverse("facetexture_get_image_class", args=[class_id])
 
+def get_bdo_class_symbol_url(class_id):
+    return settings.BASE_URL + reverse("facetexture_get_symbol_class", args=[class_id])
+
 
 @add_cors_react_dev
 @validate_user
 @require_GET
 def get_facetexture_config(request, user):
 
-    characters = (
-        Character.objects.filter(user=user, active=True).all().order_by("order")
-    )
+    characters = Character.objects.filter(user=user, active=True).all().order_by("order")
 
     data = []
 
@@ -114,9 +115,7 @@ def preview_background(request, user):
     if not req_files.get("background"):
         return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
 
-    characters = (
-        Character.objects.filter(user=user, active=True).order_by("order").all()
-    )
+    characters = Character.objects.filter(user=user, active=True).order_by("order").all()
     if not characters:
         return JsonResponse({"msg": "Facetexture nao encontrado"}, status=400)
 
@@ -173,9 +172,7 @@ def download_background(request, user):
     if not req_files.get("background"):
         return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
 
-    characters = (
-        Character.objects.filter(user=user, active=True).order_by("order").all()
-    )
+    characters = Character.objects.filter(user=user, active=True).order_by("order").all()
     if not characters:
         return JsonResponse({"msg": "Facetexture nao encontrado"}, status=404)
 
@@ -205,7 +202,7 @@ def download_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height))
 
         if character.show is True:
-            classImage = Image.open(character.bdoClass.image)
+            classImage = get_symbol_class(character.bdoClass.class_order)
             classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
             imageCrop.paste(classImage, (10, 10), classImage)
@@ -296,9 +293,7 @@ def reorder_character(request, user, id):
             },
         )
 
-    characters = (
-        Character.objects.filter(user=user, active=True).all().order_by("order")
-    )
+    characters = Character.objects.filter(user=user, active=True).all().order_by("order")
 
     data = []
 
@@ -465,9 +460,7 @@ def get_symbol_class_view(request, id):
     bdo_class_order = BDOClass.objects.filter(**filters).values("class_order")
 
     if bdo_class_order is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado classe com esse ID"}, status=404
-        )
+        return JsonResponse({"data": "Não foi encontrado classe com esse ID"}, status=404)
 
     class_order = bdo_class_order[0].get("class_order", 1)
     class_image = get_symbol_class(class_order)
@@ -490,9 +483,7 @@ def get_image_class_view(request, id):
     bdo_class_order = BDOClass.objects.filter(**filters).values("class_order")
 
     if bdo_class_order is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado classe com esse ID"}, status=404
-        )
+        return JsonResponse({"data": "Não foi encontrado classe com esse ID"}, status=404)
 
     class_order = bdo_class_order[0].get("class_order", 1)
 

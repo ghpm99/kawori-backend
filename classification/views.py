@@ -2,6 +2,7 @@ import json
 from django.http import JsonResponse
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
+from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
 from kawori.decorators import add_cors_react_dev, validate_user
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -97,7 +98,8 @@ def get_bdo_class(request):
         'id': bdo_class.id,
         'name': bdo_class.name,
         'abbreviation': bdo_class.abbreviation,
-        'class_image': bdo_class.class_image.url if bdo_class.class_image else '',
+        'class_image': get_bdo_class_image_url(bdo_class.id),
+        'class_symbol': get_bdo_class_symbol_url(bdo_class.id),
         'color': bdo_class.color if bdo_class.color else ''
     } for bdo_class in bdo_classes]
 
