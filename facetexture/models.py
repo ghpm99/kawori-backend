@@ -21,6 +21,7 @@ class BDOClass(models.Model):
     image = models.ImageField(upload_to='bdoclass/')
     class_image = models.ImageField(upload_to='classimage/', null=True)
     color = models.CharField(max_length=7, null=True)
+    class_order = models.IntegerField(default=1)
 
 
 class PreviewBackground(models.Model):

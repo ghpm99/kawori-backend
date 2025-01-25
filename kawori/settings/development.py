@@ -33,6 +33,7 @@ BASE_URL_WEBHOOK = 'http://localhost:8100'
 
 BASE_URL_FRONTEND = 'http://localhost:3000'
 
+
 try:
     from kawori.settings.local_settings import *  # noqa: F403, F401
 except ImportError:

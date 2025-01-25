@@ -1,15 +1,17 @@
 import time
+
 from django.core.management.base import BaseCommand
-from financial.models import Payment
+
+from payment.models import Payment
 
 
 class Command(BaseCommand):
     """
-        Create invoice
+    Create invoice
     """
 
     def run_command(self):
-        payments = Payment.objects.filter(invoice=403).order_by('installments').all()
+        payments = Payment.objects.filter(invoice=403).order_by("installments").all()
         value = 1209.85
         reduce = 0.014
         for payment in payments:
@@ -47,10 +49,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         begin = time.time()
 
-        self.stdout.write(self.style.SUCCESS('Running...'))
+        self.stdout.write(self.style.SUCCESS("Running..."))
 
         self.run_command()
 
-        self.stdout.write(self.style.SUCCESS('Success! :)'))
-        self.stdout.write(self.style.SUCCESS(
-            f'Done with {time.time() - begin}s'))
+        self.stdout.write(self.style.SUCCESS("Success! :)"))
+        self.stdout.write(self.style.SUCCESS(f"Done with {time.time() - begin}s"))

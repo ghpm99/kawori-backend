@@ -14,5 +14,7 @@ urlpatterns = [
         path('change-name', views.change_character_name, name='facetexture_change_name'),
         path('change-visible', views.change_show_class_icon, name='facetexture_change_show_class_icon'),
         path('delete', views.delete_character, name='facetexture_delete_character'),
+        path('get-symbol-class', views.get_symbol_class_view, name='facetexture_get_symbol_class'),
+        path('get-image-class', views.get_image_class_view, name='facetexture_get_image_class'),
     ]))
 ]
