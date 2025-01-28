@@ -3,5 +3,6 @@
     "python.analysis.extraPaths": [
         "./apps"
     ],
-    "python.analysis.autoImportCompletions": true
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "standard"
 }

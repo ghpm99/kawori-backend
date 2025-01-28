@@ -152,3 +152,8 @@ ENV_PUSHER_APP_ID = ''
 ENV_PUSHER_KEY = ''
 ENV_PUSHER_SECRET = ''
 ENV_PUSHER_CLUSTER = ''
+
+# ========== Google Cloud Storage ==========
+GS_BUCKET_NAME = ''
+GS_CREDENTIAL_PATH = 'credentials.json'
+GS_STORAGE_URL = 'https://storage.googleapis.com'

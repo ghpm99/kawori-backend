@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 
 class Facetexture(models.Model):
 
-    def characteres_json_default():
+    def characteres_json_default(self):
         return {
             'characters': []
         }
