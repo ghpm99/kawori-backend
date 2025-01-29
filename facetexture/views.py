@@ -36,17 +36,17 @@ def get_facetexture_config(request, user):
 
     for character in characters:
         character_data = {
-            "id": character.id,
+            "id": character.id, # type: ignore
             "name": character.name,
             "show": character.show,
             "image": character.image,
             "order": character.order,
             "upload": character.upload,
             "class": {
-                "id": character.bdoClass.id,
+                "id": character.bdoClass.id, # type: ignore
                 "name": character.bdoClass.name,
                 "abbreviation": character.bdoClass.abbreviation,
-                "class_image": get_bdo_class_image_url(character.bdoClass.id),
+                "class_image": get_bdo_class_image_url(character.bdoClass.id), # type: ignore
             },
         }
 
@@ -93,10 +93,10 @@ def get_bdo_class(request, user):
 
     bdo_class = [
         {
-            "id": bdo_class.id,
+            "id": bdo_class.id, # type: ignore
             "name": bdo_class.name,
             "abbreviation": bdo_class.abbreviation,
-            "class_image": get_bdo_class_image_url(bdo_class.id),
+            "class_image": get_bdo_class_image_url(bdo_class.id), # type: ignore
         }
         for bdo_class in bdo_classes
     ]
