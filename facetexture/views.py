@@ -232,14 +232,16 @@ def download_background(request, user):
 @require_POST
 @validate_user
 def reorder_character(request, user, id):
-
     data = json.loads(request.body)
     index_destination = data.get("index_destination")
+
+    if index_destination is None:
+        return JsonResponse({"data": "Index de destino não informado"}, status=400)
 
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"})
+        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
     query = """
         UPDATE
@@ -317,12 +319,12 @@ def change_class_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"})
+        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
     bdo_class = BDOClass.objects.filter(id=new_class).first()
 
     if bdo_class is None:
-        return JsonResponse({"data": "Não foi encontrado classe"})
+        return JsonResponse({"data": "Não foi encontrado classe"}, status=400)
 
     character.bdoClass = bdo_class
     character.save()
