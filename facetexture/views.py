@@ -353,7 +353,7 @@ def change_character_name(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"})
+        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
     character.name = new_name
     character.save()

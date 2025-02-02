@@ -301,6 +301,7 @@ class GetBDOClassSymbolURLTest(TestCase):
     def test_change_class_character_sucess(self, mock_get_bdo_class_image_url):
         class_image_url = "http://testserver/static/images/class_image.png"
         mock_get_bdo_class_image_url.return_value = class_image_url
+
         character = Character.objects.get(name="witch3")
         response = self.client.post(
             reverse("facetexture_change_class", args=[character.id]),
@@ -309,14 +310,98 @@ class GetBDOClassSymbolURLTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertJSONEqual(response.content, {
-            "class": {
-                "id": self.bdo_class_archer.id,
-                "name": self.bdo_class_archer.name,
-                "abbreviation": self.bdo_class_archer.abbreviation,
-                "class_image": class_image_url,
+        self.assertJSONEqual(
+            response.content,
+            {
+                "class": {
+                    "id": self.bdo_class_archer.id,
+                    "name": self.bdo_class_archer.name,
+                    "abbreviation": self.bdo_class_archer.abbreviation,
+                    "class_image": class_image_url,
+                }
+            },
+        )
+
+    def test_change_character_name_no_character(self):
+        response = self.client.post(
+            reverse("facetexture_change_name", args=[100]),
+            data={"name": "new_name"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(response.content, {"data": "Não foi encontrado personagem com esse ID"})
+
+    def test_change_character_name_sucess(self):
+        character = Character.objects.get(name="witch3")
+        response = self.client.post(
+            reverse("facetexture_change_name", args=[character.id]),
+            data={"name": "new_name"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"data": "Nome atualizado com sucesso"})
+
+    def test_new_character_limit_exceeded(self):
+
+        for i in range(32):
+            Character.objects.create(
+                user=self.user,
+                name=f"new_character_{i}",
+                show=False,
+                bdoClass=self.bdo_class_witch,
+                image=f"witch_{i}.png",
+                order=i,
+                upload=True,
+            )
+
+        response = self.client.post(
+            reverse("facetexture_new_character"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {"data": "O limite de facetexture são 32!"})
+
+    def test_new_character_no_character(self):
+        response = self.client.post(
+            reverse("facetexture_new_character"),
+            data={"name": "teste", "visible": True, "classId": 100},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {"data": "Classe não encontrada"})
+
+    @patch("facetexture.views.get_bdo_class_image_url")
+    def test_new_character_sucess(self,mock_get_bdo_class_image_url):
+        class_image_url = "http://testserver/static/images/class_image.png"
+        mock_get_bdo_class_image_url.return_value = class_image_url
+
+        response = self.client.post(
+            reverse("facetexture_new_character"),
+            data={"name": "teste_sucesso", "visible": True, "classId": self.bdo_class_witch.id},
+            content_type="application/json",
+        )
+
+        character = Character.objects.filter(name="teste_sucesso").first()
+        self.assertIsNotNone(character)
+        expected_json = {
+            "character": {
+                "class": {
+                    "abbreviation": "Wt",
+                    "class_image": class_image_url,
+                    "id": 2,
+                    "name": "Witch",
+                },
+                "id": character.id,
+                "image": class_image_url,
+                "name": "teste_sucesso",
+                "order": 4,
+                "show": True,
+                "upload": False,
             }
-        })
-
-
-
+        }
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, expected_json)
