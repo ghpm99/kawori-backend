@@ -374,8 +374,17 @@ class GetBDOClassSymbolURLTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertJSONEqual(response.content, {"data": "Classe não encontrada"})
 
+    def test_new_character_no_body(self):
+        response = self.client.post(
+            reverse("facetexture_new_character"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(response.content, {"data": "Classe não encontrada"})
+
     @patch("facetexture.views.get_bdo_class_image_url")
-    def test_new_character_sucess(self,mock_get_bdo_class_image_url):
+    def test_new_character_sucess(self, mock_get_bdo_class_image_url):
         class_image_url = "http://testserver/static/images/class_image.png"
         mock_get_bdo_class_image_url.return_value = class_image_url
 
@@ -405,3 +414,67 @@ class GetBDOClassSymbolURLTest(TestCase):
         }
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, expected_json)
+
+    def test_change_show_class_no_character(self):
+        response = self.client.post(
+            reverse("facetexture_change_show_class_icon", args=[100]),
+            data={"show": True},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(response.content, {"data": "Não foi encontrado personagem com esse ID"})
+
+    def test_change_show_class_no_data(self):
+        response = self.client.post(
+            reverse("facetexture_change_show_class_icon", args=[100]),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(response.content, {"data": "Não foi encontrado personagem com esse ID"})
+
+    def test_change_show_class_sucess(self):
+        character = Character.objects.get(name="witch3")
+        self.assertFalse(character.show)
+        response = self.client.post(
+            reverse("facetexture_change_show_class_icon", args=[character.id]),
+            data={"show": True},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"data": "Visibilidade atualizado com sucesso"})
+        character = Character.objects.get(name="witch3")
+        self.assertTrue(character.show)
+
+    def test_delete_character_no_character(self):
+        response = self.client.post(
+            reverse("facetexture_delete_character", args=[100]),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(response.content, {"data": "Não foi encontrado personagem com esse ID"})
+
+    def test_delete_character_sucess(self):
+
+        character = Character.objects.get(name="witch1")
+        self.assertTrue(character.active)
+
+        response = self.client.post(
+            reverse("facetexture_delete_character", args=[character.id]),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"data": "Personagem deletado com sucesso"})
+
+        character = Character.objects.get(name="witch1")
+
+        self.assertFalse(character.active)
+
+    def test_get_symbol_class_view(self):
+        response = self.client.get(reverse("facetexture_get_symbol_class", args=[1]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")

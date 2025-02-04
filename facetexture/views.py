@@ -429,7 +429,7 @@ def change_show_class_icon(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"})
+        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
     character.show = new_value
     character.save()
@@ -445,7 +445,7 @@ def delete_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"})
+        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
     character.active = False
     character.save()
