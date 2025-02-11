@@ -17,16 +17,6 @@ from payment.models import Payment
 from tag.models import Tag
 
 
-
-
-
-
-
-
-
-
-
-
 @add_cors_react_dev
 @validate_super_user
 @require_GET
@@ -407,7 +397,11 @@ def report_payment_view(request, user):
         cursor.execute(query_fixed_credit, filters)
         fixed_credit = cursor.fetchone()
 
-    data = {"payments": payments_data, "fixed_debit": float(fixed_debit[0] or 0), "fixed_credit": float(fixed_credit[0] or 0)}
+    data = {
+        "payments": payments_data,
+        "fixed_debit": float(fixed_debit[0] or 0),
+        "fixed_credit": float(fixed_credit[0] or 0),
+    }
 
     return JsonResponse({"data": data})
 
@@ -714,17 +708,6 @@ def save_tag_invoice_view(request, id, user):
     return JsonResponse({"msg": "ok"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_super_user
-@require_POST
-def update_all_contracts_value(request, user):
-    contracts = Contract.objects.all()
-    for contract in contracts:
-        update_contract_value(contract)
-    return JsonResponse({"msg": "ok"})
-
-
 @add_cors_react_dev
 @validate_super_user
 @require_GET
@@ -930,6 +913,8 @@ def report_forecast_amount_value(request, user):
 
     values = [float(value[0]) for value in debit_values]
 
+    if values.__len__() == 0:
+        return JsonResponse({"data": 0})
     debit_percentil = numpy.percentile(values, 90)
 
     forecast_value = debit_percentil * 6

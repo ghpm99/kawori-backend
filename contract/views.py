@@ -163,3 +163,14 @@ def merge_contract_view(request, id, user):
     update_contract_value(contract)
 
     return JsonResponse({"msg": "Contratos mesclados com sucesso!"})
+
+
+@csrf_exempt
+@add_cors_react_dev
+@validate_super_user
+@require_POST
+def update_all_contracts_value(request, user):
+    contracts = Contract.objects.all()
+    for contract in contracts:
+        update_contract_value(contract)
+    return JsonResponse({"msg": "ok"})
