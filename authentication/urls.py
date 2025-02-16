@@ -11,6 +11,7 @@ from kawori.decorators import add_cors_react_dev
 from . import views
 
 urlpatterns = [
+    path("csrf/", views.csrf_token_view, name="auth_csrf"),
     path("token/", views.obtain_token_pair, name="da_token_obtain_pair"),
     path(
         "token/verify/",

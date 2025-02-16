@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.http import HttpResponse, JsonResponse
 from rest_framework_simplejwt.tokens import AccessToken
@@ -6,9 +7,10 @@ from rest_framework_simplejwt.tokens import AccessToken
 def add_cors_react_dev(func):
     def add_cors_react_dev_response(response):
 
-        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Origin'] = settings.BASE_URL_FRONTEND
+        response["Access-Control-Allow-Credentials"] = "true"
         response['Access-Control-Allow-Methods'] = '*'
-        response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, *'
+        response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, Accept, Origin, User-Agent, Referer, Host, Connection, Access-Control-Request-Method, Access-Control-Request-Headers, access-control-allow-origin'
 
         return response
 

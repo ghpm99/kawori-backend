@@ -1,10 +1,11 @@
 import json
 from datetime import datetime
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 
@@ -12,7 +13,13 @@ from authentication.utils import get_token
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
-@csrf_exempt
+@ensure_csrf_cookie
+@add_cors_react_dev
+def csrf_token_view(request):
+    return JsonResponse({"detail": "CSRF cookie set"})
+
+
+@csrf_protect
 @add_cors_react_dev
 @require_POST
 def obtain_token_pair(request: HttpRequest) -> JsonResponse:
@@ -41,7 +48,18 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     user.save()
     tokens = get_token(user)
 
-    return JsonResponse({'tokens': tokens})
+    response = JsonResponse({'tokens': tokens})
+
+    response.set_cookie(
+        "acess_token",
+        tokens['access'],
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
+    )
+
+    return response
 
 
 @csrf_exempt
