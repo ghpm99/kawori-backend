@@ -19,7 +19,6 @@ def csrf_token_view(request):
     return JsonResponse({"detail": "CSRF cookie set"})
 
 
-@csrf_protect
 @add_cors_react_dev
 @require_POST
 def obtain_token_pair(request: HttpRequest) -> JsonResponse:
