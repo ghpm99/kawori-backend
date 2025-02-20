@@ -173,3 +173,13 @@ def validate_token_admin(func):
         return func(request, user=user, *args, **kwargs)
 
     return inner
+
+
+def move_cookie_token_to_header(func):
+    def inner(request, *args, **kwargs):
+        if "acess_token" in request.COOKIES:
+            request.META["HTTP_AUTHORIZATION"] = f"Bearer {request.COOKIES['acess_token']}"
+        print(request.META["HTTP_AUTHORIZATION"])
+        return func(request, *args, **kwargs)
+
+    return inner

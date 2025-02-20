@@ -8,15 +8,11 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.exceptions import AuthenticationFailed
 
 from authentication.utils import get_token
 from kawori.decorators import add_cors_react_dev, validate_user
-
-
-@ensure_csrf_cookie
-@add_cors_react_dev
-def csrf_token_view(request):
-    return JsonResponse({"detail": "CSRF cookie set"})
 
 
 @add_cors_react_dev
@@ -59,6 +55,24 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     )
 
     return response
+
+
+@add_cors_react_dev
+@ensure_csrf_cookie
+def verify_token(request: HttpRequest) -> JsonResponse:
+
+    if not "acess_token" in request.COOKIES:
+        return JsonResponse({'msg': 'Token não encontrado'}, status=403)
+
+    try:
+        acess_token = request.COOKIES['acess_token']
+        token = AccessToken(acess_token)
+        token.verify()
+        return JsonResponse({'msg': 'Token válido'})
+    except AuthenticationFailed:
+        return JsonResponse({"error": "Token inválido", "valid": False}, status=403)
+    except Exception as e:
+        return JsonResponse({"error": str(e), "valid": False}, status=500)
 
 
 @csrf_exempt
