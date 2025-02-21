@@ -113,6 +113,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ALGORITHM": "HS256",
 }
+ACCESS_TOKEN_NAME = "access_token"
+REFRESH_TOKEN_NAME = "refresh_token"
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from weakref import ref
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -8,7 +9,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
 
 from authentication.utils import get_token
@@ -41,17 +42,27 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         user.last_login = datetime.now(tz=timezone.utc)
 
     user.save()
-    tokens = get_token(user)
+    access_token = AccessToken.for_user(user)
+    refresh_token = RefreshToken.for_user(user)
 
-    response = JsonResponse({'tokens': tokens})
+    response = JsonResponse({'msg': 'Token criado com sucesso!'})
 
     response.set_cookie(
-        "acess_token",
-        tokens['access'],
+        settings.ACCESS_TOKEN_NAME,
+        str(access_token),
         httponly=True,
         secure=True,
         samesite='Strict',
-        expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
+        max_age=access_token.lifetime,
+    )
+
+    response.set_cookie(
+        settings.REFRESH_TOKEN_NAME,
+        str(refresh_token),
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        max_age=refresh_token.lifetime,
     )
 
     return response
@@ -61,12 +72,12 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 @ensure_csrf_cookie
 def verify_token(request: HttpRequest) -> JsonResponse:
 
-    if not "acess_token" in request.COOKIES:
+    access_token = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
+    if access_token is None:
         return JsonResponse({'msg': 'Token não encontrado'}, status=403)
 
     try:
-        acess_token = request.COOKIES['acess_token']
-        token = AccessToken(acess_token)
+        token = AccessToken(access_token)
         token.verify()
         return JsonResponse({'msg': 'Token válido'})
     except AuthenticationFailed:

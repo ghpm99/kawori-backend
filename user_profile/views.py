@@ -6,10 +6,9 @@ from django.views.decorators.http import require_GET
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
-# Create your views here.
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_user("user")
 @require_GET
 def user_view(request: HttpRequest, user: User) -> JsonResponse:
 
