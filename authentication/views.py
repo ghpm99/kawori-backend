@@ -6,13 +6,13 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie, csrf_protect
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
 
-from authentication.utils import get_default_group, get_token
+from authentication.utils import register_groups
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
@@ -86,7 +86,6 @@ def verify_token(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": str(e), "valid": False}, status=500)
 
 
-@csrf_exempt
 @add_cors_react_dev
 @require_POST
 def signup_view(request: HttpRequest) -> JsonResponse:
@@ -122,7 +121,6 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     user.last_name = last_name
     user.save()
 
-    group = get_default_group()
-    group.user_set.add(user)
+    register_groups(user)
 
     return JsonResponse({'msg': 'Usuário criado com sucesso!'})

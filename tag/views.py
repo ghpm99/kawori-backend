@@ -5,12 +5,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 
-from kawori.decorators import add_cors_react_dev, validate_super_user
+from kawori.decorators import add_cors_react_dev, validate_user
 from tag.models import Tag
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def get_all_tag_view(request, user):
     req = request.GET
@@ -32,7 +32,7 @@ def get_all_tag_view(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def include_new_tag_view(request, user):
     data = json.loads(request.body)

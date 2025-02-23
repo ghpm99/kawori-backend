@@ -7,7 +7,6 @@ from django.db import connection
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 from kawori.utils import get_image_class, get_symbol_class
@@ -26,7 +25,7 @@ def get_bdo_class_symbol_url(class_id):
 
 
 @add_cors_react_dev
-@validate_user("user")
+@validate_user("blackdesert")
 @require_GET
 def get_facetexture_config(request, user):
 
@@ -55,9 +54,9 @@ def get_facetexture_config(request, user):
     return JsonResponse({"characters": data})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
-@validate_user("user")
+@validate_user("blackdesert")
 @require_POST
 def save_detail_view(request, user):
 
@@ -76,7 +75,7 @@ def save_detail_view(request, user):
 
 
 @add_cors_react_dev
-@validate_user("user")
+@validate_user("blackdesert")
 @require_GET
 def get_bdo_class(request, user):
 
@@ -106,10 +105,10 @@ def get_bdo_class(request, user):
     return JsonResponse({"class": bdo_class})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def preview_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -163,10 +162,10 @@ def preview_background(request, user):
     return response
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def download_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -227,10 +226,10 @@ def download_background(request, user):
     return response
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def reorder_character(request, user, id):
     data = json.loads(request.body)
     index_destination = data.get("index_destination")
@@ -307,10 +306,10 @@ def reorder_character(request, user, id):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def change_class_character(request, user, id):
 
     data = json.loads(request.body)
@@ -341,10 +340,10 @@ def change_class_character(request, user, id):
     )
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def change_character_name(request, user, id):
 
     data = json.loads(request.body)
@@ -361,10 +360,10 @@ def change_character_name(request, user, id):
     return JsonResponse({"data": "Nome atualizado com sucesso"})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
 
@@ -417,10 +416,10 @@ def new_character(request, user):
     return JsonResponse({"character": character_data})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def change_show_class_icon(request, user, id):
 
     data = json.loads(request.body)
@@ -437,10 +436,10 @@ def change_show_class_icon(request, user, id):
     return JsonResponse({"data": "Visibilidade atualizado com sucesso"})
 
 
-@csrf_exempt
+
 @add_cors_react_dev
 @require_POST
-@validate_user("user")
+@validate_user("blackdesert")
 def delete_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 

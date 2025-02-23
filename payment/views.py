@@ -10,13 +10,13 @@ from django.views.decorators.http import require_GET, require_POST
 
 from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_super_user
+from kawori.decorators import add_cors_react_dev, validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def get_all_view(request, user):
     req = request.GET
@@ -83,7 +83,7 @@ def get_all_view(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def save_new_view(request, user):
     data = json.loads(request.body)
@@ -115,7 +115,7 @@ def save_new_view(request, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def get_payments_month(request, user):
     date_referrer = datetime.now().date()
@@ -199,7 +199,7 @@ def get_payments_month(request, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def detail_view(request, id, user):
     data = Payment.objects.filter(id=id, user=user).first()
@@ -229,7 +229,7 @@ def detail_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
@@ -276,7 +276,7 @@ def save_detail_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def payoff_detail_view(request, id, user):
     payment = Payment.objects.filter(id=id, user=user).first()

@@ -18,4 +18,5 @@ urlpatterns = [
         name="da_token_refresh",
     ),
     path("signup", views.signup_view, name="auth_signup"),
+
 ]

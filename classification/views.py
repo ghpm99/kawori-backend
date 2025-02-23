@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 
 @add_cors_react_dev
-@validate_user
+@validate_user("blackdesert")
 @require_GET
 def get_all_questions(request, user):
     question_list = Question.objects.order_by('id')
@@ -25,7 +25,7 @@ def get_all_questions(request, user):
 
 
 @add_cors_react_dev
-@validate_user
+@validate_user("blackdesert")
 @require_GET
 def get_all_answers(request, user):
     answer_list = Answer.objects.filter(user=user).order_by('-id')
@@ -44,7 +44,7 @@ def get_all_answers(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_user("blackdesert")
 @require_POST
 def register_answer(request, user):
     data = json.loads(request.body)

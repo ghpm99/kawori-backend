@@ -7,12 +7,12 @@ from django.views.decorators.http import require_GET, require_POST
 from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_super_user
+from kawori.decorators import add_cors_react_dev, validate_user
 from kawori.utils import paginate
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def get_all_contract_view(request, user):
     req = request.GET
@@ -43,7 +43,7 @@ def get_all_contract_view(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
@@ -54,7 +54,7 @@ def save_new_contract_view(request, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def detail_contract_view(request, id, user):
     data = Contract.objects.filter(id=id).first()
@@ -74,7 +74,7 @@ def detail_contract_view(request, id, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
@@ -105,7 +105,7 @@ def detail_contract_invoices_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
@@ -143,7 +143,7 @@ def include_new_invoice_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
@@ -167,7 +167,7 @@ def merge_contract_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def update_all_contracts_value(request, user):
     contracts = Contract.objects.all()

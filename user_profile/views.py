@@ -1,12 +1,10 @@
 from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
-@csrf_exempt
 @add_cors_react_dev
 @validate_user("user")
 @require_GET
@@ -25,3 +23,17 @@ def user_view(request: HttpRequest, user: User) -> JsonResponse:
         'last_login': user.last_login,
         'date_joined': user.date_joined,
     })
+
+
+@add_cors_react_dev
+@require_GET
+@validate_user("user")
+def user_groups(request: HttpRequest, user: User) -> JsonResponse:
+    groups = user.groups.all()
+
+    data = []
+
+    for group in groups:
+        data.append(group.name)
+
+    return JsonResponse({'data': data})

@@ -9,10 +9,14 @@ def get_token(user: User) -> dict:
         'access': str(refresh.access_token),
     }
 
-def get_default_group() -> Group:
-    group = Group.objects.filter(name="user").first()
 
-    if group is None:
-        group = Group.objects.create(name="user")
+def register_groups(user: User) -> None:
+    user_group = Group.objects.filter(name="user").first()
 
-    return group
+    if user_group is not None:
+        user_group.user_set.add(user)
+
+    black_desert_group = Group.objects.filter(name="blackdesert").first()
+
+    if black_desert_group is not None:
+        black_desert_group.user_set.add(user)

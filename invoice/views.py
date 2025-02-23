@@ -7,14 +7,14 @@ from django.views.decorators.http import require_GET, require_POST
 
 
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_super_user
+from kawori.decorators import add_cors_react_dev, validate_user
 from kawori.utils import format_date, paginate
 from payment.models import Payment
 
 
 # Create your views here.
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def get_all_invoice_view(request, user):
     req = request.GET
@@ -60,7 +60,7 @@ def get_all_invoice_view(request, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def detail_invoice_view(request, id, user):
 
@@ -93,7 +93,7 @@ def detail_invoice_view(request, id, user):
 
 
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_GET
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
@@ -121,7 +121,7 @@ def detail_invoice_payments_view(request, id, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_super_user
+@validate_user("financial")
 @require_POST
 def save_tag_invoice_view(request, id, user):
 
