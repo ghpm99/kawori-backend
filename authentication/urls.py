@@ -17,6 +17,5 @@ urlpatterns = [
         add_cors_react_dev(move_cookie_token_to_header(TokenRefreshView.as_view())),
         name="da_token_refresh",
     ),
-    path("user", views.user_view, name="auth_user"),
     path("signup", views.signup_view, name="auth_signup"),
 ]

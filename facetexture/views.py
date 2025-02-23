@@ -26,7 +26,7 @@ def get_bdo_class_symbol_url(class_id):
 
 
 @add_cors_react_dev
-@validate_user
+@validate_user("user")
 @require_GET
 def get_facetexture_config(request, user):
 
@@ -57,7 +57,7 @@ def get_facetexture_config(request, user):
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
+@validate_user("user")
 @require_POST
 def save_detail_view(request, user):
 
@@ -76,7 +76,7 @@ def save_detail_view(request, user):
 
 
 @add_cors_react_dev
-@validate_user
+@validate_user("user")
 @require_GET
 def get_bdo_class(request, user):
 
@@ -109,7 +109,7 @@ def get_bdo_class(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def preview_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -166,7 +166,7 @@ def preview_background(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def download_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -230,7 +230,7 @@ def download_background(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def reorder_character(request, user, id):
     data = json.loads(request.body)
     index_destination = data.get("index_destination")
@@ -310,7 +310,7 @@ def reorder_character(request, user, id):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def change_class_character(request, user, id):
 
     data = json.loads(request.body)
@@ -344,7 +344,7 @@ def change_class_character(request, user, id):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def change_character_name(request, user, id):
 
     data = json.loads(request.body)
@@ -364,7 +364,7 @@ def change_character_name(request, user, id):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
 
@@ -420,7 +420,7 @@ def new_character(request, user):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def change_show_class_icon(request, user, id):
 
     data = json.loads(request.body)
@@ -440,7 +440,7 @@ def change_show_class_icon(request, user, id):
 @csrf_exempt
 @add_cors_react_dev
 @require_POST
-@validate_user
+@validate_user("user")
 def delete_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 

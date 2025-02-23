@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
 
-from authentication.utils import get_token
+from authentication.utils import get_default_group, get_token
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
@@ -88,27 +88,6 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
 @csrf_exempt
 @add_cors_react_dev
-@validate_user
-@require_GET
-def user_view(request: HttpRequest, user: User) -> JsonResponse:
-
-    return JsonResponse({
-        'id': user.id,
-        'name': user.get_full_name(),
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        'is_staff': user.is_staff,
-        'is_active': user.is_active,
-        'is_superuser': user.is_superuser,
-        'last_login': user.last_login,
-        'date_joined': user.date_joined,
-    })
-
-
-@csrf_exempt
-@add_cors_react_dev
 @require_POST
 def signup_view(request: HttpRequest) -> JsonResponse:
     data = json.loads(request.body)
@@ -142,4 +121,8 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     user.first_name = name
     user.last_name = last_name
     user.save()
+
+    group = get_default_group()
+    group.user_set.add(user)
+
     return JsonResponse({'msg': 'Usuário criado com sucesso!'})
