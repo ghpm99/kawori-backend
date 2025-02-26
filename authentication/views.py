@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
 
-from authentication.utils import register_groups
+from authentication.utils import refresh_access_token, register_groups
 from kawori.decorators import add_cors_react_dev, validate_user
 
 
@@ -22,19 +22,19 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     req = json.loads(request.body)
     err = []
 
-    if not req.get('username'):
-        err.append({'username': 'Este campo é obrigatório'})
-    if not req.get('password'):
-        err.append({'password': 'Este campo é obrigatório'})
+    if not req.get("username"):
+        err.append({"username": "Este campo é obrigatório"})
+    if not req.get("password"):
+        err.append({"password": "Este campo é obrigatório"})
     if err:
-        return JsonResponse({'errors': err}, status=400)
+        return JsonResponse({"errors": err}, status=400)
 
-    user = authenticate(username=req.get('username'), password=req.get('password'))
+    user = authenticate(username=req.get("username"), password=req.get("password"))
 
     if not user:
-        return JsonResponse({'msg': 'Dados incorretos.'}, status=404)
+        return JsonResponse({"msg": "Dados incorretos."}, status=404)
     if not user.is_active:
-        return JsonResponse({'msg': 'Este usuário não está ativo.'}, status=403)
+        return JsonResponse({"msg": "Este usuário não está ativo."}, status=403)
 
     if user.last_login:
         user.last_login = datetime.now(tz=user.last_login.tzinfo)
@@ -45,14 +45,14 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     access_token = AccessToken.for_user(user)
     refresh_token = RefreshToken.for_user(user)
 
-    response = JsonResponse({'msg': 'Token criado com sucesso!'})
+    response = JsonResponse({"msg": "Token criado com sucesso!"})
 
     response.set_cookie(
         settings.ACCESS_TOKEN_NAME,
         str(access_token),
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite="Strict",
         max_age=access_token.lifetime,
     )
 
@@ -61,9 +61,20 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         str(refresh_token),
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite="Strict",
         max_age=refresh_token.lifetime,
     )
+
+    return response
+
+
+@add_cors_react_dev
+@require_GET
+def signout_view(request: HttpRequest) -> JsonResponse:
+    response = JsonResponse({"msg": "Deslogou"})
+
+    response.delete_cookie(settings.ACCESS_TOKEN_NAME)
+    response.delete_cookie(settings.REFRESH_TOKEN_NAME)
 
     return response
 
@@ -73,17 +84,40 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 def verify_token(request: HttpRequest) -> JsonResponse:
 
     access_token = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
-    if access_token is None:
-        return JsonResponse({'msg': 'Token não encontrado'}, status=403)
+    refresh_token = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
+
+    if access_token is None and refresh_token is None:
+        return JsonResponse({"msg": "Token não encontrado"}, status=403)
 
     try:
-        token = AccessToken(access_token)
+        json_response = JsonResponse({"msg": "Token válido"})
+
+        print(access_token is None, refresh_token is None)
+        print(access_token, refresh_token)
+        if access_token is None:
+            token = refresh_access_token(refresh_token)
+            json_response.set_cookie(
+                settings.ACCESS_TOKEN_NAME,
+                str(access_token),
+                httponly=True,
+                secure=True,
+                samesite="Strict",
+                max_age=token.lifetime,
+            )
+
+        else:
+            token = AccessToken(access_token)
+
         token.verify()
-        return JsonResponse({'msg': 'Token válido'})
-    except AuthenticationFailed:
-        return JsonResponse({"error": "Token inválido", "valid": False}, status=403)
+
+        return json_response
     except Exception as e:
-        return JsonResponse({"error": str(e), "valid": False}, status=500)
+        json_response = JsonResponse({"error": str(e), "valid": False}, status=403)
+
+        json_response.delete_cookie(settings.ACCESS_TOKEN_NAME)
+        json_response.delete_cookie(settings.REFRESH_TOKEN_NAME)
+
+        return json_response
 
 
 @add_cors_react_dev
@@ -91,36 +125,32 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 def signup_view(request: HttpRequest) -> JsonResponse:
     data = json.loads(request.body)
 
-    required_fields = ['username', 'password', 'email', 'name', 'last_name']
+    required_fields = ["username", "password", "email", "name", "last_name"]
     for field in required_fields:
         if not data.get(field):
-            return JsonResponse({'msg': 'Todos os campos são obrigatórios.'}, status=400)
+            return JsonResponse({"msg": "Todos os campos são obrigatórios."}, status=400)
 
-    username = data['username']
-    password = data['password']
-    email = data['email']
-    name = data['name']
-    last_name = data['last_name']
+    username = data["username"]
+    password = data["password"]
+    email = data["email"]
+    name = data["name"]
+    last_name = data["last_name"]
 
     username_exists = User.objects.filter(username=username).exists()
 
     if username_exists:
-        return JsonResponse({'msg': 'Usuário já cadastrado'}, status=400)
+        return JsonResponse({"msg": "Usuário já cadastrado"}, status=400)
 
     email_exists = User.objects.filter(email=email).exists()
 
     if email_exists:
-        return JsonResponse({'msg': 'E-mail já cadastrado'}, status=400)
+        return JsonResponse({"msg": "E-mail já cadastrado"}, status=400)
 
-    user = User.objects.create_user(
-        username=username,
-        password=password,
-        email=email
-    )
+    user = User.objects.create_user(username=username, password=password, email=email)
     user.first_name = name
     user.last_name = last_name
     user.save()
 
     register_groups(user)
 
-    return JsonResponse({'msg': 'Usuário criado com sucesso!'})
+    return JsonResponse({"msg": "Usuário criado com sucesso!"})

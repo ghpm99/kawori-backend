@@ -3,7 +3,9 @@ from typing import Iterable
 from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+
+from authentication.utils import refresh_access_token
 
 
 def add_cors_react_dev(func):
@@ -31,23 +33,28 @@ def add_cors_react_dev(func):
 def validate_user(group: str):
 
     def decorator(view_func):
+
         @wraps(view_func)
         def _wrapped_view(request: HttpRequest, *args, **kwargs):
-            token = (
-                request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
-                if request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
-                else None
-            )
+            expired_token = True
 
-            if not token:
+            access_token = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
+            refresh_token = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
+
+            if not access_token and not refresh_token:
                 return JsonResponse({"msg": "Empty authorization."}, status=403)
 
             user_data = {}
 
             try:
-                user_data = AccessToken(token)
+                user_data = AccessToken(access_token)
+                expired_token = False
             except Exception as err:
-                return JsonResponse({"msg": str(err)}, status=401)
+                if refresh_token is None:
+                    return JsonResponse({"msg": str(err)}, status=401)
+
+            if expired_token:
+                user_data = refresh_access_token(refresh_token)
 
             user_id = user_data.get("user_id")
             user = User.objects.get(id=user_id)
