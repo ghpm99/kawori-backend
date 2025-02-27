@@ -3,6 +3,7 @@ from datetime import datetime
 from weakref import ref
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
@@ -45,6 +46,9 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     access_token = AccessToken.for_user(user)
     refresh_token = RefreshToken.for_user(user)
 
+    print('user data access_token', access_token.payload)
+    print('user data refresh_token', refresh_token.payload)
+
     response = JsonResponse({"msg": "Token criado com sucesso!"})
 
     response.set_cookie(
@@ -61,7 +65,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         str(refresh_token),
         httponly=True,
         secure=True,
-        samesite="Strict",
+        samesite="Lax",
         max_age=refresh_token.lifetime,
     )
 
@@ -92,8 +96,6 @@ def verify_token(request: HttpRequest) -> JsonResponse:
     try:
         json_response = JsonResponse({"msg": "Token válido"})
 
-        print(access_token is None, refresh_token is None)
-        print(access_token, refresh_token)
         if access_token is None:
             token = refresh_access_token(refresh_token)
             json_response.set_cookie(
@@ -107,6 +109,7 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
         else:
             token = AccessToken(access_token)
+
 
         token.verify()
 

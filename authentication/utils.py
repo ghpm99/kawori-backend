@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User, Group
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
 from rest_framework.exceptions import AuthenticationFailed
 
 
@@ -23,6 +23,6 @@ def register_groups(user: User) -> None:
         black_desert_group.user_set.add(user)
 
 
-def refresh_access_token(refresh_token):
+def refresh_access_token(refresh_token) -> AccessToken:
     refresh = RefreshToken(refresh_token)
     return refresh.access_token

@@ -38,34 +38,52 @@ def validate_user(group: str):
         def _wrapped_view(request: HttpRequest, *args, **kwargs):
             expired_token = True
 
-            access_token = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
-            refresh_token = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
+            access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
+            refresh_token_cookie = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
 
-            if not access_token and not refresh_token:
+            print("==================cookies================")
+            print(access_token_cookie)
+            print(refresh_token_cookie)
+            print("=========================================")
+
+            if not access_token_cookie and not refresh_token_cookie:
                 return JsonResponse({"msg": "Empty authorization."}, status=403)
 
             user_data = {}
 
             try:
-                user_data = AccessToken(access_token)
-                expired_token = False
-            except Exception as err:
-                if refresh_token is None:
-                    return JsonResponse({"msg": str(err)}, status=401)
 
-            if expired_token:
-                user_data = refresh_access_token(refresh_token)
+                access_token = AccessToken(access_token_cookie) if access_token_cookie else None
+                refresh_token = RefreshToken(refresh_token_cookie) if refresh_token_cookie else None
+
+                print("==================user data================")
+                print("user data access_token", access_token.payload if access_token else None)
+                print("user data refresh_token", refresh_token.payload if refresh_token else None)
+                print("=========================================")
+
+                user_data = refresh_token if access_token is None else access_token
+
+            except Exception as err:
+                return JsonResponse({"msg": str(err)}, status=401)
 
             user_id = user_data.get("user_id")
+
+            print("user_data", user_data.payload)
+            print("user_id", user_id)
+
+            if not user_id:
+                return JsonResponse({"msg": "User not found."}, status=403)
+
             user = User.objects.get(id=user_id)
 
             if not user:
-                return JsonResponse({"msg": "User not found."}, status=404)
+                return JsonResponse({"msg": "User not found."}, status=403)
             if not user.is_active:
                 return JsonResponse({"msg": "User not active."}, status=403)
 
             if not user.groups.filter(name=group).exists():
                 return JsonResponse({"msg": "User does not have permission to access this module."}, status=403)
+
 
 
             return view_func(request, user=user, *args, **kwargs)
