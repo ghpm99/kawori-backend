@@ -10,7 +10,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 from kawori.utils import get_image_class, get_symbol_class
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from facetexture.models import Facetexture, BDOClass, Character
 from PIL import Image, ImageOps
 from django.templatetags.static import static
@@ -24,9 +24,8 @@ def get_bdo_class_symbol_url(class_id):
     return settings.BASE_URL + reverse("facetexture_get_symbol_class", args=[class_id])
 
 
-@add_cors_react_dev
-@validate_user("blackdesert")
 @require_GET
+@validate_user("blackdesert")
 def get_facetexture_config(request, user):
 
     characters = Character.objects.filter(user=user, active=True).all().order_by("order")
@@ -54,10 +53,8 @@ def get_facetexture_config(request, user):
     return JsonResponse({"characters": data})
 
 
-
-@add_cors_react_dev
-@validate_user("blackdesert")
 @require_POST
+@validate_user("blackdesert")
 def save_detail_view(request, user):
 
     data = json.loads(request.body)
@@ -74,9 +71,8 @@ def save_detail_view(request, user):
     return JsonResponse({"msg": "Facetexture atualizado com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("blackdesert")
 @require_GET
+@validate_user("blackdesert")
 def get_bdo_class(request, user):
 
     def orderFunc(e):
@@ -105,8 +101,6 @@ def get_bdo_class(request, user):
     return JsonResponse({"class": bdo_class})
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def preview_background(request, user):
@@ -162,8 +156,6 @@ def preview_background(request, user):
     return response
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def download_background(request, user):
@@ -226,8 +218,6 @@ def download_background(request, user):
     return response
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def reorder_character(request, user, id):
@@ -306,8 +296,6 @@ def reorder_character(request, user, id):
     return JsonResponse({"data": data})
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def change_class_character(request, user, id):
@@ -340,8 +328,6 @@ def change_class_character(request, user, id):
     )
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def change_character_name(request, user, id):
@@ -360,8 +346,6 @@ def change_character_name(request, user, id):
     return JsonResponse({"data": "Nome atualizado com sucesso"})
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def new_character(request, user):
@@ -416,8 +400,6 @@ def new_character(request, user):
     return JsonResponse({"character": character_data})
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def change_show_class_icon(request, user, id):
@@ -436,8 +418,6 @@ def change_show_class_icon(request, user, id):
     return JsonResponse({"data": "Visibilidade atualizado com sucesso"})
 
 
-
-@add_cors_react_dev
 @require_POST
 @validate_user("blackdesert")
 def delete_character(request, user, id):
@@ -452,7 +432,6 @@ def delete_character(request, user, id):
     return JsonResponse({"data": "Personagem deletado com sucesso"})
 
 
-@add_cors_react_dev
 @require_GET
 def get_symbol_class_view(request, id):
 
@@ -475,7 +454,6 @@ def get_symbol_class_view(request, id):
     return FileResponse(buffer, content_type="image/png")
 
 
-@add_cors_react_dev
 @require_GET
 def get_image_class_view(request, id):
 

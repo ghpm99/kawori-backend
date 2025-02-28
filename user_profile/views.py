@@ -2,30 +2,30 @@ from django.contrib.auth.models import User
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET
 
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 
 
-@add_cors_react_dev
-@validate_user("user")
 @require_GET
+@validate_user("user")
 def user_view(request: HttpRequest, user: User) -> JsonResponse:
 
-    return JsonResponse({
-        'id': user.id,
-        'name': user.get_full_name(),
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        'is_staff': user.is_staff,
-        'is_active': user.is_active,
-        'is_superuser': user.is_superuser,
-        'last_login': user.last_login,
-        'date_joined': user.date_joined,
-    })
+    return JsonResponse(
+        {
+            "id": user.id,
+            "name": user.get_full_name(),
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "is_staff": user.is_staff,
+            "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+            "last_login": user.last_login,
+            "date_joined": user.date_joined,
+        }
+    )
 
 
-@add_cors_react_dev
 @require_GET
 @validate_user("user")
 def user_groups(request: HttpRequest, user: User) -> JsonResponse:
@@ -36,4 +36,4 @@ def user_groups(request: HttpRequest, user: User) -> JsonResponse:
     for group in groups:
         data.append(group.name)
 
-    return JsonResponse({'data': data})
+    return JsonResponse({"data": data})

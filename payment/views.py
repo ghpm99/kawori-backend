@@ -4,20 +4,18 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from django.db import connection
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 
 from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_view(request, user):
     req = request.GET
     filters = {}
@@ -29,23 +27,15 @@ def get_all_view(request, user):
     if req.get("name__icontains"):
         filters["name__icontains"] = req.get("name__icontains")
     if req.get("date__gte"):
-        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(
-            2018, 1, 1
-        )
+        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(
-            req.get("date__lte")
-        ) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
     if req.get("installments"):
         filters["installments"] = req.get("installments")
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(
-            req.get("payment_date__gte")
-        ) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(
-            req.get("payment_date__lte")
-        ) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
     if req.get("fixed"):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
@@ -53,9 +43,7 @@ def get_all_view(request, user):
     if req.get("contract"):
         filters["invoice__contract__name__icontains"] = req.get("contract")
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by(
-        "payment_date"
-    )
+    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date")
 
     data = paginate(payments_query, req.get("page"), req.get("page_size"))
 
@@ -81,10 +69,8 @@ def get_all_view(request, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_new_view(request, user):
     data = json.loads(request.body)
 
@@ -114,9 +100,8 @@ def save_new_view(request, user):
     return JsonResponse({"msg": "Pagamento incluso com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_payments_month(request, user):
     date_referrer = datetime.now().date()
     date_start = date_referrer.replace(day=1)
@@ -198,9 +183,8 @@ def get_payments_month(request, user):
     return JsonResponse({"data": payments})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_view(request, id, user):
     data = Payment.objects.filter(id=id, user=user).first()
 
@@ -227,10 +211,8 @@ def detail_view(request, id, user):
     return JsonResponse({"data": payment})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id, user=user).first()
@@ -255,15 +237,11 @@ def save_detail_view(request, id, user):
         old_value = payment.value
         new_value = data.get("value")
 
-        invoice_value = (
-            float(payment.invoice.value_open - old_value) + new_value
-        )
+        invoice_value = float(payment.invoice.value_open - old_value) + new_value
         payment.invoice.value_open = invoice_value
         payment.invoice.save()
 
-        contract_value = (
-            float(payment.invoice.contract.value_open - old_value) + new_value
-        )
+        contract_value = float(payment.invoice.contract.value_open - old_value) + new_value
         payment.invoice.contract.value_open = contract_value
         payment.invoice.contract.save()
 
@@ -274,10 +252,8 @@ def save_detail_view(request, id, user):
     return JsonResponse({"msg": "ok"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def payoff_detail_view(request, id, user):
     payment = Payment.objects.filter(id=id, user=user).first()
 
@@ -309,31 +285,19 @@ def payoff_detail_view(request, id, user):
         new_invoice.tags.set(tags)
         generate_payments(new_invoice)
 
-        new_invoice.contract.value_open = (
-            new_invoice.contract.value_open or 0
-        ) + new_invoice.value
-        new_invoice.contract.value = (
-            new_invoice.contract.value or 0
-        ) + new_invoice.value
+        new_invoice.contract.value_open = (new_invoice.contract.value_open or 0) + new_invoice.value
+        new_invoice.contract.value = (new_invoice.contract.value or 0) + new_invoice.value
         new_invoice.contract.save()
 
     payment.status = Payment.STATUS_DONE
     payment.save()
 
-    payment.invoice.value_open = (
-        payment.invoice.value_open or 0
-    ) - payment.value
-    payment.invoice.value_closed = (
-        payment.invoice.value_closed or 0
-    ) + payment.value
+    payment.invoice.value_open = (payment.invoice.value_open or 0) - payment.value
+    payment.invoice.value_closed = (payment.invoice.value_closed or 0) + payment.value
     payment.invoice.save()
 
-    payment.invoice.contract.value_open = (
-        payment.invoice.contract.value_open or 0
-    ) - payment.value
-    payment.invoice.contract.value_closed = (
-        payment.invoice.contract.value_closed or 0
-    ) + payment.value
+    payment.invoice.contract.value_open = (payment.invoice.contract.value_open or 0) - payment.value
+    payment.invoice.contract.value_closed = (payment.invoice.contract.value_closed or 0) + payment.value
     payment.invoice.contract.save()
 
     return JsonResponse({"msg": "Pagamento baixado"})

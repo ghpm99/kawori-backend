@@ -2,20 +2,18 @@ import json
 from datetime import datetime, timedelta
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from kawori.utils import format_date, paginate
 from payment.models import Payment
 
 
 # Create your views here.
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_invoice_view(request, user):
     req = request.GET
     filters = {}
@@ -59,9 +57,8 @@ def get_all_invoice_view(request, user):
     return JsonResponse({'data': data})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_invoice_view(request, id, user):
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
@@ -92,9 +89,8 @@ def detail_invoice_view(request, id, user):
     return JsonResponse({'data': invoice})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
     payments_query = Payment.objects.filter(
@@ -119,10 +115,8 @@ def detail_invoice_payments_view(request, id, user):
     return JsonResponse({'data': data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_tag_invoice_view(request, id, user):
 
     data = json.loads(request.body)

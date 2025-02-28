@@ -1,14 +1,12 @@
-
 from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from kawori.decorators import add_cors_react_dev, validate_super_user
+from kawori.decorators import validate_user
 from kawori.utils import paginate
 
 
-@add_cors_react_dev
-@validate_super_user
 @require_GET
+@validate_user("admin")
 def get_all_members(request, user):
     req = request.GET
 
@@ -26,22 +24,24 @@ def get_all_members(request, user):
         cursor.execute(query)
         members = cursor.fetchall()
 
-    members = [{
-        'id': member[0],
-        'banned': member[1],
-        'id_discord': member[2],
-        'id_guild_discord': member[3],
-        'id_user_discord': member[4],
-        'nick': member[5]
-    } for member in members]
+    members = [
+        {
+            "id": member[0],
+            "banned": member[1],
+            "id_discord": member[2],
+            "id_guild_discord": member[3],
+            "id_user_discord": member[4],
+            "nick": member[5],
+        }
+        for member in members
+    ]
 
-    members = paginate(members, req.get('page'))
+    members = paginate(members, req.get("page"))
     return JsonResponse(members)
 
 
-@add_cors_react_dev
 @require_GET
-@validate_super_user
+@validate_user("admin")
 def get_all_guilds(request, user):
     req = request.GET
 
@@ -60,23 +60,25 @@ def get_all_guilds(request, user):
         cursor.execute(query)
         guilds = cursor.fetchall()
 
-    guilds = [{
-        'id': guild[0],
-        'active': guild[1],
-        'block': guild[2],
-        'id_discord': guild[3],
-        'id_owner': guild[4],
-        'last_message': guild[5],
-        'name': guild[6],
-    } for guild in guilds]
+    guilds = [
+        {
+            "id": guild[0],
+            "active": guild[1],
+            "block": guild[2],
+            "id_discord": guild[3],
+            "id_owner": guild[4],
+            "last_message": guild[5],
+            "name": guild[6],
+        }
+        for guild in guilds
+    ]
 
-    guilds = paginate(guilds, req.get('page'))
+    guilds = paginate(guilds, req.get("page"))
     return JsonResponse(guilds)
 
 
-@add_cors_react_dev
 @require_GET
-@validate_super_user
+@validate_user("admin")
 def get_all_roles(request, user):
     req = request.GET
 
@@ -90,10 +92,13 @@ def get_all_roles(request, user):
         cursor.execute(query)
         roles = cursor.fetchall()
 
-    roles = [{
-        'id': role[0],
-        'active': role[1],
-    } for role in roles]
+    roles = [
+        {
+            "id": role[0],
+            "active": role[1],
+        }
+        for role in roles
+    ]
 
-    roles = paginate(roles, req.get('page'))
+    roles = paginate(roles, req.get("page"))
     return JsonResponse(roles)

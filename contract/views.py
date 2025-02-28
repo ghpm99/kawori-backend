@@ -7,13 +7,12 @@ from django.views.decorators.http import require_GET, require_POST
 from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from kawori.utils import paginate
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_contract_view(request, user):
     req = request.GET
     filters = {}
@@ -41,10 +40,8 @@ def get_all_contract_view(request, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
     contract = Contract(name=data.get("name"), user=user)
@@ -53,9 +50,8 @@ def save_new_contract_view(request, user):
     return JsonResponse({"msg": "Contrato incluso com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_contract_view(request, id, user):
     data = Contract.objects.filter(id=id).first()
 
@@ -73,9 +69,8 @@ def detail_contract_view(request, id, user):
     return JsonResponse({"data": contract})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
@@ -103,10 +98,8 @@ def detail_contract_invoices_view(request, id, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
 
@@ -141,10 +134,8 @@ def include_new_invoice_view(request, id, user):
     return JsonResponse({"msg": "Nota inclusa com sucesso"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
 
@@ -165,10 +156,8 @@ def merge_contract_view(request, id, user):
     return JsonResponse({"msg": "Contratos mesclados com sucesso!"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def update_all_contracts_value(request, user):
     contracts = Contract.objects.all()
     for contract in contracts:

@@ -5,21 +5,19 @@ import numpy
 from dateutil.relativedelta import relativedelta
 from django.db import connection
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from contract.models import Contract
 from financial.utils import calculate_installments, generate_payments, update_contract_value
 from invoice.models import Invoice
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
 from tag.models import Tag
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_view(request, user):
     req = request.GET
     filters = {}
@@ -73,9 +71,8 @@ def get_all_view(request, user):
     return JsonResponse({"data": data})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_payments_month(request, user):
     date_referrer = datetime.now().date()
     date_start = date_referrer.replace(day=1)
@@ -157,10 +154,8 @@ def get_payments_month(request, user):
     return JsonResponse({"data": payments})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_new_view(request, user):
     data = json.loads(request.body)
 
@@ -190,9 +185,8 @@ def save_new_view(request, user):
     return JsonResponse({"msg": "Pagamento incluso com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_view(request, id, user):
     data = Payment.objects.filter(id=id, user=user).first()
 
@@ -219,10 +213,8 @@ def detail_view(request, id, user):
     return JsonResponse({"data": payment})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id, user=user).first()
@@ -262,10 +254,8 @@ def save_detail_view(request, id, user):
     return JsonResponse({"msg": "ok"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def payoff_detail_view(request, id, user):
     payment = Payment.objects.filter(id=id, user=user).first()
 
@@ -315,9 +305,8 @@ def payoff_detail_view(request, id, user):
     return JsonResponse({"msg": "Pagamento baixado"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_payment_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -406,9 +395,8 @@ def report_payment_view(request, user):
     return JsonResponse({"data": data})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_contract_view(request, user):
     req = request.GET
     filters = {}
@@ -436,9 +424,8 @@ def get_all_contract_view(request, user):
     return JsonResponse({"data": data})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_invoice_view(request, user):
     req = request.GET
     filters = {}
@@ -479,10 +466,8 @@ def get_all_invoice_view(request, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
     contract = Contract(name=data.get("name"), user=user)
@@ -491,9 +476,8 @@ def save_new_contract_view(request, user):
     return JsonResponse({"msg": "Contrato incluso com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_contract_view(request, id, user):
     data = Contract.objects.filter(id=id).first()
 
@@ -511,9 +495,8 @@ def detail_contract_view(request, id, user):
     return JsonResponse({"data": contract})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
@@ -541,10 +524,8 @@ def detail_contract_invoices_view(request, id, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
 
@@ -579,9 +560,8 @@ def include_new_invoice_view(request, id, user):
     return JsonResponse({"msg": "Nota inclusa com sucesso"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_invoice_view(request, id, user):
     invoice = Invoice.objects.filter(id=id, user=user).first()
 
@@ -607,9 +587,8 @@ def detail_invoice_view(request, id, user):
     return JsonResponse({"data": invoice})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
     payments_query = Payment.objects.filter(invoice=id, user=user).order_by("id")
@@ -636,10 +615,8 @@ def detail_invoice_payments_view(request, id, user):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
 
@@ -660,9 +637,8 @@ def merge_contract_view(request, id, user):
     return JsonResponse({"msg": "Contratos mesclados com sucesso!"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def get_all_tag_view(request, user):
     req = request.GET
     filters = {}
@@ -677,10 +653,8 @@ def get_all_tag_view(request, user):
     return JsonResponse({"data": tags})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def include_new_tag_view(request, user):
     data = json.loads(request.body)
 
@@ -691,10 +665,8 @@ def include_new_tag_view(request, user):
     return JsonResponse({"msg": "Tag inclusa com sucesso"})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user("financial")
 @require_POST
+@validate_user("financial")
 def save_tag_invoice_view(request, id, user):
     data = json.loads(request.body)
 
@@ -708,9 +680,8 @@ def save_tag_invoice_view(request, id, user):
     return JsonResponse({"msg": "ok"})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_count_payment_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -741,9 +712,8 @@ def report_count_payment_view(request, user):
     return JsonResponse({"data": float(payment_total[0])})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_amount_payment_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -774,9 +744,8 @@ def report_amount_payment_view(request, user):
     return JsonResponse({"data": float(amount_payment_total[0])})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_amount_payment_open_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -808,9 +777,8 @@ def report_amount_payment_open_view(request, user):
     return JsonResponse({"data": float(amount_payment_total[0])})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_amount_payment_closed_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -842,9 +810,8 @@ def report_amount_payment_closed_view(request, user):
     return JsonResponse({"data": float(amount_payment_total[0])})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_amount_invoice_by_tag_view(request, user):
     date_referrer = datetime.now().date()
 
@@ -884,9 +851,8 @@ def report_amount_invoice_by_tag_view(request, user):
     return JsonResponse({"data": tags})
 
 
-@add_cors_react_dev
-@validate_user("financial")
 @require_GET
+@validate_user("financial")
 def report_forecast_amount_value(request, user):
     date_referrer = datetime.now().date()
 
