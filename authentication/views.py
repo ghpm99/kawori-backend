@@ -12,7 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.utils import  register_groups
+from authentication.utils import register_groups
 
 
 @require_POST
@@ -42,11 +42,12 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     user.save()
     access_token = AccessToken.for_user(user)
     refresh_token = RefreshToken.for_user(user)
+    refresh_token_expiration = datetime.fromtimestamp(refresh_token["exp"], tz=timezone.utc)
 
     print("user data access_token", access_token.payload)
     print("user data refresh_token", refresh_token.payload)
 
-    response = JsonResponse({"msg": "Token criado com sucesso!"})
+    response = JsonResponse({"refresh_token_expiration": refresh_token_expiration.isoformat()})
 
     response.set_cookie(
         settings.ACCESS_TOKEN_NAME,
@@ -54,7 +55,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         httponly=True,
         secure=True,
         samesite="Strict",
-        max_age=access_token.lifetime,
+        max_age=access_token.lifetime.total_seconds(),
     )
 
     response.set_cookie(
@@ -63,8 +64,16 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         httponly=True,
         secure=True,
         samesite="Lax",
-        max_age=refresh_token.lifetime,
+        max_age=refresh_token.lifetime.total_seconds(),
         path=reverse("da_token_refresh"),
+    )
+
+    response.set_cookie(
+        "lifetimetoken",
+        refresh_token_expiration.isoformat(),
+        httponly=False,
+        secure=False,
+        max_age=refresh_token.lifetime.total_seconds(),
     )
 
     return response
@@ -75,7 +84,8 @@ def signout_view(request: HttpRequest) -> JsonResponse:
     response = JsonResponse({"msg": "Deslogou"})
 
     response.delete_cookie(settings.ACCESS_TOKEN_NAME)
-    response.delete_cookie(settings.REFRESH_TOKEN_NAME)
+    response.delete_cookie(settings.REFRESH_TOKEN_NAME, path=reverse("da_token_refresh"))
+    response.delete_cookie("lifetimetoken")
 
     return response
 
@@ -124,7 +134,7 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
             httponly=True,
             secure=True,
             samesite="Strict",
-            max_age=token.lifetime,
+            max_age=access_token.lifetime,
         )
         return json_response
     except Exception as e:
