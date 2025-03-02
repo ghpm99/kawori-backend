@@ -82,7 +82,6 @@ def get_image_class(order: int) -> Image:
     y = (int((order - 1) / 10)) * CLASS_IMAGE_SPR_PIXEL_Y
 
     image_crop_box = (x, y, x + CLASS_IMAGE_SPR_PIXEL_X, y + CLASS_IMAGE_SPR_PIXEL_Y)
-    print(image_crop_box)
 
     class_image = image.crop(image_crop_box)
     return class_image

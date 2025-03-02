@@ -9,29 +9,32 @@ load_dotenv()
 DEBUG = True
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'kawori',
-        'USER': 'postgres',
-        'PASSWORD': '',
-        'HOST': '127.0.0.1',
-        'PORT': '',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": "kawori",
+        "USER": "postgres",
+        "PASSWORD": "",
+        "HOST": "127.0.0.1",
+        "PORT": "",
     }
 }
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
-BASE_URL = 'http://localhost:8000'
+BASE_URL = "http://localhost:8000"
 
-BASE_URL_WEBHOOK = 'http://localhost:8100'
+BASE_URL_WEBHOOK = "http://localhost:8100"
 
-BASE_URL_FRONTEND = 'http://localhost:3000'
+BASE_URL_FRONTEND = "http://localhost:3000"
+
+CSRF_TRUSTED_ORIGINS = [BASE_URL_FRONTEND]
+CORS_ALLOW_ORIGINS = [BASE_URL_FRONTEND]
 
 
 try:

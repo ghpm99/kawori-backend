@@ -3,14 +3,12 @@ from django.http import JsonResponse
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
-from kawori.decorators import add_cors_react_dev, validate_user
+from kawori.decorators import validate_user
 from django.views.decorators.http import require_GET, require_POST
-from django.views.decorators.csrf import csrf_exempt
 
 
-@add_cors_react_dev
-@validate_user
 @require_GET
+@validate_user("blackdesert")
 def get_all_questions(request, user):
     question_list = Question.objects.order_by('id')
 
@@ -24,9 +22,8 @@ def get_all_questions(request, user):
     return JsonResponse({'data': data})
 
 
-@add_cors_react_dev
-@validate_user
 @require_GET
+@validate_user("blackdesert")
 def get_all_answers(request, user):
     answer_list = Answer.objects.filter(user=user).order_by('-id')
 
@@ -42,10 +39,8 @@ def get_all_answers(request, user):
     return JsonResponse({'data': data})
 
 
-@csrf_exempt
-@add_cors_react_dev
-@validate_user
 @require_POST
+@validate_user("blackdesert")
 def register_answer(request, user):
     data = json.loads(request.body)
 
@@ -88,7 +83,6 @@ def register_answer(request, user):
     return JsonResponse({'msg': 'Voto registrado com sucesso!'})
 
 
-@add_cors_react_dev
 @require_GET
 def get_bdo_class(request):
 
@@ -106,7 +100,6 @@ def get_bdo_class(request):
     return JsonResponse({'class': bdo_class})
 
 
-@add_cors_react_dev
 @require_GET
 def total_votes(request):
     total_votes = Answer.objects.count()
@@ -114,7 +107,6 @@ def total_votes(request):
     return JsonResponse({'total_votes': total_votes})
 
 
-@add_cors_react_dev
 @require_GET
 def answer_by_class(request):
     bdo_classes = BDOClass.objects.order_by('abbreviation')
@@ -150,7 +142,6 @@ def process_resume(resume):
     return resume
 
 
-@add_cors_react_dev
 @require_GET
 def get_answer_summary(request):
     answers = AnswerSummary.objects.all()

@@ -13,4 +13,4 @@ restore-dump:
 	psql -U postgres -h localhost -c "create database kawori;"
 	psql -U postgres -h localhost kawori < ~/documents/dump/kawori.tar
 activate-run:
-	.venv/bin/python3.12 manage.py runserver --settings=kawori.settings.development
+	.venv/bin/python3.13 manage.py runserver --settings=kawori.settings.development

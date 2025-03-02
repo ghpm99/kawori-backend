@@ -1,173 +1,55 @@
+from functools import wraps
+from http import HTTPStatus
+from django.conf import settings
 from django.contrib.auth.models import User
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpRequest, JsonResponse
 from rest_framework_simplejwt.tokens import AccessToken
 
 
-def add_cors_react_dev(func):
-    def add_cors_react_dev_response(response):
+def validate_user(group: str):
 
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = '*'
-        response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, *'
+    def decorator(view_func):
 
-        return response
+        @wraps(view_func)
+        def _wrapped_view(request: HttpRequest, *args, **kwargs):
 
-    def inner(request, *args, **kwargs):
-        if request.method == 'OPTIONS':
-            return add_cors_react_dev_response(HttpResponse('Ok'))
+            access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
 
-        result = add_cors_react_dev_response(func(request, *args, **kwargs))
-        return result
+            if not access_token_cookie:
+                return JsonResponse({"msg": "Empty authorization."}, status=HTTPStatus.UNAUTHORIZED)
 
-    return inner
+            user_data = {}
 
+            try:
 
-def validate_user(func):
-    '''
-        `validate_user` is a decorator that blocks users that are not active or staff.
+                access_token = AccessToken(access_token_cookie)
+                access_token.verify()
+                access_token.verify_token_type()
 
-        - It's necessary to pass user `id` and `username` in the header authorization.
-        Example: `Authorization: Basic <base64(user_id|username)>`;
-        - It's necessary to pass the parameter `user` on the view where this decorator will be called,
-        even if this parameter will be not used.
-    '''
+                user_data = access_token
 
-    def inner(request, *args, **kwargs):
-        token = request.META.get('HTTP_AUTHORIZATION')[7:] if request.META.get('HTTP_AUTHORIZATION') else None
-        user_data = {}
+            except Exception as err:
+                return JsonResponse({"msg": str(err)}, status=HTTPStatus.UNAUTHORIZED)
 
-        if not token:
-            return JsonResponse({'msg': 'Empty authorization.'}, status=403)
-        try:
-            user_data = AccessToken(token)
-        except Exception as err:
-            return JsonResponse({'msg': str(err)}, status=401)
+            user_id = user_data.get("user_id")
 
-        user_id = user_data.get('user_id')
-        user = User.objects.get(id=user_id)
+            if not user_id:
+                return JsonResponse({"msg": "User not found."}, status=HTTPStatus.FORBIDDEN)
 
-        if not user:
-            return JsonResponse({'msg': 'User not found.'}, status=404)
+            user = User.objects.get(id=user_id)
 
-        if not user.is_active:
-            return JsonResponse({'msg': 'User not active.'}, status=403)
+            if not user:
+                return JsonResponse({"msg": "User not found."}, status=HTTPStatus.FORBIDDEN)
+            if not user.is_active:
+                return JsonResponse({"msg": "User not active."}, status=HTTPStatus.FORBIDDEN)
 
-        return func(request, user=user, *args, **kwargs)
+            if not user.groups.filter(name=group).exists():
+                return JsonResponse(
+                    {"msg": "User does not have permission to access this module."}, status=HTTPStatus.FORBIDDEN
+                )
 
-    return inner
+            return view_func(request, user=user, *args, **kwargs)
 
+        return _wrapped_view
 
-def validate_super_user(func):
-    '''
-        `validate_user` is a decorator that blocks users that are not active or staff.
-
-        - It's necessary to pass user `id` and `username` in the header authorization.
-        Example: `Authorization: Basic <base64(user_id|username)>`;
-        - It's necessary to pass the parameter `user` on the view where this decorator will be called,
-        even if this parameter will be not used.
-    '''
-
-    def inner(request, *args, **kwargs):
-        token = request.META.get('HTTP_AUTHORIZATION')[7:] if request.META.get('HTTP_AUTHORIZATION') else None
-        user_data = {}
-
-        if not token:
-            return JsonResponse({'msg': 'Empty authorization.'}, status=403)
-
-        try:
-            user_data = AccessToken(token)
-        except Exception as err:
-            return JsonResponse({'msg': str(err)}, status=401)
-
-        user_id = user_data.get('user_id')
-        user = User.objects.get(id=user_id)
-
-        if not user:
-            return JsonResponse({'msg': 'User not found.'}, status=404)
-
-        if not user.is_active:
-            return JsonResponse({'msg': 'User not active.'}, status=403)
-
-        if not user.is_staff:
-            return JsonResponse({'msg': 'Este usuário não possui permissão para acessar este módulo.'}, status=403)
-
-        return func(request, user=user, *args, **kwargs)
-
-    return inner
-
-
-def validate_token(func):
-    '''
-        `validate_token` is a decorator to check if a bearer token is valid and is active.
-
-        - It's necessary to pass user the bearer token in the header authorization.
-        Example: `Authorization: Bearer <token>`;
-        - The access token can be obtained on the path `/auth/token/` on the API;
-        - It's necessary to pass the parameter `user` on the view where this decorator will be called,
-        even if this parameter will be not used.
-    '''
-
-    def inner(request, *args, **kwargs):
-        token = request.META.get('HTTP_AUTHORIZATION')[7:] if request.META.get('HTTP_AUTHORIZATION') else None
-        user_data = {}
-
-        if not token:
-            return JsonResponse({'msg': 'Empty authorization.'}, status=403)
-
-        try:
-            user_data = AccessToken(token)
-        except Exception as err:
-            return JsonResponse({'msg': str(err)}, status=401)
-
-        user_id = user_data.get('user_id')
-        user = User.objects.get(id=user_id)
-
-        if not user:
-            return JsonResponse({'msg': 'User not found.'}, status=404)
-
-        if not user.is_active:
-            return JsonResponse({'msg': 'User not active.'}, status=403)
-
-        return func(request, user=user, *args, **kwargs)
-
-    return inner
-
-
-def validate_token_admin(func):
-    '''
-        `validate_token_admin` is a decorator to check if a bearer token is valid and is active.
-
-        - It's necessary to pass user the bearer token in the header authorization.
-        Example: `Authorization: Bearer <token>`;
-        - The access token can be obtained on the path `/auth/token/` on the API;
-        - It's necessary to pass the parameter `user` on the view where this decorator will be called,
-        even if this parameter will be not used.
-    '''
-
-    def inner(request, *args, **kwargs):
-        token = request.META.get('HTTP_AUTHORIZATION')[7:] if request.META.get('HTTP_AUTHORIZATION') else None
-        user_data = {}
-
-        if not token:
-            return JsonResponse({'msg': 'Empty authorization.'}, status=403)
-
-        try:
-            user_data = AccessToken(token)
-        except Exception as err:
-            return JsonResponse({'msg': str(err)}, status=401)
-
-        user_id = user_data.get('user_id')
-        user = User.objects.get(id=user_id)
-
-        if not user:
-            return JsonResponse({'msg': 'User not found.'}, status=404)
-
-        if not user.is_active:
-            return JsonResponse({'msg': 'User not active.'}, status=403)
-
-        if not user.is_staff:
-            return JsonResponse({'msg': 'Este usuário não possui permissão para acessar este módulo.'}, status=403)
-
-        return func(request, user=user, *args, **kwargs)
-
-    return inner
+    return decorator
