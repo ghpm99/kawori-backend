@@ -10,15 +10,15 @@ class Command(BaseCommand):
 
     def run_command(self):
         print("Buscando grupo")
-        group = Group.objects.filter(name="user")
+        group = Group.objects.filter(name="blackdesert")
 
         if group.exists() is False:
             print("Grupo nao encontrado")
-            group = Group.objects.create(name="user")
+            group = Group.objects.create(name="blackdesert")
             print("Grupo criado")
 
         print("Listando usuarios")
-        user_list = User.objects.exclude(groups__name="user")
+        user_list = User.objects.exclude(groups__name="blackdesert")
 
         print(f"Total de usuarios encontrados: {user_list.__len__()}")
         for user in user_list:
