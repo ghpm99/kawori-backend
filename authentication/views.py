@@ -44,9 +44,6 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     refresh_token = RefreshToken.for_user(user)
     refresh_token_expiration = datetime.fromtimestamp(refresh_token["exp"], tz=timezone.utc)
 
-    print("user data access_token", access_token.payload)
-    print("user data refresh_token", refresh_token.payload)
-
     response = JsonResponse({"refresh_token_expiration": refresh_token_expiration.isoformat()})
 
     response.set_cookie(

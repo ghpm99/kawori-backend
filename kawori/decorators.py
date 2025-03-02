@@ -15,10 +15,6 @@ def validate_user(group: str):
 
             access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
 
-            print("==================cookies================")
-            print(access_token_cookie)
-            print("=========================================")
-
             if not access_token_cookie:
                 return JsonResponse({"msg": "Empty authorization."}, status=HTTPStatus.UNAUTHORIZED)
 
@@ -30,19 +26,12 @@ def validate_user(group: str):
                 access_token.verify()
                 access_token.verify_token_type()
 
-                print("==================user data================")
-                print("user data access_token", access_token.payload)
-                print("=========================================")
-
                 user_data = access_token
 
             except Exception as err:
                 return JsonResponse({"msg": str(err)}, status=HTTPStatus.UNAUTHORIZED)
 
             user_id = user_data.get("user_id")
-
-            print("user_data", user_data.payload)
-            print("user_id", user_id)
 
             if not user_id:
                 return JsonResponse({"msg": "User not found."}, status=HTTPStatus.FORBIDDEN)
