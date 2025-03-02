@@ -68,10 +68,11 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     response.set_cookie(
         "lifetimetoken",
         refresh_token_expiration.isoformat(),
-        httponly=False,
-        secure=False,
+        httponly=True,
+        secure=True,
+        samesite="None",
         max_age=refresh_token.lifetime.total_seconds(),
-        domain=settings.BASE_URL_FRONTEND
+        domain=".kawori.site"
     )
 
     return response
