@@ -71,6 +71,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         httponly=False,
         secure=False,
         max_age=refresh_token.lifetime.total_seconds(),
+        domain=settings.BASE_URL_FRONTEND
     )
 
     return response
