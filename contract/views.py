@@ -47,7 +47,17 @@ def save_new_contract_view(request, user):
     contract = Contract(name=data.get("name"), user=user)
     contract.save()
 
-    return JsonResponse({"msg": "Contrato incluso com sucesso"})
+    return JsonResponse(
+        {
+            "data": {
+                "id": contract.id,
+                "name": contract.name,
+                "value": float(contract.value or 0),
+                "value_open": float(contract.value_open or 0),
+                "value_closed": float(contract.value_closed or 0),
+            }
+        }
+    )
 
 
 @require_GET
