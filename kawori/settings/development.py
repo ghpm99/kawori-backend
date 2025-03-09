@@ -36,6 +36,8 @@ BASE_URL_FRONTEND = "http://localhost:3000"
 CSRF_TRUSTED_ORIGINS = [BASE_URL_FRONTEND]
 CORS_ALLOW_ORIGINS = [BASE_URL_FRONTEND]
 
+COOKIE_DOMAIN = ".localhost"
+
 
 try:
     from kawori.settings.local_settings import *  # noqa: F403, F401

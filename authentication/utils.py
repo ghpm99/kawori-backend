@@ -21,8 +21,3 @@ def register_groups(user: User) -> None:
 
     if black_desert_group is not None:
         black_desert_group.user_set.add(user)
-
-
-def refresh_access_token(refresh_token) -> AccessToken:
-    refresh = RefreshToken(refresh_token)
-    return refresh.access_token

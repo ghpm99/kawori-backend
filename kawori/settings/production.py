@@ -35,6 +35,9 @@ CORS_ALLOW_ORIGINS = [
     "https://www.kawori.site/"
 ]
 
+COOKIE_DOMAIN = ".kawori.site"
+
+
 try:
     from kawori.settings.local_settings import *  # noqa: F403, F401
 except ImportError:

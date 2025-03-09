@@ -53,6 +53,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         secure=True,
         samesite="Strict",
         max_age=access_token.lifetime.total_seconds(),
+        domain=settings.COOKIE_DOMAIN,
     )
 
     response.set_cookie(
@@ -63,6 +64,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         samesite="Lax",
         max_age=refresh_token.lifetime.total_seconds(),
         path=reverse("da_token_refresh"),
+        domain=settings.COOKIE_DOMAIN,
     )
 
     response.set_cookie(
@@ -72,7 +74,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
         secure=True,
         samesite="None",
         max_age=refresh_token.lifetime.total_seconds(),
-        domain=".kawori.site"
+        domain=settings.COOKIE_DOMAIN,
     )
 
     return response
@@ -82,9 +84,19 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 def signout_view(request: HttpRequest) -> JsonResponse:
     response = JsonResponse({"msg": "Deslogou"})
 
-    response.delete_cookie(settings.ACCESS_TOKEN_NAME)
-    response.delete_cookie(settings.REFRESH_TOKEN_NAME, path=reverse("da_token_refresh"))
-    response.delete_cookie("lifetimetoken")
+    response.delete_cookie(
+        settings.ACCESS_TOKEN_NAME,
+        domain=settings.COOKIE_DOMAIN,
+    )
+    response.delete_cookie(
+        settings.REFRESH_TOKEN_NAME,
+        path=reverse("da_token_refresh"),
+        domain=settings.COOKIE_DOMAIN,
+    )
+    response.delete_cookie(
+        "lifetimetoken",
+        domain=settings.COOKIE_DOMAIN,
+    )
 
     return response
 
@@ -107,8 +119,15 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
     except Exception as e:
 
-        json_response = JsonResponse({"error": str(e), "valid": False}, status=HTTPStatus.UNAUTHORIZED)
-        json_response.delete_cookie(settings.ACCESS_TOKEN_NAME)
+        json_response = JsonResponse({
+            "error": str(e),
+            "valid": False
+        }, status=HTTPStatus.UNAUTHORIZED)
+
+        json_response.delete_cookie(
+            settings.ACCESS_TOKEN_NAME,
+            domain=settings.COOKIE_DOMAIN,
+        )
         return json_response
 
 
@@ -133,15 +152,13 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
             httponly=True,
             secure=True,
             samesite="Strict",
-            max_age=access_token.lifetime,
+            max_age=access_token.lifetime.total_seconds(),
+            domain=settings.COOKIE_DOMAIN,
         )
+
         return json_response
     except Exception as e:
-
-        json_response = JsonResponse({"error": str(e), "valid": False}, status=HTTPStatus.FORBIDDEN)
-        json_response.delete_cookie(settings.ACCESS_TOKEN_NAME)
-        json_response.delete_cookie(settings.REFRESH_TOKEN_NAME)
-        return json_response
+        return JsonResponse({"error": str(e), "valid": False}, status=HTTPStatus.FORBIDDEN)
 
 
 @require_POST
