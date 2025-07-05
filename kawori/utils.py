@@ -67,7 +67,7 @@ def boolean(string: str) -> bool:
 
 def get_symbol_class(order: int) -> Image:
     image = Image.open(CLASSES_SYMBOL_SPR_URL)
-    x = 50
+    x = 0
     y = (order * CLASS_SYMBOL_SPR_PIXEL) - CLASS_SYMBOL_SPR_PIXEL
 
     image_crop_box = (x, y, x + CLASS_SYMBOL_SPR_PIXEL, y + CLASS_SYMBOL_SPR_PIXEL)

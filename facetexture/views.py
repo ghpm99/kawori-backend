@@ -12,13 +12,14 @@ from django.conf import settings
 from kawori.utils import get_image_class, get_symbol_class
 from kawori.decorators import validate_user
 from facetexture.models import Facetexture, BDOClass, Character
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 from django.templatetags.static import static
 from django.urls import reverse
 
 
 def get_bdo_class_image_url(class_id):
     return settings.BASE_URL + reverse("facetexture_get_image_class", args=[class_id])
+
 
 def get_bdo_class_symbol_url(class_id):
     return settings.BASE_URL + reverse("facetexture_get_symbol_class", args=[class_id])
@@ -34,17 +35,17 @@ def get_facetexture_config(request, user):
 
     for character in characters:
         character_data = {
-            "id": character.id, # type: ignore
+            "id": character.id,  # type: ignore
             "name": character.name,
             "show": character.show,
             "image": character.image,
             "order": character.order,
             "upload": character.upload,
             "class": {
-                "id": character.bdoClass.id, # type: ignore
+                "id": character.bdoClass.id,  # type: ignore
                 "name": character.bdoClass.name,
                 "abbreviation": character.bdoClass.abbreviation,
-                "class_image": get_bdo_class_image_url(character.bdoClass.id), # type: ignore
+                "class_image": get_bdo_class_image_url(character.bdoClass.id),  # type: ignore
             },
         }
 
@@ -88,10 +89,10 @@ def get_bdo_class(request, user):
 
     bdo_class = [
         {
-            "id": bdo_class.id, # type: ignore
+            "id": bdo_class.id,  # type: ignore
             "name": bdo_class.name,
             "abbreviation": bdo_class.abbreviation,
-            "class_image": get_bdo_class_image_url(bdo_class.id), # type: ignore
+            "class_image": get_bdo_class_image_url(bdo_class.id),  # type: ignore
         }
         for bdo_class in bdo_classes
     ]
@@ -115,7 +116,7 @@ def preview_background(request, user):
     file = request.FILES.get("background").file
     image = Image.open(file)
 
-    image = image.resize(size=(920, 837))
+    image = image.resize(size=(920, 997))
 
     width = 125
     height = 160
@@ -141,8 +142,35 @@ def preview_background(request, user):
 
         if character.show is True:
             classImage = get_symbol_class(character.bdoClass.class_order)
+
             classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
+            classImage = classImage.convert("RGBA")
+            alpha = classImage.split()[-1]
+
+            sombra_cor = character.bdoClass.color or "#000000"
+            sombra_cor_alpha = sombra_cor + "cc"
+
+            shadow = Image.new("RGBA", classImage.size, (0, 0, 0, 0))
+            shadow_mask = alpha.copy().filter(ImageFilter.GaussianBlur(2))
+            shadow.paste(sombra_cor_alpha, (0, 0), shadow_mask)
+
+            glow = classImage.copy()
+            glow.putalpha(alpha)
+            glow = glow.filter(ImageFilter.GaussianBlur(6))
+            glow_colored = ImageOps.colorize(glow.convert("L"), black="black", white=character.bdoClass.color).convert(
+                "RGBA"
+            )
+            glow_colored.putalpha(alpha)
+            classImage = Image.alpha_composite(glow_colored, classImage)
+
+            tint = ImageOps.colorize(classImage.convert("L"), black="black", white=character.bdoClass.color).convert(
+                "RGBA"
+            )
+            tint.putalpha(alpha)
+            classImage = Image.blend(classImage, tint, alpha=0.4)
+
+            imageCrop.paste(shadow, (13, 13), shadow)
             imageCrop.paste(classImage, (10, 10), classImage)
 
         if character.name.__len__() < 20:
@@ -170,7 +198,7 @@ def download_background(request, user):
     file = request.FILES.get("background").file
     image = Image.open(file)
 
-    image = image.resize(size=(920, 837))
+    image = image.resize(size=(920, 997))
 
     width = 125
     height = 160
@@ -194,8 +222,35 @@ def download_background(request, user):
 
         if character.show is True:
             classImage = get_symbol_class(character.bdoClass.class_order)
+
             classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
 
+            classImage = classImage.convert("RGBA")
+            alpha = classImage.split()[-1]
+
+            sombra_cor = character.bdoClass.color or "#000000"
+            sombra_cor_alpha = sombra_cor + "80"
+
+            shadow = Image.new("RGBA", classImage.size, (0, 0, 0, 0))
+            shadow_mask = alpha.copy().filter(ImageFilter.GaussianBlur(2))
+            shadow.paste(sombra_cor_alpha, (0, 0), shadow_mask)
+
+            glow = classImage.copy()
+            glow.putalpha(alpha)
+            glow = glow.filter(ImageFilter.GaussianBlur(6))
+            glow_colored = ImageOps.colorize(glow.convert("L"), black="black", white=character.bdoClass.color).convert(
+                "RGBA"
+            )
+            glow_colored.putalpha(alpha)
+            classImage = Image.alpha_composite(glow_colored, classImage)
+
+            tint = ImageOps.colorize(classImage.convert("L"), black="black", white=character.bdoClass.color).convert(
+                "RGBA"
+            )
+            tint.putalpha(alpha)
+            classImage = Image.blend(classImage, tint, alpha=0.2)
+
+            imageCrop.paste(shadow, (13, 13), shadow)
             imageCrop.paste(classImage, (10, 10), classImage)
 
         backgrounds.append({"name": character.name, "image": imageCrop})
@@ -351,8 +406,8 @@ def change_character_name(request, user, id):
 def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
 
-    if character_count >= 35:
-        return JsonResponse({"data": "O limite de facetexture são 32!"}, status=400)
+    if character_count >= 41:
+        return JsonResponse({"data": "O limite de facetexture são 41!"}, status=400)
 
     data = json.loads(request.body)
     name = data.get("name", "")
