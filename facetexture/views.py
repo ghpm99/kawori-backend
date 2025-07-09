@@ -9,10 +9,11 @@ from zipfile import ZipFile
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
+import numpy as np
 from kawori.utils import get_image_class, get_symbol_class
 from kawori.decorators import validate_user
 from facetexture.models import Facetexture, BDOClass, Character
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 from django.templatetags.static import static
 from django.urls import reverse
 
@@ -23,6 +24,11 @@ def get_bdo_class_image_url(class_id):
 
 def get_bdo_class_symbol_url(class_id):
     return settings.BASE_URL + reverse("facetexture_get_symbol_class", args=[class_id])
+
+
+def verify_valid_symbol(symbol: str) -> bool:
+    valid_symbols = ["P", "G", "D"]
+    return symbol in valid_symbols
 
 
 @require_GET
@@ -116,6 +122,10 @@ def preview_background(request, user):
     file = request.FILES.get("background").file
     image = Image.open(file)
 
+    icon_style = request.POST.get("icon_style", "P")
+    if not verify_valid_symbol(icon_style):
+        return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
+
     image = image.resize(size=(920, 997))
 
     width = 125
@@ -141,36 +151,8 @@ def preview_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height))
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass.class_order)
+            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style)
 
-            classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
-
-            classImage = classImage.convert("RGBA")
-            alpha = classImage.split()[-1]
-
-            sombra_cor = character.bdoClass.color or "#000000"
-            sombra_cor_alpha = sombra_cor + "cc"
-
-            shadow = Image.new("RGBA", classImage.size, (0, 0, 0, 0))
-            shadow_mask = alpha.copy().filter(ImageFilter.GaussianBlur(2))
-            shadow.paste(sombra_cor_alpha, (0, 0), shadow_mask)
-
-            glow = classImage.copy()
-            glow.putalpha(alpha)
-            glow = glow.filter(ImageFilter.GaussianBlur(6))
-            glow_colored = ImageOps.colorize(glow.convert("L"), black="black", white=character.bdoClass.color).convert(
-                "RGBA"
-            )
-            glow_colored.putalpha(alpha)
-            classImage = Image.alpha_composite(glow_colored, classImage)
-
-            tint = ImageOps.colorize(classImage.convert("L"), black="black", white=character.bdoClass.color).convert(
-                "RGBA"
-            )
-            tint.putalpha(alpha)
-            classImage = Image.blend(classImage, tint, alpha=0.4)
-
-            imageCrop.paste(shadow, (13, 13), shadow)
             imageCrop.paste(classImage, (10, 10), classImage)
 
         if character.name.__len__() < 20:
@@ -197,6 +179,9 @@ def download_background(request, user):
 
     file = request.FILES.get("background").file
     image = Image.open(file)
+    icon_style = request.POST.get("icon_style", "P")
+    if not verify_valid_symbol(icon_style):
+        return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
 
     image = image.resize(size=(920, 997))
 
@@ -221,36 +206,8 @@ def download_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height))
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass.class_order)
+            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style)
 
-            classImage.thumbnail((50, 50), Image.Resampling.LANCZOS)
-
-            classImage = classImage.convert("RGBA")
-            alpha = classImage.split()[-1]
-
-            sombra_cor = character.bdoClass.color or "#000000"
-            sombra_cor_alpha = sombra_cor + "80"
-
-            shadow = Image.new("RGBA", classImage.size, (0, 0, 0, 0))
-            shadow_mask = alpha.copy().filter(ImageFilter.GaussianBlur(2))
-            shadow.paste(sombra_cor_alpha, (0, 0), shadow_mask)
-
-            glow = classImage.copy()
-            glow.putalpha(alpha)
-            glow = glow.filter(ImageFilter.GaussianBlur(6))
-            glow_colored = ImageOps.colorize(glow.convert("L"), black="black", white=character.bdoClass.color).convert(
-                "RGBA"
-            )
-            glow_colored.putalpha(alpha)
-            classImage = Image.alpha_composite(glow_colored, classImage)
-
-            tint = ImageOps.colorize(classImage.convert("L"), black="black", white=character.bdoClass.color).convert(
-                "RGBA"
-            )
-            tint.putalpha(alpha)
-            classImage = Image.blend(classImage, tint, alpha=0.2)
-
-            imageCrop.paste(shadow, (13, 13), shadow)
             imageCrop.paste(classImage, (10, 10), classImage)
 
         backgrounds.append({"name": character.name, "image": imageCrop})
@@ -492,13 +449,12 @@ def get_symbol_class_view(request, id):
 
     filters = {"id": id}
 
-    bdo_class_order = BDOClass.objects.filter(**filters).values("class_order")
+    data = BDOClass.objects.filter(**filters).first()
 
-    if bdo_class_order is None:
+    if data is None:
         return JsonResponse({"data": "Não foi encontrado classe com esse ID"}, status=404)
 
-    class_order = bdo_class_order[0].get("class_order", 1)
-    class_image = get_symbol_class(class_order)
+    class_image = get_symbol_class(data)
 
     buffer = io.BytesIO()
 
