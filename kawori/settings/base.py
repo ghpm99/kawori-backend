@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "facetexture",
     "classification",
     "user_profile",
+    "analytics",
 ]
 
 MIDDLEWARE = [
