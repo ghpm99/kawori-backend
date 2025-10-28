@@ -43,7 +43,7 @@ def get_all_view(request, user):
     if req.get("contract"):
         filters["invoice__contract__name__icontains"] = req.get("contract")
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date")
+    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
 
     data = paginate(payments_query, req.get("page"), req.get("page_size"))
 
@@ -249,7 +249,7 @@ def save_detail_view(request, id, user):
 
     payment.save()
 
-    return JsonResponse({"msg": "ok"})
+    return JsonResponse({"msg": "Pagamento atualizado com sucesso"})
 
 
 @require_POST
