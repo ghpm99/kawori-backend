@@ -60,8 +60,9 @@ def get_all_view(request, user):
         filters["invoice__contract__name__icontains"] = req.get("contract")
 
     payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
+    page_size = req.get("page_size", 10)
 
-    data = paginate(payments_query, req.get("page"), req.get("page_size"))
+    data = paginate(payments_query, req.get("page", 1), page_size)
 
     payments = [
         {
@@ -80,6 +81,7 @@ def get_all_view(request, user):
         for payment in data.get("data")
     ]
 
+    data["page_size"] = page_size
     data["data"] = payments
 
     return JsonResponse({"data": data})

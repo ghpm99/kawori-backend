@@ -9,6 +9,7 @@ financial_urls = [
     path("payment/", include("payment.urls")),
     path("tag/", include("tag.urls")),
     path("report/", include("financial.urls")),
+    path("earnings/", include("earnings.urls")),
 ]
 
 urlpatterns = [
