@@ -18,43 +18,43 @@ def get_all_invoice_view(request, user):
     req = request.GET
     filters = {}
 
-    if req.get('status'):
-        filters['status'] = req.get('status')
-    if req.get('name__icontains'):
-        filters['name__icontains'] = req.get('name__icontains')
-    if req.get('installments'):
-        filters['installments'] = req.get('installments')
-    if req.get('date__gte'):
-        filters['date__gte'] = format_date(
-            req.get('date__gte')) or datetime(2018, 1, 1)
-    if req.get('date__lte'):
-        filters['date__lte'] = format_date(
-            req.get('date__lte')) or datetime.now() + timedelta(days=1)
+    if req.get("status"):
+        filters["status"] = req.get("status")
+    if req.get("name__icontains"):
+        filters["name__icontains"] = req.get("name__icontains")
+    if req.get("installments"):
+        filters["installments"] = req.get("installments")
+    if req.get("date__gte"):
+        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
+    if req.get("date__lte"):
+        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user).order_by('id')
+    invoices_query = Invoice.objects.filter(**filters, user=user).order_by("id")
 
-    data = paginate(invoices_query, req.get('page'), req.get('page_size'))
+    page_size = req.get("page_size", 10)
 
-    invoices = [{
-        'id': invoice.id,
-        'status': invoice.status,
-        'name': invoice.name,
-        'installments': invoice.installments,
-        'value': float(invoice.value or 0),
-        'value_open': float(invoice.value_open or 0),
-        'value_closed': float(invoice.value_closed or 0),
-        'date': invoice.date,
-        'contract': invoice.contract.id,
-        'tags': [{
-            'id': tag.id,
-            'name': tag.name,
-            'color': tag.color
-        } for tag in invoice.tags.all()]
-    } for invoice in data.get('data')]
+    data = paginate(invoices_query, req.get("page"), page_size)
 
-    data['data'] = invoices
+    invoices = [
+        {
+            "id": invoice.id,
+            "status": invoice.status,
+            "name": invoice.name,
+            "installments": invoice.installments,
+            "value": float(invoice.value or 0),
+            "value_open": float(invoice.value_open or 0),
+            "value_closed": float(invoice.value_closed or 0),
+            "date": invoice.date,
+            "contract": invoice.contract.id,
+            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()],
+        }
+        for invoice in data.get("data")
+    ]
 
-    return JsonResponse({'data': data})
+    data["page_size"] = page_size
+    data["data"] = invoices
+
+    return JsonResponse({"data": data})
 
 
 @require_GET
@@ -63,56 +63,57 @@ def detail_invoice_view(request, id, user):
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
 
-    if (invoice is None):
-        return JsonResponse({'msg': 'Invoice not found'}, status=404)
+    if invoice is None:
+        return JsonResponse({"msg": "Invoice not found"}, status=404)
 
-    tags = [{
-        'id': tag.id,
-        'name': tag.name,
-        'color': tag.color
-    } for tag in invoice.tags.all()]
+    tags = [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()]
 
     invoice = {
-        'id': invoice.id,
-        'status': invoice.status,
-        'name': invoice.name,
-        'installments': invoice.installments,
-        'value': float(invoice.value or 0),
-        'value_open': float(invoice.value_open or 0),
-        'value_closed': float(invoice.value_closed or 0),
-        'date': invoice.date,
-        'contract': invoice.contract.id,
-        'contract_name': invoice.contract.name,
-        'tags': tags
+        "id": invoice.id,
+        "status": invoice.status,
+        "name": invoice.name,
+        "installments": invoice.installments,
+        "value": float(invoice.value or 0),
+        "value_open": float(invoice.value_open or 0),
+        "value_closed": float(invoice.value_closed or 0),
+        "date": invoice.date,
+        "contract": invoice.contract.id,
+        "contract_name": invoice.contract.name,
+        "tags": tags,
     }
 
-    return JsonResponse({'data': invoice})
+    return JsonResponse({"data": invoice})
 
 
 @require_GET
 @validate_user("financial")
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
-    payments_query = Payment.objects.filter(
-        invoice=id, user=user).order_by('id')
+    payments_query = Payment.objects.filter(invoice=id, user=user).order_by("id")
 
-    data = paginate(payments_query, req.get('page'), req.get('page_size'))
+    page_size = req.get("page_size", 10)
 
-    payments = [{
-        'id': payment.id,
-        'status': payment.status,
-        'type': payment.type,
-        'name': payment.name,
-        'date': payment.date,
-        'installments': payment.installments,
-        'payment_date': payment.payment_date,
-        'fixed': payment.fixed,
-        'value': float(payment.value or 0),
-    } for payment in data.get('data')]
+    data = paginate(payments_query, req.get("page"), page_size)
 
-    data['data'] = payments
+    payments = [
+        {
+            "id": payment.id,
+            "status": payment.status,
+            "type": payment.type,
+            "name": payment.name,
+            "date": payment.date,
+            "installments": payment.installments,
+            "payment_date": payment.payment_date,
+            "fixed": payment.fixed,
+            "value": float(payment.value or 0),
+        }
+        for payment in data.get("data")
+    ]
 
-    return JsonResponse({'data': data})
+    data["page_size"] = page_size
+    data["data"] = payments
+
+    return JsonResponse({"data": data})
 
 
 @require_POST
@@ -121,11 +122,11 @@ def save_tag_invoice_view(request, id, user):
 
     data = json.loads(request.body)
 
-    if (data is None):
-        return JsonResponse({'msg': 'Tags not found'}, status=404)
+    if data is None:
+        return JsonResponse({"msg": "Tags not found"}, status=404)
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
     invoice.tags.set(data)
     invoice.save()
 
-    return JsonResponse({'msg': 'ok'})
+    return JsonResponse({"msg": "ok"})

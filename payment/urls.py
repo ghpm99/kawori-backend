@@ -12,4 +12,5 @@ urlpatterns = [
     path("new/", views.save_new_view, name="financial_save_new"),
     path("month/", views.get_payments_month, name="financial_get_payments_month"),
     path("<int:id>/", include(payment_details_urls)),
+    path("scheduled", views.get_all_scheduled_view, name="financial_get_all_scheduled"),
 ]
