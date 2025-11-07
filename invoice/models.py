@@ -9,23 +9,17 @@ from tag.models import Tag
 class Invoice(models.Model):
 
     class Meta:
-        db_table = 'financial_invoice'
+        db_table = "financial_invoice"
 
     TYPE_CREDIT = 0
     TYPE_DEBIT = 1
 
-    TYPES = [
-        (TYPE_CREDIT, 'credit'),
-        (TYPE_DEBIT, 'debit')
-    ]
+    TYPES = [(TYPE_CREDIT, "credit"), (TYPE_DEBIT, "debit")]
 
     STATUS_OPEN = 0
     STATUS_DONE = 1
 
-    STATUS = [
-        (STATUS_OPEN, 'open'),
-        (STATUS_DONE, 'done')
-    ]
+    STATUS = [(STATUS_OPEN, "open"), (STATUS_DONE, "done")]
     status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
     type = models.IntegerField(default=TYPE_CREDIT, choices=TYPES)
     name = models.TextField(max_length=255)
@@ -37,18 +31,16 @@ class Invoice(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     value_open = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
+
     tags = models.ManyToManyField(Tag)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
 
     def set_value(self, value):
-        self.contract.set_value(value)
         self.value += value
         self.value_open += value
         self.save()
 
     def close_value(self, value):
-        self.contract.close_value(value)
         self.value_open -= value
         self.value_closed += value
 

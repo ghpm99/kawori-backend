@@ -62,7 +62,7 @@ def update_invoice_value(invoice: Invoice):
     invoice_value_open = 0
     invoice_value_closed = 0
 
-    payments = Payment.objects.filter(invoice=invoice.id).all()
+    payments = Payment.objects.filter(invoice=invoice.id, active=True).all()
 
     for payment in payments:
         invoice_value = invoice_value + payment.value
@@ -79,6 +79,19 @@ def update_invoice_value(invoice: Invoice):
         invoice.status = Invoice.STATUS_DONE
     else:
         invoice.status = Invoice.STATUS_OPEN
+
+    next_payment_date = (
+        Payment.objects.filter(invoice=invoice.id, active=True, status=Payment.STATUS_OPEN)
+        .order_by("payment_date")
+        .first()
+    )
+    next_payment_date_query = Payment.objects.filter(
+        invoice=invoice.id, active=True, status=Payment.STATUS_OPEN
+    ).order_by("payment_date")
+    print(next_payment_date_query.query)
+    if next_payment_date:
+        invoice.payment_date = next_payment_date.payment_date
+
     invoice.save()
 
 

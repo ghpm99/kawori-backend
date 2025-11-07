@@ -7,7 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from invoice.models import Invoice
 from kawori.decorators import validate_user
-from kawori.utils import format_date, paginate
+from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
 
 
@@ -18,8 +18,12 @@ def get_all_invoice_view(request, user):
     req = request.GET
     filters = {}
 
-    if req.get("status"):
-        filters["status"] = req.get("status")
+    status = req.get("status")
+    if status:
+        if status == "open":
+            filters["value_open__gt"] = 0.0
+        if status == "done":
+            filters["value_open"] = 0.0
     if req.get("name__icontains"):
         filters["name__icontains"] = req.get("name__icontains")
     if req.get("installments"):
@@ -29,7 +33,7 @@ def get_all_invoice_view(request, user):
     if req.get("date__lte"):
         filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user).order_by("id")
+    invoices_query = Invoice.objects.filter(**filters, user=user).order_by("payment_date", "id")
 
     page_size = req.get("page_size", 10)
 
@@ -45,7 +49,7 @@ def get_all_invoice_view(request, user):
             "value_open": float(invoice.value_open or 0),
             "value_closed": float(invoice.value_closed or 0),
             "date": invoice.date,
-            "contract": invoice.contract.id,
+            "next_payment": invoice.payment_date,
             "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()],
         }
         for invoice in data.get("data")
@@ -77,19 +81,56 @@ def detail_invoice_view(request, id, user):
         "value_open": float(invoice.value_open or 0),
         "value_closed": float(invoice.value_closed or 0),
         "date": invoice.date,
-        "contract": invoice.contract.id,
-        "contract_name": invoice.contract.name,
+        "next_payment": invoice.payment_date,
         "tags": tags,
     }
 
     return JsonResponse({"data": invoice})
 
 
+def get_status_filter(status_params):
+    if status_params == "all" or status_params == "":
+        return None
+
+    if status_params == "open" or status_params == "0":
+        return Payment.STATUS_OPEN
+
+    if status_params == "done" or status_params == "1":
+        return Payment.STATUS_DONE
+
+    return None
+
+
 @require_GET
 @validate_user("financial")
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
-    payments_query = Payment.objects.filter(invoice=id, user=user).order_by("id")
+    filters = {"invoice": id}
+
+    if req.get("status"):
+        status_filter = get_status_filter(req.get("status"))
+        if status_filter is not None:
+            filters["status"] = status_filter
+    if req.get("type"):
+        filters["type"] = req.get("type")
+    if req.get("name__icontains"):
+        filters["name__icontains"] = req.get("name__icontains")
+    if req.get("date__gte"):
+        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
+    if req.get("date__lte"):
+        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+    if req.get("installments"):
+        filters["installments"] = req.get("installments")
+    if req.get("payment_date__gte"):
+        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+    if req.get("payment_date__lte"):
+        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+    if req.get("fixed"):
+        filters["fixed"] = boolean(req.get("fixed"))
+    if req.get("active"):
+        filters["active"] = boolean(req.get("active"))
+
+    payments_query = Payment.objects.filter(**filters, user=user).order_by("id")
 
     page_size = req.get("page_size", 10)
 

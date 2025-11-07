@@ -321,19 +321,6 @@ def payoff_detail_view(request, id, user):
     return JsonResponse({"msg": "Pagamento baixado"})
 
 
-def get_status_filter(status_params):
-    if status_params == "all" or status_params == "":
-        return None
-
-    if status_params == "open" or status_params == "0":
-        return Payment.STATUS_OPEN
-
-    if status_params == "done" or status_params == "1":
-        return Payment.STATUS_DONE
-
-    return None
-
-
 @require_GET
 @validate_user("financial")
 def get_all_scheduled_view(request, user):
