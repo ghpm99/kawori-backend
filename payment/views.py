@@ -56,8 +56,6 @@ def get_all_view(request, user):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
         filters["active"] = boolean(req.get("active"))
-    if req.get("contract"):
-        filters["invoice__contract__name__icontains"] = req.get("contract")
 
     payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
     page_size = req.get("page_size", 10)
@@ -75,8 +73,6 @@ def get_all_view(request, user):
             "payment_date": payment.payment_date,
             "fixed": payment.fixed,
             "value": float(payment.value or 0),
-            "contract_id": payment.invoice.contract.id,
-            "contract_name": payment.invoice.contract.name,
         }
         for payment in data.get("data")
     ]
@@ -130,10 +126,10 @@ def get_payments_month(request, user):
         "end": date_end,
     }
 
-    contracts_query = """
+    invoices_query = """
         SELECT
-            fc.id,
-            fc.name,
+            fi.id,
+            fi.name,
             SUM(
                 CASE
                     fp.type
@@ -164,38 +160,37 @@ def get_payments_month(request, user):
             ) AS total_value_closed,
             COUNT(*) AS total_payments
         FROM
-            financial_contract AS fc
-            INNER JOIN financial_invoice fi ON (fc.id = fi.contract_id)
+            financial_invoice fi
             INNER JOIN financial_payment fp ON (fi.id = fp.invoice_id)
         WHERE
             (
                 0 = 0
-                AND fc.user_id = %(user_id)s
+                AND fi.user_id = %(user_id)s
                 AND fp.payment_date BETWEEN %(begin)s AND %(end)s
                 AND fp.active = true
             )
         GROUP BY
-            fc.id,
-            fc.name
+            fi.id,
+            fi.name
         ORDER BY
-            fc.id;
+            fi.id;
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(contracts_query, {**filters, "user_id": user.id})
-        contracts = cursor.fetchall()
+        cursor.execute(invoices_query, {**filters, "user_id": user.id})
+        invoices = cursor.fetchall()
 
     payments = [
         {
-            "id": contract[0],
-            "name": contract[1],
-            "total_value_credit": float(contract[2] or 0),
-            "total_value_debit": float(contract[3] or 0),
-            "total_value_open": float(contract[4] or 0),
-            "total_value_closed": float(contract[5] or 0),
-            "total_payments": contract[6],
+            "id": invoice[0],
+            "name": invoice[1],
+            "total_value_credit": float(invoice[2] or 0),
+            "total_value_debit": float(invoice[3] or 0),
+            "total_value_open": float(invoice[4] or 0),
+            "total_value_closed": float(invoice[5] or 0),
+            "total_payments": invoice[6],
         }
-        for contract in contracts
+        for invoice in invoices
     ]
 
     return JsonResponse({"data": payments})
@@ -222,8 +217,6 @@ def detail_view(request, id, user):
         "value": float(data.value or 0),
         "invoice": data.invoice.id,
         "invoice_name": data.invoice.name,
-        "contract": data.invoice.contract.id,
-        "contract_name": data.invoice.contract.name,
     }
 
     return JsonResponse({"data": payment})
@@ -259,10 +252,6 @@ def save_detail_view(request, id, user):
         payment.invoice.value_open = invoice_value
         payment.invoice.save()
 
-        contract_value = float(payment.invoice.contract.value_open - old_value) + new_value
-        payment.invoice.contract.value_open = contract_value
-        payment.invoice.contract.save()
-
         payment.value = new_value
 
     payment.save()
@@ -295,7 +284,6 @@ def payoff_detail_view(request, id, user):
             fixed=payment.fixed,
             value=payment.value,
             value_open=payment.value,
-            contract=payment.invoice.contract,
             user=user,
         )
         new_invoice.save()
@@ -303,20 +291,12 @@ def payoff_detail_view(request, id, user):
         new_invoice.tags.set(tags)
         generate_payments(new_invoice)
 
-        new_invoice.contract.value_open = (new_invoice.contract.value_open or 0) + new_invoice.value
-        new_invoice.contract.value = (new_invoice.contract.value or 0) + new_invoice.value
-        new_invoice.contract.save()
-
     payment.status = Payment.STATUS_DONE
     payment.save()
 
     payment.invoice.value_open = (payment.invoice.value_open or 0) - payment.value
     payment.invoice.value_closed = (payment.invoice.value_closed or 0) + payment.value
     payment.invoice.save()
-
-    payment.invoice.contract.value_open = (payment.invoice.contract.value_open or 0) - payment.value
-    payment.invoice.contract.value_closed = (payment.invoice.contract.value_closed or 0) + payment.value
-    payment.invoice.contract.save()
 
     return JsonResponse({"msg": "Pagamento baixado"})
 
@@ -349,8 +329,6 @@ def get_all_scheduled_view(request, user):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
         filters["active"] = boolean(req.get("active"))
-    if req.get("contract"):
-        filters["invoice__contract__name__icontains"] = req.get("contract")
 
     payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
     page_size = req.get("page_size", 10)
@@ -368,8 +346,6 @@ def get_all_scheduled_view(request, user):
             "payment_date": payment.payment_date,
             "fixed": payment.fixed,
             "value": float(payment.value or 0),
-            "contract_id": payment.invoice.contract.id,
-            "contract_name": payment.invoice.contract.name,
         }
         for payment in data.get("data")
     ]
