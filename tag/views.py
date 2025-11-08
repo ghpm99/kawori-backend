@@ -2,6 +2,7 @@ import json
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
+from django.db.models import Sum, Count
 
 
 from kawori.decorators import validate_user
@@ -17,11 +18,48 @@ def get_all_tag_view(request, user):
     if req.get("name__icontains"):
         filters["name__icontains"] = req.get("name__icontains")
 
-    datas = Tag.objects.filter(**filters, user=user).all().order_by("name")
+    datas = (
+        Tag.objects.filter(**filters, user=user)
+        .annotate(
+            total_payments=Count("invoices", distinct=True),
+            total_value=Sum("invoices__value"),
+            total_open=Sum("invoices__value_open"),
+            total_closed=Sum("invoices__value_closed"),
+        )
+        .order_by("name")
+    )
 
-    tags = [{"id": data.id, "name": data.name, "color": data.color} for data in datas]
+    tags = [
+        {
+            "id": data.id,
+            "name": data.name,
+            "color": data.color,
+            "total_payments": data.total_payments or 0,
+            "total_value": data.total_value or 0,
+            "total_open": data.total_open or 0,
+            "total_closed": data.total_closed or 0,
+        }
+        for data in datas
+    ]
 
     return JsonResponse({"data": tags})
+
+
+@require_GET
+@validate_user("financial")
+def detail_tag_view(request, id, user):
+    tag = Tag.objects.filter(id=id, user=user).first()
+
+    if tag is None:
+        return JsonResponse({"msg": "Tag não encontrada"}, status=404)
+
+    tag = {
+        "id": tag.id,
+        "name": tag.name,
+        "color": tag.color,
+    }
+
+    return JsonResponse({"data": tag})
 
 
 @require_POST
