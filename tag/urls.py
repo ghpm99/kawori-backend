@@ -3,6 +3,7 @@ from . import views
 
 tag_details_urls = [
     path("", views.detail_tag_view, name="tag_detail"),
+    path("save", views.save_tag_view, name="financial_save_tag_view"),
 ]
 urlpatterns = [
     path("", views.get_all_tag_view, name="financial_get_all_tags"),

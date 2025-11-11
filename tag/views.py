@@ -72,3 +72,21 @@ def include_new_tag_view(request, user):
     tag.save()
 
     return JsonResponse({"msg": "Tag inclusa com sucesso"})
+
+
+@require_POST
+@validate_user("financial")
+def save_tag_view(request, id, user):
+    tag = Tag.objects.filter(id=id, user=user).first()
+
+    if tag is None:
+        return JsonResponse({"msg": "Tag não encontrada"}, status=404)
+
+    data = json.loads(request.body)
+
+    tag.name = data.get("name")
+    tag.color = data.get("color")
+
+    tag.save()
+
+    return JsonResponse({"msg": "Tag atualizado com sucesso"})
