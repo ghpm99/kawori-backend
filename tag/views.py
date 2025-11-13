@@ -67,6 +67,11 @@ def detail_tag_view(request, id, user):
 def include_new_tag_view(request, user):
     data = json.loads(request.body)
 
+    tag_in_database = Tag.objects.filter(name=data.get("name"), user=user).first()
+
+    if tag_in_database is not None:
+        return JsonResponse({"msg": "Tag já existe"}, status=404)
+
     tag = Tag(name=data.get("name"), color=data.get("color"), user=user)
 
     tag.save()

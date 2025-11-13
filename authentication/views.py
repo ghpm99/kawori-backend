@@ -160,21 +160,7 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def signup_view(request: HttpRequest) -> JsonResponse:
-    origin = request.headers.get("Origin") or request.META.get("HTTP_ORIGIN") or request.get_host()
-
-    if origin == settings.BASE_URL_FRONTEND:
-        origin_source = "kawori"
-    elif origin == settings.BASE_URL_FRONTEND_FINANCIAL:
-        origin_source = "financial"
-    else:
-        origin_source = "unknown"
-
-    if origin_source == "unknown":
-        return JsonResponse({"msg": "Origem não permitida."}, status=HTTPStatus.FORBIDDEN)
-
     data = json.loads(request.body)
-
-    print(origin_source)
 
     required_fields = ["username", "password", "email", "name", "last_name"]
     for field in required_fields:
