@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "classification",
     "user_profile",
     "analytics",
+    "budget",
 ]
 
 MIDDLEWARE = [

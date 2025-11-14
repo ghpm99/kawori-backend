@@ -25,6 +25,7 @@ def get_all_tag_view(request, user):
             total_value=Sum("invoices__value"),
             total_open=Sum("invoices__value_open"),
             total_closed=Sum("invoices__value_closed"),
+            is_budget=Count("budgettag", distinct=True),
         )
         .order_by("name")
     )
@@ -38,6 +39,7 @@ def get_all_tag_view(request, user):
             "total_value": data.total_value or 0,
             "total_open": data.total_open or 0,
             "total_closed": data.total_closed or 0,
+            "is_budget": data.is_budget > 0,
         }
         for data in datas
     ]
@@ -67,14 +69,24 @@ def detail_tag_view(request, id, user):
 def include_new_tag_view(request, user):
     data = json.loads(request.body)
 
-    tag_in_database = Tag.objects.filter(name=data.get("name"), user=user).first()
+    tag_name = data.get("name")
+    tag_color = data.get("color")
+
+    tag_in_database = Tag.objects.filter(name=tag_name, user=user).first()
 
     if tag_in_database is not None:
         return JsonResponse({"msg": "Tag já existe"}, status=404)
 
-    tag = Tag(name=data.get("name"), color=data.get("color"), user=user)
+    if not tag_name or tag_name.strip() == "":
+        return JsonResponse({"msg": "Nome da tag é obrigatório"}, status=400)
 
-    tag.save()
+    if tag_name.startswith("#"):
+        return JsonResponse({"msg": "Nome da tag não pode iniciar com #"}, status=400)
+
+    if not tag_color:
+        return JsonResponse({"msg": "Cor da tag é obrigatória"}, status=400)
+
+    Tag.objects.create(name=tag_name, color=tag_color, user=user)
 
     return JsonResponse({"msg": "Tag inclusa com sucesso"})
 

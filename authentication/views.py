@@ -190,6 +190,13 @@ def signup_view(request: HttpRequest) -> JsonResponse:
 
     register_groups(user)
 
+    try:
+        from budget.services import create_default_budgets_for_user
+
+        create_default_budgets_for_user(user)
+    except Exception:
+        pass
+
     return JsonResponse({"msg": "Usuário criado com sucesso!"})
 
 
