@@ -25,7 +25,6 @@ def get_all_tag_view(request, user):
             total_value=Sum("invoices__value"),
             total_open=Sum("invoices__value_open"),
             total_closed=Sum("invoices__value_closed"),
-            is_budget=Count("budgettag", distinct=True),
         )
         .order_by("name")
     )
@@ -39,7 +38,7 @@ def get_all_tag_view(request, user):
             "total_value": data.total_value or 0,
             "total_open": data.total_open or 0,
             "total_closed": data.total_closed or 0,
-            "is_budget": data.is_budget > 0,
+            "is_budget": hasattr(data, "budget"),
         }
         for data in datas
     ]

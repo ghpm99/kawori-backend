@@ -33,15 +33,14 @@ class Command(BaseCommand):
             for tag in tags_to_delete:
                 invoices = Invoice.objects.filter(tags=tag)
 
-                # transferir a tag duplicada para a tag mantida
                 for invoice in invoices:
                     invoice.tags.add(tag_to_keep)
                     invoice.tags.remove(tag)
 
-                if tag.budgettag_set.exists():
-                    for budget_tag in tag.budgettag_set.all():
-                        budget_tag.tag = tag_to_keep
-                        budget_tag.save()
+                if hasattr(tag, "budget"):
+                    budget = tag.budget
+                    budget.tag = tag_to_keep
+                    budget.save()
 
                 tag.delete()
 

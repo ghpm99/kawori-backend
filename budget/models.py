@@ -2,6 +2,8 @@ from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
+from tag.models import Tag
+
 
 class Budget(models.Model):
 
@@ -15,4 +17,5 @@ class Budget(models.Model):
         help_text="Percentual do orçamento (0.00 - 100.00)",
         default=Decimal("0.00"),
     )
-    user = models.ForeignKey("auth.User", on_delete=models.PROTECT)
+    user = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    tag = models.OneToOneField(Tag, on_delete=models.CASCADE, related_name="budget")

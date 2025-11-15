@@ -4,7 +4,7 @@ from django.db.models.functions import Trim
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
-from tag.models import Tag, BudgetTag
+from tag.models import Tag
 from django.db import transaction
 
 from .models import Budget
@@ -41,9 +41,7 @@ def create_default_budgets_for_user(user: User):
                     tag.color = color
                     tag.save()
 
-                budget = Budget.objects.create(user=user, allocation_percentage=pct)
-
-                BudgetTag.objects.create(budget=budget, tag=tag)
+                Budget.objects.create(user=user, allocation_percentage=pct, tag=tag)
 
     except Exception as e:
         print(f"Error creating default budgets for user {user.id}: {e}")

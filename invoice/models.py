@@ -33,7 +33,7 @@ class Invoice(models.Model):
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
     tags = models.ManyToManyField(Tag, related_name="invoices", blank=True)
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def set_value(self, value):
         self.value += value
