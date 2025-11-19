@@ -41,20 +41,9 @@ def get_all_budgets_view(request, user):
 
     budget_list = Budget.objects.filter(user=user)
 
-    print(
-        Payment.objects.filter(
-            payment_date__gte=filters["start"],
-            payment_date__lte=filters["end"],
-            type=Payment.TYPE_DEBIT,
-            invoice__tags=budget_list[0].tag,
-            user=user,
-        ).query
-    )
-
     total_earned = Payment.objects.filter(
         payment_date__gte=filters["start"], payment_date__lte=filters["end"], type=Payment.TYPE_CREDIT, user=user
     ).aggregate(total=Sum("value"))["total"] or Decimal(0.0)
-    print(total_earned)
 
     data = [
         {
