@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 
+from financial.utils import generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
@@ -16,7 +17,7 @@ from payment.models import Payment
 @validate_user("financial")
 def get_all_invoice_view(request, user):
     req = request.GET
-    filters = {}
+    filters = {"type": Invoice.TYPE_DEBIT}
 
     status = req.get("status")
     if status:
@@ -50,7 +51,15 @@ def get_all_invoice_view(request, user):
             "value_closed": float(invoice.value_closed or 0),
             "date": invoice.date,
             "next_payment": invoice.payment_date,
-            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()],
+            "tags": [
+                {
+                    "id": tag.id,
+                    "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
+                    "color": tag.color,
+                    "is_budget": hasattr(tag, "budget"),
+                }
+                for tag in invoice.tags.all().order_by("budget", "name")
+            ],
         }
         for invoice in data.get("data")
     ]
@@ -70,7 +79,15 @@ def detail_invoice_view(request, id, user):
     if invoice is None:
         return JsonResponse({"msg": "Invoice not found"}, status=404)
 
-    tags = [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()]
+    tags = [
+        {
+            "id": tag.id,
+            "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
+            "color": tag.color,
+            "is_budget": hasattr(tag, "budget"),
+        }
+        for tag in invoice.tags.all().order_by("budget", "name")
+    ]
 
     invoice = {
         "id": invoice.id,
@@ -83,6 +100,7 @@ def detail_invoice_view(request, id, user):
         "date": invoice.date,
         "next_payment": invoice.payment_date,
         "tags": tags,
+        "active": invoice.active,
     }
 
     return JsonResponse({"data": invoice})
@@ -164,10 +182,37 @@ def save_tag_invoice_view(request, id, user):
     data = json.loads(request.body)
 
     if data is None:
-        return JsonResponse({"msg": "Tags not found"}, status=404)
+        return JsonResponse({"msg": "Etiquetas não encontradas"}, status=404)
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
     invoice.tags.set(data)
     invoice.save()
 
-    return JsonResponse({"msg": "ok"})
+    return JsonResponse({"msg": "Etiquetas atualizadas com sucesso"})
+
+
+@require_POST
+@validate_user("financial")
+def include_new_invoice_view(request, user):
+    data = json.loads(request.body)
+
+    invoice = Invoice.objects.create(
+        status=data.get("status"),
+        type=Invoice.TYPE_DEBIT,
+        name=data.get("name"),
+        date=data.get("date"),
+        installments=data.get("installments"),
+        payment_date=data.get("payment_date"),
+        fixed=data.get("fixed"),
+        active=data.get("active"),
+        value=data.get("value"),
+        value_open=data.get("value"),
+        user=user,
+    )
+
+    if data.get("tags"):
+        invoice.tags.set(data.get("tags"))
+
+    generate_payments(invoice)
+
+    return JsonResponse({"msg": "Nota inclusa com sucesso"})

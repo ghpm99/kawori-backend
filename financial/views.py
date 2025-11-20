@@ -42,8 +42,8 @@ def get_all_view(request, user):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
         filters["active"] = boolean(req.get("active"))
-    if req.get("contract"):
-        filters["invoice__contract__name__icontains"] = req.get("contract")
+    if req.get("invoice"):
+        filters["invoice__name__icontains"] = req.get("invoice")
 
     payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date")
 
@@ -60,8 +60,8 @@ def get_all_view(request, user):
             "payment_date": payment.payment_date,
             "fixed": payment.fixed,
             "value": float(payment.value or 0),
-            "contract_id": payment.invoice.contract.id,
-            "contract_name": payment.invoice.contract.name,
+            "invoice_id": payment.invoice.id,
+            "invoice_name": payment.invoice.name,
         }
         for payment in data.get("data")
     ]

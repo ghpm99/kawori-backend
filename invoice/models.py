@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -28,9 +29,9 @@ class Invoice(models.Model):
     payment_date = models.DateField(null=True)
     fixed = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
-    value = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    value_open = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
+    value_open = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
+    value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
     tags = models.ManyToManyField(Tag, related_name="invoices", blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

@@ -26,13 +26,13 @@ def get_all_tag_view(request, user):
             total_open=Sum("invoices__value_open"),
             total_closed=Sum("invoices__value_closed"),
         )
-        .order_by("name")
+        .order_by("budget", "name")
     )
 
     tags = [
         {
             "id": data.id,
-            "name": data.name,
+            "name": f"# { data.name}" if hasattr(data, "budget") else data.name,
             "color": data.color,
             "total_payments": data.total_payments or 0,
             "total_value": data.total_value or 0,
