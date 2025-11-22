@@ -17,7 +17,7 @@ from payment.models import Payment
 @validate_user("financial")
 def get_all_invoice_view(request, user):
     req = request.GET
-    filters = {"type": Invoice.TYPE_DEBIT}
+    filters = {}
 
     status = req.get("status")
     if status:
@@ -25,6 +25,10 @@ def get_all_invoice_view(request, user):
             filters["value_open__gt"] = 0.0
         if status == "done":
             filters["value_open"] = 0.0
+    if req.get("type"):
+        filters["type"] = req.get("type")
+    if req.get("fixed"):
+        filters["fixed"] = boolean(req.get("fixed"))
     if req.get("name__icontains"):
         filters["name__icontains"] = req.get("name__icontains")
     if req.get("installments"):
@@ -34,7 +38,7 @@ def get_all_invoice_view(request, user):
     if req.get("date__lte"):
         filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user).order_by("payment_date", "id")
+    invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by("payment_date", "id")
 
     page_size = req.get("page_size", 10)
 
