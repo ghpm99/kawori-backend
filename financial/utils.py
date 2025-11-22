@@ -18,7 +18,7 @@ def generate_payments(invoice: Invoice):
     for i in range(installments):
         payment = Payment(
             type=invoice.type,
-            name=invoice.name,
+            name=f"{invoice.name} #{i + 1}",
             date=invoice.date,
             installments=i + 1,
             payment_date=payment_date,

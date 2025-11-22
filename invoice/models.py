@@ -32,7 +32,7 @@ class Invoice(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
     value_open = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
     value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, null=True, blank=True)
     tags = models.ManyToManyField(Tag, related_name="invoices", blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
@@ -41,10 +41,23 @@ class Invoice(models.Model):
         self.value_open += value
         self.save()
 
+    def get_next_open_payment_date(self):
+        return (
+            self.payment_set.filter(status=self.STATUS_OPEN, active=True)
+            .order_by("payment_date")
+            .values_list("payment_date", flat=True)
+            .first()
+        )
+
     def close_value(self, value):
         self.value_open -= value
         self.value_closed += value
 
         if self.value_open == 0:
             self.status = self.STATUS_DONE
+
+        next_payment_date = self.get_next_open_payment_date()
+        if next_payment_date:
+            self.payment_date = next_payment_date
+
         self.save()

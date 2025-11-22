@@ -300,9 +300,7 @@ def payoff_detail_view(request, id, user):
     payment.status = Payment.STATUS_DONE
     payment.save()
 
-    payment.invoice.value_open = (payment.invoice.value_open or 0) - payment.value
-    payment.invoice.value_closed = (payment.invoice.value_closed or 0) + payment.value
-    payment.invoice.save()
+    payment.invoice.close_value(payment.value)
 
     return JsonResponse({"msg": "Pagamento baixado"})
 

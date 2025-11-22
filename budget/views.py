@@ -39,10 +39,8 @@ def get_period_filter(query_params: dict) -> dict:
 def get_all_budgets_view(request, user):
     filters = get_period_filter(query_params=request.GET)
 
-    # 1) Lista de budgets + anotação da tag (1 query)
     budgets = Budget.objects.filter(user=user).select_related("tag")
 
-    # 2) Total de créditos (1 query)
     total_earned = Payment.objects.filter(
         payment_date__gte=filters["start"],
         payment_date__lte=filters["end"],
@@ -51,27 +49,22 @@ def get_all_budgets_view(request, user):
         active=True,
     ).aggregate(total=Sum("value"))["total"] or Decimal(0)
 
-    # 2. Se não há créditos (futuro), usar previsões de FIXED
     if total_earned == 0:
-        # Busca a última versão de cada pagamento fixo
         last_fixed = (
             Payment.objects.filter(type=Payment.TYPE_CREDIT, user=user, fixed=True, active=True)
-            .order_by("name")  # agrupa por name ou outra chave identificadora
+            .order_by("name")
             .values("name")
             .annotate(last_date=Max("payment_date"))
         )
 
-        # Lista de datas dos últimos pagamentos fixos
         last_dates = [item["last_date"] for item in last_fixed]
 
-        # Buscar os valores exatos desses últimos pagamentos fixos
         predicted_fixed_total = Payment.objects.filter(
             type=Payment.TYPE_CREDIT, user=user, fixed=True, payment_date__in=last_dates, active=True
         ).aggregate(total=Sum("value"))["total"] or Decimal(0)
 
         total_earned = predicted_fixed_total
 
-    # 3) Total de débitos agrupado por tag (1 query)
     debit_totals = (
         Payment.objects.filter(
             payment_date__gte=filters["start"],
@@ -80,14 +73,12 @@ def get_all_budgets_view(request, user):
             user=user,
             active=True,
         )
-        .values("invoice__tags")  # agrupa pela tag
-        .annotate(total=Sum("value"))  # soma por tag
+        .values("invoice__tags")
+        .annotate(total=Sum("value"))
     )
 
-    # Transformar em dict fácil de acessar
     debit_map = {item["invoice__tags"]: item["total"] or Decimal(0) for item in debit_totals}
 
-    # 4) Montar resultado final sem consultas adicionais
     data = []
     for budget in budgets:
         tag_id = budget.tag_id

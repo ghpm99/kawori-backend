@@ -1,3 +1,4 @@
+from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
 
@@ -200,17 +201,36 @@ def save_tag_invoice_view(request, id, user):
 def include_new_invoice_view(request, user):
     data = json.loads(request.body)
 
+    required_fields = [
+        {"field": "name", "msg": "Campo nome é obrigatório"},
+        {"field": "date", "msg": "Campo dia de lançamento é obrigatório"},
+        {"field": "installments", "msg": "Campo parcelas é obrigatório"},
+        {"field": "payment_date", "msg": "Campo dia de pagamento é obrigatório"},
+        {"field": "fixed", "msg": "Campo fixo é obrigatório"},
+        {"field": "value", "msg": "Campo valor é obrigatório"},
+    ]
+    for field in required_fields:
+        if not data.get(field["field"]):
+            return JsonResponse({"msg": field["msg"]}, status=HTTPStatus.BAD_REQUEST)
+
+    name = data.get("name")
+    date = data.get("date")
+    installments = data.get("installments")
+    payment_date = data.get("payment_date")
+    fixed = data.get("fixed")
+    value = data.get("value")
+
     invoice = Invoice.objects.create(
-        status=data.get("status"),
+        status=Invoice.STATUS_OPEN,
         type=Invoice.TYPE_DEBIT,
-        name=data.get("name"),
-        date=data.get("date"),
-        installments=data.get("installments"),
-        payment_date=data.get("payment_date"),
-        fixed=data.get("fixed"),
-        active=data.get("active"),
-        value=data.get("value"),
-        value_open=data.get("value"),
+        name=name,
+        date=date,
+        installments=installments,
+        payment_date=payment_date,
+        fixed=fixed,
+        active=True,
+        value=value,
+        value_open=value,
         user=user,
     )
 
@@ -220,3 +240,29 @@ def include_new_invoice_view(request, user):
     generate_payments(invoice)
 
     return JsonResponse({"msg": "Nota inclusa com sucesso"})
+
+
+@require_POST
+@validate_user("financial")
+def save_detail_view(request, id, user):
+    data = json.loads(request.body)
+    invoice = Invoice.objects.filter(id=id, user=user).first()
+
+    if data is None or invoice is None:
+        return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
+
+    if data.get("name") is not None:
+        invoice.name = data.get("name")
+
+    if data.get("date") is not None:
+        invoice.date = data.get("date")
+
+    if data.get("active") is not None:
+        invoice.active = data.get("active")
+
+    if data.get("tags") is not None:
+        invoice.tags.set(data.get("tags"))
+
+    invoice.save()
+
+    return JsonResponse({"msg": "Nota atualizada com sucesso"})
