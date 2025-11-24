@@ -1,6 +1,6 @@
 import calendar
 import json
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.db.models import Sum, Max
@@ -50,12 +50,15 @@ def get_all_budgets_view(request, user):
     ).aggregate(total=Sum("value"))["total"] or Decimal(0)
 
     if total_earned == 0:
-        last_fixed = (
-            Payment.objects.filter(type=Payment.TYPE_CREDIT, user=user, fixed=True, active=True)
-            .order_by("name")
-            .values("name")
-            .annotate(last_date=Max("payment_date"))
+        today = date.today()
+        start_current_month = date(today.year, today.month, 1)
+        start_previous_month = (start_current_month - timedelta(days=1)).replace(day=1)
+
+        recent_fixed = Payment.objects.filter(
+            user=user, type=Payment.TYPE_CREDIT, fixed=True, active=True, payment_date__gte=start_previous_month
         )
+
+        last_fixed = recent_fixed.order_by("name").values("name").annotate(last_date=Max("payment_date"))
 
         last_dates = [item["last_date"] for item in last_fixed]
 
