@@ -206,7 +206,6 @@ def include_new_invoice_view(request, user):
         {"field": "date", "msg": "Campo dia de lançamento é obrigatório"},
         {"field": "installments", "msg": "Campo parcelas é obrigatório"},
         {"field": "payment_date", "msg": "Campo dia de pagamento é obrigatório"},
-        {"field": "fixed", "msg": "Campo fixo é obrigatório"},
         {"field": "value", "msg": "Campo valor é obrigatório"},
     ]
     for field in required_fields:
@@ -217,7 +216,7 @@ def include_new_invoice_view(request, user):
     date = data.get("date")
     installments = data.get("installments")
     payment_date = data.get("payment_date")
-    fixed = data.get("fixed")
+    fixed = data.get("fixed", False)
     value = data.get("value")
 
     invoice = Invoice.objects.create(
