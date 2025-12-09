@@ -11,4 +11,5 @@ urlpatterns = [
     ),
     path("amount_invoice_by_tag", views.report_amount_invoice_by_tag_view, name="financial_report_amount_invoice_tag"),
     path("amount_forecast_value", views.report_forecast_amount_value, name="financial_report_amount_forecast_value"),
+    path("metrics/", views.get_metrics_view, name="financial_get_metrics_view"),
 ]

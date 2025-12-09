@@ -886,3 +886,89 @@ def report_forecast_amount_value(request, user):
     forecast_value = debit_percentil * 6
 
     return JsonResponse({"data": forecast_value})
+
+
+def get_total_payment_from_date(date_begin, date_end, user_id, type):
+
+    sum_payment_value = """
+        SELECT
+            COALESCE(SUM(value), 0) as total_payment
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=%(type)s
+            AND fp.active=true
+            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sum_payment_value, {
+            "begin": date_begin,
+            "end": date_end,
+            "type": type,
+            "user_id": user_id
+        })
+        total_payment_current = float(cursor.fetchone()[0])
+
+    date_end = date_begin - timedelta(days=1)
+    date_begin = date_end.replace(day=1)
+
+    with connection.cursor() as cursor:
+        cursor.execute(sum_payment_value, {
+            "begin": date_begin,
+            "end": date_end,
+            "type": type,
+            "user_id": user_id
+        })
+        total_payment_last_month = float(cursor.fetchone()[0])
+
+    return (total_payment_current, total_payment_last_month)
+
+
+
+@require_GET
+@validate_user("financial")
+def get_metrics_view(request, user):
+    date_referrer = datetime.now().date()
+
+    begin = date_referrer.replace(day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
+
+    revenues_current, revenues_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_CREDIT)
+    expenses_current, expenses_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_DEBIT)
+
+    def metric_value(current, last_month):
+        value = (current / abs(last_month)) * 100 if last_month != 0 else 0
+        return round(value, 0)
+
+    revenue_data = {
+        "value": revenues_current,
+        "metric_value": metric_value(revenues_current - revenues_last_month, revenues_last_month)
+    }
+
+    expenses_data = {
+        "value": expenses_current,
+        "metric_value": metric_value(expenses_current - expenses_last_month, expenses_last_month)
+    }
+
+    profit_current = revenues_current - expenses_current
+    profit_last_month = revenues_last_month - expenses_last_month
+
+    profit_data = {
+        "value": profit_current,
+        "metric_value":metric_value(profit_current, profit_last_month)
+    }
+
+    growth_data = {
+        "value": profit_current /  profit_last_month if profit_last_month != 0 else 0
+    }
+
+    data = {
+        "revenues": revenue_data,
+        "expenses": expenses_data,
+        "profit": profit_data,
+        "growth": growth_data
+    }
+
+    return JsonResponse(data)
