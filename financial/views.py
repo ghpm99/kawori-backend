@@ -832,6 +832,7 @@ def report_amount_invoice_by_tag_view(request, user):
             ft.id = fit.tag_id
         INNER JOIN financial_invoice fi ON
             fit.invoice_id = fi.id
+
         INNER JOIN financial_payment fp ON
             fp.invoice_id = fi.id
         WHERE

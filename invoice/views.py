@@ -38,6 +38,10 @@ def get_all_invoice_view(request, user):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
         filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+    if req.get("payment_date__gte"):
+        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+    if req.get("payment_date__lte"):
+        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
 
     invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by("payment_date", "id")
 
