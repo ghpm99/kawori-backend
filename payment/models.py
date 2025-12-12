@@ -23,6 +23,8 @@ class Payment(models.Model):
     status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
     type = models.IntegerField(default=TYPE_CREDIT, choices=TYPES)
     name = models.TextField(max_length=255)
+    description = models.TextField(max_length=1024, blank=True)
+    reference = models.TextField(max_length=1024, blank=True)
     date = models.DateField()
     installments = models.IntegerField(default=1)
     payment_date = models.DateField()

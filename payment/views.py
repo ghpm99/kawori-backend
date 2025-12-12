@@ -13,6 +13,7 @@ from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
+from payment.utils import csv_header_mapping
 
 
 def get_status_filter(status_params):
@@ -358,3 +359,18 @@ def get_all_scheduled_view(request, user):
     data["data"] = payments
 
     return JsonResponse({"data": data})
+
+
+@require_POST
+@validate_user("financial")
+def get_csv_mapping(request, user):
+    data = json.loads(request.body)
+
+    csv_headers = data.get("headers")
+
+    if not csv_headers:
+        return JsonResponse({"msg": "CSV mapping is required"}, status=400)
+
+    csv_mapping = [csv_header_mapping(col) for col in csv_headers]
+
+    return JsonResponse({"msg": "CSV mapping saved successfully", "csv_mapping": csv_mapping})
