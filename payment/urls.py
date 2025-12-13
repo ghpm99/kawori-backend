@@ -14,4 +14,5 @@ urlpatterns = [
     path("<int:id>/", include(payment_details_urls)),
     path("scheduled", views.get_all_scheduled_view, name="financial_get_all_scheduled"),
     path("csv-mapping/", views.get_csv_mapping, name="financial_get_csv_mapping"),
+    path("process-csv/", views.process_csv_upload, name="financial_process_csv_upload"),
 ]

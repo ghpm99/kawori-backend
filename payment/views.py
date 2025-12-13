@@ -1,19 +1,18 @@
 import json
 from datetime import datetime, timedelta
+from typing import List
 
 from dateutil.relativedelta import relativedelta
 from django.db import connection
-from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-
 
 from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
-from payment.utils import csv_header_mapping
+from payment.utils import CSVMapping, Row, csv_header_mapping, process_csv_row
 
 
 def get_status_filter(status_params):
@@ -371,6 +370,22 @@ def get_csv_mapping(request, user):
     if not csv_headers:
         return JsonResponse({"msg": "CSV mapping is required"}, status=400)
 
-    csv_mapping = [csv_header_mapping(col) for col in csv_headers]
+    csv_mapping = [{"csv_column": col, "system_field": csv_header_mapping(col)} for col in csv_headers]
 
-    return JsonResponse({"msg": "CSV mapping saved successfully", "csv_mapping": csv_mapping})
+    return JsonResponse({"data": csv_mapping})
+
+
+@require_POST
+@validate_user("financial")
+def process_csv_upload(request, user):
+    data = json.loads(request.body)
+
+    csv_headers: List[CSVMapping] = data.get("headers", [])
+    csv_body: List[Row] = data.get("body", [])
+
+    processed_payments = []
+
+    for row in csv_body:
+        processed_payments.append(process_csv_row(csv_headers, row))
+
+    return JsonResponse({"data": processed_payments})
