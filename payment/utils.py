@@ -1,10 +1,16 @@
-from dataclasses import dataclass, field
-from datetime import datetime, date
-from decimal import Decimal
 import hashlib
 import json
+import operator
 import re
+from dataclasses import dataclass, field
+from datetime import date as Date, timedelta
+from datetime import datetime
+from decimal import Decimal
+from functools import reduce
 from typing import Dict, List, Optional, TypedDict
+
+from django.db.models import Q
+from rapidfuzz import fuzz
 
 from payment.models import Payment
 
@@ -40,9 +46,9 @@ class PaymentDetail:
     name: str
     description: str
     reference: str
-    date: date
+    date: Date
     installments: int
-    payment_date: date
+    payment_date: Date
     fixed: bool
     active: bool
     value: Decimal
@@ -57,10 +63,10 @@ class PaymentDetail:
             "name": self.name,
             "description": self.description,
             "reference": self.reference,
-            "date": self.date.isoformat() if isinstance(self.date, (date, datetime)) else self.date,
+            "date": self.date.isoformat() if isinstance(self.date, (Date, datetime)) else self.date,
             "installments": self.installments,
             "payment_date": (
-                self.payment_date.isoformat() if isinstance(self.payment_date, (date, datetime)) else self.payment_date
+                self.payment_date.isoformat() if isinstance(self.payment_date, (Date, datetime)) else self.payment_date
             ),
             "fixed": self.fixed,
             "active": self.active,
@@ -77,9 +83,9 @@ class ParsedTransaction:
     mapped_data: PaymentDetail
     validation_errors: List[str] = field(default_factory=list)
     is_valid: bool = False
-    matched_payment: Optional[PaymentDetail] = None
+    matched_payment: Optional[Payment] = None
     match_score: Optional[float] = None
-    possibly_matched_payment_list: Optional[List[PaymentDetail]] = None
+    possibly_matched_payment_list: Optional[List[Payment]] = None
 
     def to_dict(self) -> Dict[str, object]:
         result: Dict[str, object] = {
@@ -89,13 +95,14 @@ class ParsedTransaction:
             "is_valid": self.is_valid,
         }
         result["mapped_data"] = self.mapped_data.to_dict() if self.mapped_data else None
+
         result["possibly_matched_payment_list"] = (
             [p.to_dict() for p in self.possibly_matched_payment_list] if self.possibly_matched_payment_list else None
         )
         return result
 
 
-def process_csv_date(date_str: str) -> date | None:
+def process_csv_date(date_str: str) -> Date | None:
     if not date_str or type(date_str) is not str:
         return None
 
@@ -183,7 +190,7 @@ def paymment_mapped_to_detail(user, import_type, mapped_data: Dict[str, any]) ->
         name=payment_name,
         description=payment_description,
         reference=mapped_data.get("reference", ""),
-        date=payment_date or date.today(),
+        date=payment_date or Date.today(),
         installments=payment_installments or 1,
         payment_date=payment_payment_date,
         fixed=False,
@@ -232,9 +239,114 @@ def generate_payment_reference(row: Row, user=None, truncate_chars: int | None =
     return f"ref_{digest}"
 
 
-def find_possible_payment_matches(user, payment_data: PaymentDetail) -> List[PaymentDetail]:
+def find_payment_by_reference(user, reference: str) -> Optional[Payment]:
+    payment = Payment.objects.filter(
+        user_id=user.id,
+        reference=reference,
+    ).first()
 
-    return []
+    return payment
+
+
+def _normalize_text(s: str) -> str:
+    if not s:
+        return ""
+    s = s.lower()
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"[^\w\s]", " ", s)
+    return s.strip()
+
+
+def find_possible_payment_matches(
+    user,
+    payment_data: PaymentDetail,
+    date_window_days: int = 30,
+    value_tolerance_pct: float = 0.15,
+    top_n: int = 10,
+    threshold: float = 0.30,
+):
+    base_qs = Payment.objects.filter(user_id=user.id, installments=payment_data.installments)
+
+    dt = payment_data.date
+    payment_date = payment_data.payment_date
+    delta = timedelta(days=date_window_days)
+
+    low_value = None
+    high_value = None
+    if payment_data.value is not None:
+        pv = float(payment_data.value)
+        low_value = pv * (1 - value_tolerance_pct)
+        high_value = pv * (1 + value_tolerance_pct)
+
+    q_date = Q()
+    if dt:
+        q_date = Q(date__range=(dt - delta, dt + delta))
+
+    q_payment_date = Q()
+    if payment_date:
+        q_payment_date = Q(payment_date__range=(payment_date - delta, payment_date + delta))
+
+    q_value = Q()
+    if low_value is not None:
+        q_value = Q(value__gte=low_value, value__lte=high_value)
+
+    q_text = Q()
+    if payment_data.name:
+        sample = payment_data.name[:40]
+        q_text = Q(name__icontains=sample) | Q(description__icontains=sample)
+
+    filtered_qs = base_qs.filter(q_date | q_value | q_text | q_payment_date).distinct()
+    print(filtered_qs.query)
+
+    norm_name = _normalize_text(payment_data.name or "")
+    norm_desc = _normalize_text(payment_data.description or "")
+
+    candidates = []
+    for p in filtered_qs:
+        score = 0.0
+        weights = {"reference": 0.45, "date": 0.20, "value": 0.20, "text": 0.15}
+
+        if payment_data.reference and p.reference and payment_data.reference == p.reference:
+            score += weights["reference"] * 1.0
+
+        if dt and p.date:
+            days_diff = abs((p.date - dt).days)
+            date_score = max(0.0, 1.0 - (days_diff / max(1, date_window_days)))
+        else:
+            days_diff = None
+            date_score = 0.0
+        score += weights["date"] * date_score
+
+        try:
+            pv = float(payment_data.value)
+            pv2 = float(p.value)
+            maxv = max(abs(pv), abs(pv2), 1.0)
+            value_score = max(0.0, 1.0 - (abs(pv - pv2) / maxv))
+        except Exception:
+            value_score = 0.0
+        score += weights["value"] * value_score
+
+        tn = _normalize_text(p.name or "")
+        td = _normalize_text(p.description or "")
+        text_score_name = fuzz.token_set_ratio(norm_name, tn, score_cutoff=0) / 100.0
+        text_score_desc = fuzz.token_set_ratio(norm_desc, td, score_cutoff=0) / 100.0
+        text_score = max(text_score_name, text_score_desc)
+        score += weights["text"] * text_score
+
+        candidates.append(
+            {
+                "payment": p,
+                "score": score,
+                "days_diff": days_diff,
+                "value_diff": abs(
+                    (float(p.value) - float(payment_data.value)) if payment_data.value is not None else 0
+                ),
+                "text_score": text_score,
+            }
+        )
+
+    candidates = sorted(candidates, key=lambda x: x["score"], reverse=True)
+    return [c.get("payment") for c in candidates][:top_n]
 
 
 def check_payment_is_valid(payment_data: PaymentDetail, import_type: str, validation_errors_lenght: int) -> bool:
@@ -287,5 +399,7 @@ def process_csv_row(user, import_type: str, header_mapping: List[CSVMapping], ro
     parser_transaction.is_valid = check_payment_is_valid(
         payment_detail, import_type, len(parser_transaction.validation_errors)
     )
+    parser_transaction.matched_payment = find_payment_by_reference(user, payment_detail.reference)
+    parser_transaction.possibly_matched_payment_list = find_possible_payment_matches(user, payment_detail)
 
     return parser_transaction

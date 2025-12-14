@@ -43,3 +43,35 @@ class Payment(models.Model):
         self.invoice.close_value(self.value)
         self.status = self.STATUS_DONE
         self.save()
+
+    def to_dict(self, include_related: bool = False) -> dict:
+        data = {
+            "id": self.id,
+            "status": self.status,
+            "type": self.type,
+            "name": self.name,
+            "description": self.description,
+            "reference": self.reference,
+            "date": self.date.isoformat() if self.date else None,
+            "installments": self.installments,
+            "payment_date": self.payment_date.isoformat() if self.payment_date else None,
+            "fixed": self.fixed,
+            "active": self.active,
+            "value": float(self.value) if self.value is not None else None,
+            "invoice_id": self.invoice_id,
+            "user_id": self.user_id,
+        }
+
+        if include_related:
+            if self.invoice_id:
+                try:
+                    data["invoice"] = self.invoice.to_dict()
+                except Exception:
+                    data["invoice"] = {"id": self.invoice_id}
+            if self.user_id:
+                try:
+                    data["user"] = {"id": self.user_id, "username": self.user.username}
+                except Exception:
+                    data["user"] = {"id": self.user_id}
+
+        return data
