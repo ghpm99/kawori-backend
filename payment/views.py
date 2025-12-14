@@ -382,10 +382,14 @@ def process_csv_upload(request, user):
 
     csv_headers: List[CSVMapping] = data.get("headers", [])
     csv_body: List[Row] = data.get("body", [])
+    import_type: str = data.get("import_type", "transactions")
 
     processed_payments = []
 
     for row in csv_body:
-        processed_payments.append(process_csv_row(csv_headers, row))
+        processed_row = process_csv_row(user, import_type, csv_headers, row)
+        processed_payments.append(processed_row)
 
-    return JsonResponse({"data": processed_payments})
+    processed = [pt.to_dict() for pt in processed_payments]
+
+    return JsonResponse({"data": processed})
