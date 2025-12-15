@@ -296,7 +296,6 @@ def find_possible_payment_matches(
         q_text = Q(name__icontains=sample) | Q(description__icontains=sample)
 
     filtered_qs = base_qs.filter(q_date | q_value | q_text | q_payment_date).distinct()
-    print(filtered_qs.query)
 
     norm_name = _normalize_text(payment_data.name or "")
     norm_desc = _normalize_text(payment_data.description or "")
@@ -304,7 +303,7 @@ def find_possible_payment_matches(
     candidates = []
     for p in filtered_qs:
         score = 0.0
-        weights = {"reference": 0.45, "date": 0.20, "value": 0.20, "text": 0.15}
+        weights = {"reference": 0.45, "date": 0.30, "value": 0.30, "text": 0.15}
 
         if payment_data.reference and p.reference and payment_data.reference == p.reference:
             score += weights["reference"] * 1.0
@@ -316,6 +315,11 @@ def find_possible_payment_matches(
             days_diff = None
             date_score = 0.0
         score += weights["date"] * date_score
+
+        if payment_date and p.payment_date:
+            pd_days_diff = abs((p.payment_date - payment_date).days)
+            payment_date_score = max(0.0, 1.0 - (pd_days_diff / max(1, date_window_days)))
+            score += weights["date"] * payment_date_score
 
         try:
             pv = float(payment_data.value)
