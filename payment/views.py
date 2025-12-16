@@ -11,8 +11,14 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
-from payment.models import Payment
-from payment.utils import CSVMapping, Row, csv_header_mapping, process_csv_row
+from payment.models import ImportedPayment, Payment
+from payment.utils import (
+    CSVMapping,
+    PaymentImport,
+    Row,
+    csv_header_mapping,
+    process_csv_row,
+)
 
 
 def get_status_filter(status_params):
@@ -393,3 +399,55 @@ def process_csv_upload(request, user):
     processed = [pt.to_dict() for pt in processed_payments]
 
     return JsonResponse({"data": processed})
+
+
+@require_POST
+@validate_user("financial")
+def csv_resolve_imports_view(request, user):
+    data = json.loads(request.body)
+
+    csv_payments: List[PaymentImport] = data.get("import", [])
+
+    created_imported_payment = []
+
+    for transaction_data in csv_payments:
+        mapped_payment = transaction_data.get("mapped_payment")
+        if not mapped_payment:
+            continue
+
+        if not transaction_data.get("matched_payment_id"):
+            import_type = ImportedPayment.IMPORT_TYPE_NEW
+        else:
+            import_type = ImportedPayment.IMPORT_TYPE_MERGE
+
+        imported_payment = ImportedPayment.objects.create(
+            raw_type=mapped_payment.get("type"),
+            raw_name=mapped_payment.get("name"),
+            raw_description=mapped_payment.get("description"),
+            raw_reference=mapped_payment.get("reference"),
+            raw_date=mapped_payment.get("date"),
+            raw_installments=mapped_payment.get("installments"),
+            raw_payment_date=mapped_payment.get("payment_date"),
+            raw_value=mapped_payment.get("value"),
+            merge_group=transaction_data.get("merge_group"),
+            matched_payment_id=transaction_data.get("matched_payment_id"),
+            import_type=import_type,
+            user=user,
+        )
+
+        created_imported_payment.append(
+            {
+                "import_payment_id": imported_payment.id,
+                "reference": imported_payment.raw_reference,
+                "action": import_type,
+                "payment_id": imported_payment.matched_payment_id,
+                "name": imported_payment.raw_name,
+                "value": float(imported_payment.raw_value or 0),
+                "date": imported_payment.raw_date,
+                "payment_date": imported_payment.raw_payment_date,
+                "tags": [],
+                "has_budget_tag": False,
+            }
+        )
+
+    return JsonResponse({"data": created_imported_payment})

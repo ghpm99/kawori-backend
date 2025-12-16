@@ -75,3 +75,33 @@ class Payment(models.Model):
                     data["user"] = {"id": self.user_id}
 
         return data
+
+
+class ImportedPayment(models.Model):
+
+    IMPORT_TYPE_MERGE = 0
+    IMPORT_TYPE_SPLIT = 1
+    IMPORT_TYPE_NEW = 2
+    IMPORT_TYPES = [
+        (IMPORT_TYPE_MERGE, "merge"),
+        (IMPORT_TYPE_SPLIT, "split"),
+        (IMPORT_TYPE_NEW, "new"),
+    ]
+
+    class Meta:
+        db_table = "financial_imported_payment"
+
+    raw_type = models.IntegerField(choices=Payment.TYPES)
+    raw_name = models.TextField(max_length=255)
+    raw_description = models.TextField(max_length=1024, blank=True)
+    raw_reference = models.TextField(max_length=1024, blank=True)
+    raw_date = models.DateField()
+    raw_installments = models.IntegerField()
+    raw_payment_date = models.DateField()
+    raw_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
+    import_type = models.IntegerField(choices=IMPORT_TYPES)
+
+    matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
+    merge_group = models.TextField(max_length=255, null=True, blank=True)
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
