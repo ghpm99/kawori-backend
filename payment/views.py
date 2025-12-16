@@ -415,39 +415,78 @@ def csv_resolve_imports_view(request, user):
         if not mapped_payment:
             continue
 
-        if not transaction_data.get("matched_payment_id"):
-            import_type = ImportedPayment.IMPORT_TYPE_NEW
-        else:
+        reference = mapped_payment.get("reference")
+
+        matched_payment_id = transaction_data.get("matched_payment_id")
+
+        has_completed_import = ImportedPayment.objects.filter(
+            reference=reference, user=user, status=ImportedPayment.IMPORT_STATUS_COMPLETED
+        ).exists()
+
+        if has_completed_import:
+            continue
+
+        imported_payment_tags = []
+        has_budget_tag = False
+
+        import_type = ImportedPayment.IMPORT_TYPE_NEW
+
+        if matched_payment_id:
             import_type = ImportedPayment.IMPORT_TYPE_MERGE
 
-        imported_payment = ImportedPayment.objects.create(
-            raw_type=mapped_payment.get("type"),
-            raw_name=mapped_payment.get("name"),
-            raw_description=mapped_payment.get("description"),
-            raw_reference=mapped_payment.get("reference"),
-            raw_date=mapped_payment.get("date"),
-            raw_installments=mapped_payment.get("installments"),
-            raw_payment_date=mapped_payment.get("payment_date"),
-            raw_value=mapped_payment.get("value"),
-            merge_group=transaction_data.get("merge_group"),
-            matched_payment_id=transaction_data.get("matched_payment_id"),
-            import_type=import_type,
+            matched_payment = (
+                Payment.objects.filter(id=matched_payment_id, user=user)
+                .select_related("invoice")
+                .prefetch_related("invoice__tags")
+                .first()
+            )
+
+            if not matched_payment:
+                continue
+
+            matched_invoice_tags = matched_payment.invoice.tags.all()
+            imported_payment_tags = [
+                {"id": tag.id, "name": tag.name, "color": tag.color} for tag in matched_invoice_tags
+            ]
+            has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists()
+
+        imported_payment, created = ImportedPayment.objects.update_or_create(
+            reference=reference,
             user=user,
+            defaults={
+                "merge_group": transaction_data.get("merge_group"),
+                "matched_payment_id": matched_payment_id,
+                "import_type": import_type,
+                "raw_type": mapped_payment.get("type"),
+                "raw_name": mapped_payment.get("name"),
+                "raw_description": mapped_payment.get("description"),
+                "raw_date": mapped_payment.get("date"),
+                "raw_installments": mapped_payment.get("installments"),
+                "raw_payment_date": mapped_payment.get("payment_date"),
+                "raw_value": mapped_payment.get("value"),
+            },
         )
 
         created_imported_payment.append(
             {
                 "import_payment_id": imported_payment.id,
-                "reference": imported_payment.raw_reference,
-                "action": import_type,
-                "payment_id": imported_payment.matched_payment_id,
+                "reference": imported_payment.reference,
+                "action": imported_payment.import_type,
+                "payment_id": matched_payment_id,
                 "name": imported_payment.raw_name,
                 "value": float(imported_payment.raw_value or 0),
                 "date": imported_payment.raw_date,
                 "payment_date": imported_payment.raw_payment_date,
-                "tags": [],
-                "has_budget_tag": False,
+                "tags": imported_payment_tags or [],
+                "has_budget_tag": has_budget_tag,
             }
         )
 
     return JsonResponse({"data": created_imported_payment})
+
+
+@require_POST
+@validate_user("financial")
+def csv_import_view(request, user):
+
+    return JsonResponse({"msg": "Not implemented yet"}, status=501)

@@ -283,7 +283,7 @@ def validate_payment_data(payment_data: PaymentDetail) -> List[str]:
     return errors
 
 
-def generate_payment_reference(row: Row, user=None, truncate_chars: int | None = 16) -> str:
+def generate_payment_reference(row: Row, user=None, truncate_chars: int | None = None) -> str:
 
     if not isinstance(row, dict):
         payload_obj = str(row)
@@ -364,7 +364,6 @@ def find_possible_payment_matches(
         q_text = Q(name__icontains=sample) | Q(description__icontains=sample)
 
     filtered_qs = base_qs.filter(recent_q & (q_value | q_text)).distinct()
-    print(filtered_qs.query)
 
     norm_name = _normalize_text(payment_data.name or "")
     norm_desc = _normalize_text(payment_data.description or "")

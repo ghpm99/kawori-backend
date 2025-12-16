@@ -16,4 +16,5 @@ urlpatterns = [
     path("csv-mapping/", views.get_csv_mapping, name="financial_get_csv_mapping"),
     path("process-csv/", views.process_csv_upload, name="financial_process_csv_upload"),
     path("csv-resolve-imports/", views.csv_resolve_imports_view, name="financial_csv_resolve_imports_view"),
+    path("csv-import/", views.csv_import_view, name="financial_csv_import_view"),
 ]

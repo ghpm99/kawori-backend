@@ -88,20 +88,37 @@ class ImportedPayment(models.Model):
         (IMPORT_TYPE_NEW, "new"),
     ]
 
+    IMPORT_STATUS_PENDING = 0
+    IMPORT_STATUS_COMPLETED = 1
+    IMPORT_STATUS_FAILED = 2
+    IMPORT_STATUS = [
+        (IMPORT_STATUS_PENDING, "pending"),
+        (IMPORT_STATUS_COMPLETED, "completed"),
+        (IMPORT_STATUS_FAILED, "failed"),
+    ]
+
     class Meta:
         db_table = "financial_imported_payment"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "user"],
+                name="uniq_imported_payment_reference_user",
+            )
+        ]
+
+    import_type = models.IntegerField(choices=IMPORT_TYPES)
+
+    reference = models.TextField(max_length=1024, blank=True)
+    matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
+    merge_group = models.TextField(max_length=255, null=True, blank=True)
+    status = models.IntegerField(default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
 
     raw_type = models.IntegerField(choices=Payment.TYPES)
     raw_name = models.TextField(max_length=255)
     raw_description = models.TextField(max_length=1024, blank=True)
-    raw_reference = models.TextField(max_length=1024, blank=True)
     raw_date = models.DateField()
     raw_installments = models.IntegerField()
     raw_payment_date = models.DateField()
     raw_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
-    import_type = models.IntegerField(choices=IMPORT_TYPES)
-
-    matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
-    merge_group = models.TextField(max_length=255, null=True, blank=True)
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
