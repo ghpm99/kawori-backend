@@ -111,6 +111,8 @@ class ImportedPayment(models.Model):
         (IMPORT_STATUS_FAILED, "Failed"),
     ]
 
+    EDITABLE_STATUS = [IMPORT_STATUS_PENDING, IMPORT_STATUS_FAILED]
+
     class Meta:
         db_table = "financial_imported_payment"
         constraints = [
@@ -145,3 +147,14 @@ class ImportedPayment(models.Model):
     raw_tags = models.ManyToManyField(Tag, related_name="imported_payment", blank=True)
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    @classmethod
+    def can_edit(cls, reference, user) -> bool:
+        return cls.objects.filter(
+            reference=reference,
+            user=user,
+            status__in=cls.EDITABLE_STATUS,
+        ).exists()
+
+    def is_editable(self) -> bool:
+        return self.status in self.EDITABLE_STATUS

@@ -425,11 +425,12 @@ def csv_resolve_imports_view(request, user):
 
         matched_payment_id = transaction_data.get("matched_payment_id")
 
-        has_completed_import = ImportedPayment.objects.filter(
-            reference=reference, user=user, status=ImportedPayment.IMPORT_STATUS_COMPLETED
-        ).exists()
+        existing = ImportedPayment.objects.filter(
+            reference=reference,
+            user=user,
+        ).first()
 
-        if has_completed_import:
+        if existing and not existing.is_editable():
             continue
 
         matched_invoice_tags = []
@@ -471,7 +472,8 @@ def csv_resolve_imports_view(request, user):
             },
         )
 
-        imported_payment.raw_tags.set(matched_invoice_tags)
+        if import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE:
+            imported_payment.raw_tags.set(matched_invoice_tags)
 
         created_imported_payment.append(
             {
@@ -511,14 +513,15 @@ def csv_import_view(request, user):
     imports = ImportedPayment.objects.filter(
         id__in=imported_ids,
         user=user,
-        status=ImportedPayment.IMPORT_STATUS_PENDING,
     ).select_related("matched_payment")
 
     imports_by_id = {imp.id: imp for imp in imports}
 
+    count_imports = 0
+
     for item in items:
         imported = imports_by_id.get(item["import_payment_id"])
-        if not imported:
+        if not imported or not imported.is_editable():
             continue
 
         tags = Tag.objects.filter(
@@ -532,5 +535,6 @@ def csv_import_view(request, user):
         imported.raw_tags.set(tags)
         imported.status = ImportedPayment.IMPORT_STATUS_QUEUED
         imported.save(update_fields=["status"])
+        count_imports += 1
 
-    return JsonResponse({"msg": "Importação iniciada"})
+    return JsonResponse({"msg": "Importação iniciada", "total": count_imports})
