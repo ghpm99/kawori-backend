@@ -1,3 +1,4 @@
+from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
 from typing import List
@@ -408,8 +409,12 @@ def csv_resolve_imports_view(request, user):
     data = json.loads(request.body)
 
     csv_payments: List[PaymentImport] = data.get("import", [])
+    import_type = data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
 
     created_imported_payment = []
+
+    if import_type not in dict(ImportedPayment.IMPORT_SOURCES):
+        return JsonResponse({"msg": "Tipo de importação invalido"}, status=HTTPStatus.BAD_REQUEST)
 
     for transaction_data in csv_payments:
         mapped_payment = transaction_data.get("mapped_payment")
@@ -430,10 +435,10 @@ def csv_resolve_imports_view(request, user):
         matched_invoice_tags = []
         has_budget_tag = False
 
-        import_type = ImportedPayment.IMPORT_TYPE_NEW
+        import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
 
         if matched_payment_id:
-            import_type = ImportedPayment.IMPORT_TYPE_MERGE
+            import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
 
             matched_payment = (
                 Payment.objects.filter(id=matched_payment_id, user=user)
@@ -454,7 +459,8 @@ def csv_resolve_imports_view(request, user):
             defaults={
                 "merge_group": transaction_data.get("merge_group"),
                 "matched_payment_id": matched_payment_id,
-                "import_type": import_type,
+                "import_strategy": import_strategy,
+                "import_source": import_type,
                 "raw_type": mapped_payment.get("type"),
                 "raw_name": mapped_payment.get("name"),
                 "raw_description": mapped_payment.get("description"),
@@ -471,7 +477,7 @@ def csv_resolve_imports_view(request, user):
             {
                 "import_payment_id": imported_payment.id,
                 "reference": imported_payment.reference,
-                "action": imported_payment.import_type,
+                "action": imported_payment.import_strategy,
                 "payment_id": matched_payment_id,
                 "name": imported_payment.raw_name,
                 "value": float(imported_payment.raw_value or 0),

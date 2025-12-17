@@ -80,26 +80,35 @@ class Payment(models.Model):
 
 class ImportedPayment(models.Model):
 
-    IMPORT_TYPE_MERGE = 0
-    IMPORT_TYPE_SPLIT = 1
-    IMPORT_TYPE_NEW = 2
-    IMPORT_TYPES = [
-        (IMPORT_TYPE_MERGE, "merge"),
-        (IMPORT_TYPE_SPLIT, "split"),
-        (IMPORT_TYPE_NEW, "new"),
+    IMPORT_SOURCE_TRANSACTIONS = "transactions"
+    IMPORT_SOURCE_CARD_PAYMENTS = "card_payments"
+
+    IMPORT_SOURCES = [
+        (IMPORT_SOURCE_TRANSACTIONS, "Transactions"),
+        (IMPORT_SOURCE_CARD_PAYMENTS, "Card payments"),
     ]
 
-    IMPORT_STATUS_PENDING = 0
-    IMPORT_STATUS_QUEUED = 1
-    IMPORT_STATUS_PROCESSING = 2
-    IMPORT_STATUS_COMPLETED = 3
-    IMPORT_STATUS_FAILED = 4
+    IMPORT_STRATEGY_MERGE = "merge"
+    IMPORT_STRATEGY_SPLIT = "split"
+    IMPORT_STRATEGY_NEW = "new"
+
+    IMPORT_STRATEGIES = [
+        (IMPORT_STRATEGY_MERGE, "Merge"),
+        (IMPORT_STRATEGY_SPLIT, "Split"),
+        (IMPORT_STRATEGY_NEW, "New"),
+    ]
+
+    IMPORT_STATUS_PENDING = "pending"
+    IMPORT_STATUS_QUEUED = "queued"
+    IMPORT_STATUS_PROCESSING = "processing"
+    IMPORT_STATUS_COMPLETED = "completed"
+    IMPORT_STATUS_FAILED = "failed"
     IMPORT_STATUS = [
-        (IMPORT_STATUS_PENDING, "pending"),
-        (IMPORT_STATUS_QUEUED, "queued"),
-        (IMPORT_STATUS_PROCESSING, "processing"),
-        (IMPORT_STATUS_COMPLETED, "completed"),
-        (IMPORT_STATUS_FAILED, "failed"),
+        (IMPORT_STATUS_PENDING, "Pending"),
+        (IMPORT_STATUS_QUEUED, "Queued"),
+        (IMPORT_STATUS_PROCESSING, "Processing"),
+        (IMPORT_STATUS_COMPLETED, "Completed"),
+        (IMPORT_STATUS_FAILED, "Failed"),
     ]
 
     class Meta:
@@ -111,12 +120,20 @@ class ImportedPayment(models.Model):
             )
         ]
 
-    import_type = models.IntegerField(choices=IMPORT_TYPES)
+    import_source = models.CharField(
+        max_length=32,
+        choices=IMPORT_SOURCES,
+    )
+
+    import_strategy = models.CharField(
+        max_length=16,
+        choices=IMPORT_STRATEGIES,
+    )
 
     reference = models.TextField(max_length=1024, blank=True)
     matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
     merge_group = models.TextField(max_length=255, null=True, blank=True)
-    status = models.IntegerField(default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
+    status = models.CharField(max_length=32, default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
 
     raw_type = models.IntegerField(choices=Payment.TYPES)
     raw_name = models.TextField(max_length=255)
