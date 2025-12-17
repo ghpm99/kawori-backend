@@ -19,6 +19,7 @@ from payment.utils import (
     csv_header_mapping,
     process_csv_row,
 )
+from tag.models import Tag
 
 
 def get_status_filter(status_params):
@@ -426,7 +427,7 @@ def csv_resolve_imports_view(request, user):
         if has_completed_import:
             continue
 
-        imported_payment_tags = []
+        matched_invoice_tags = []
         has_budget_tag = False
 
         import_type = ImportedPayment.IMPORT_TYPE_NEW
@@ -445,9 +446,6 @@ def csv_resolve_imports_view(request, user):
                 continue
 
             matched_invoice_tags = matched_payment.invoice.tags.all()
-            imported_payment_tags = [
-                {"id": tag.id, "name": tag.name, "color": tag.color} for tag in matched_invoice_tags
-            ]
             has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists()
 
         imported_payment, created = ImportedPayment.objects.update_or_create(
@@ -467,6 +465,8 @@ def csv_resolve_imports_view(request, user):
             },
         )
 
+        imported_payment.raw_tags.set(matched_invoice_tags)
+
         created_imported_payment.append(
             {
                 "import_payment_id": imported_payment.id,
@@ -477,7 +477,15 @@ def csv_resolve_imports_view(request, user):
                 "value": float(imported_payment.raw_value or 0),
                 "date": imported_payment.raw_date,
                 "payment_date": imported_payment.raw_payment_date,
-                "tags": imported_payment_tags or [],
+                "tags": [
+                    {
+                        "id": tag.id,
+                        "name": tag.name,
+                        "color": tag.color,
+                        "is_budget": hasattr(tag, "budget"),
+                    }
+                    for tag in matched_invoice_tags
+                ],
                 "has_budget_tag": has_budget_tag,
             }
         )
@@ -488,5 +496,35 @@ def csv_resolve_imports_view(request, user):
 @require_POST
 @validate_user("financial")
 def csv_import_view(request, user):
+    payload = json.loads(request.body)
 
-    return JsonResponse({"msg": "Not implemented yet"}, status=501)
+    items = payload.get("data", [])
+
+    imported_ids = [item["import_payment_id"] for item in items]
+
+    imports = ImportedPayment.objects.filter(
+        id__in=imported_ids,
+        user=user,
+        status=ImportedPayment.IMPORT_STATUS_PENDING,
+    ).select_related("matched_payment")
+
+    imports_by_id = {imp.id: imp for imp in imports}
+
+    for item in items:
+        imported = imports_by_id.get(item["import_payment_id"])
+        if not imported:
+            continue
+
+        tags = Tag.objects.filter(
+            id__in=item["tags"],
+            user=user,
+        )
+        has_budget_tag = tags.filter(budget__isnull=False).exists()
+        if not has_budget_tag:
+            continue
+
+        imported.raw_tags.set(tags)
+        imported.status = ImportedPayment.IMPORT_STATUS_QUEUED
+        imported.save(update_fields=["status"])
+
+    return JsonResponse({"msg": "Importação iniciada"})

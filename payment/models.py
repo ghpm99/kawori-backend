@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from invoice.models import Invoice
+from tag.models import Tag
 
 
 # Create your models here.
@@ -89,10 +90,14 @@ class ImportedPayment(models.Model):
     ]
 
     IMPORT_STATUS_PENDING = 0
-    IMPORT_STATUS_COMPLETED = 1
-    IMPORT_STATUS_FAILED = 2
+    IMPORT_STATUS_QUEUED = 1
+    IMPORT_STATUS_PROCESSING = 2
+    IMPORT_STATUS_COMPLETED = 3
+    IMPORT_STATUS_FAILED = 4
     IMPORT_STATUS = [
         (IMPORT_STATUS_PENDING, "pending"),
+        (IMPORT_STATUS_QUEUED, "queued"),
+        (IMPORT_STATUS_PROCESSING, "processing"),
         (IMPORT_STATUS_COMPLETED, "completed"),
         (IMPORT_STATUS_FAILED, "failed"),
     ]
@@ -120,5 +125,6 @@ class ImportedPayment(models.Model):
     raw_installments = models.IntegerField()
     raw_payment_date = models.DateField()
     raw_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
+    raw_tags = models.ManyToManyField(Tag, related_name="imported_payment", blank=True)
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
