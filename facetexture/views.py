@@ -361,10 +361,11 @@ def change_character_name(request, user, id):
 @require_POST
 @validate_user("blackdesert")
 def new_character(request, user):
+    MAXIMUM_FACETEXTURE_CHARACTERS = 44
     character_count = Character.objects.filter(user=user, active=True).count()
 
-    if character_count >= 41:
-        return JsonResponse({"data": "O limite de facetexture são 41!"}, status=400)
+    if character_count >= MAXIMUM_FACETEXTURE_CHARACTERS:
+        return JsonResponse({"data": f"O limite de facetexture são {MAXIMUM_FACETEXTURE_CHARACTERS}!"}, status=400)
 
     data = json.loads(request.body)
     name = data.get("name", "")

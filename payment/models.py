@@ -156,5 +156,11 @@ class ImportedPayment(models.Model):
             status__in=cls.EDITABLE_STATUS,
         ).exists()
 
+    @classmethod
+    def is_processing_running(cls) -> bool:
+        return cls.objects.filter(
+            status=cls.IMPORT_STATUS_PROCESSING
+        ).exists()
+
     def is_editable(self) -> bool:
         return self.status in self.EDITABLE_STATUS
