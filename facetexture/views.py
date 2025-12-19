@@ -126,7 +126,7 @@ def preview_background(request, user):
     if not verify_valid_symbol(icon_style):
         return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
 
-    image = image.resize(size=(920, 997))
+    image = image.resize(size=(920, 1157))
 
     width = 125
     height = 160
@@ -183,7 +183,7 @@ def download_background(request, user):
     if not verify_valid_symbol(icon_style):
         return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
 
-    image = image.resize(size=(920, 997))
+    image = image.resize(size=(920, 1157))
 
     width = 125
     height = 160
