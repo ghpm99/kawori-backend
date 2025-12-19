@@ -7,11 +7,11 @@ from invoice.models import Invoice
 from payment.models import Payment
 
 
-def generate_payments(invoice: Invoice):
+def generate_payments(invoice: Invoice, description="", reference=""):
     installments = invoice.installments
     payment_date = invoice.payment_date
 
-    value_installments = calculate_installments(invoice.value, installments)
+    value_installments = calculate_installments(float(invoice.value), installments)
 
     date_format = "%Y-%m-%d"
 
@@ -19,18 +19,20 @@ def generate_payments(invoice: Invoice):
         payment = Payment(
             type=invoice.type,
             name=f"{invoice.name} #{i + 1}",
+            description=description,
             date=invoice.date,
             installments=i + 1,
             payment_date=payment_date,
             fixed=invoice.fixed,
             value=value_installments[i],
             invoice=invoice,
+            reference=reference,
             user=invoice.user,
         )
         payment.save()
-        date_obj = datetime.strptime(payment_date, date_format)
-        future_payment = date_obj + relativedelta(months=1)
-        payment_date = future_payment.strftime(date_format)
+
+        future_payment = payment_date + relativedelta(months=1)
+        payment_date = future_payment
 
 
 def calculate_installments(value, installments):

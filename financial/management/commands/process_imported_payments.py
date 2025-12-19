@@ -2,9 +2,12 @@ from decimal import Decimal
 from multiprocessing.managers import BaseManager
 import re
 import time
+from financial.utils import generate_payments
 from invoice.models import Invoice
 from payment.models import ImportedPayment
 from django.core.management.base import BaseCommand
+
+from tag.models import Tag
 
 
 class Command(BaseCommand):
@@ -15,7 +18,7 @@ class Command(BaseCommand):
     def is_processing_running(self) -> bool:
         return ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_PROCESSING).exists()
 
-    def list_to_process(self, limit=1):
+    def list_to_process(self, limit=100):
         return (
             ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_QUEUED)
             .order_by("id")
@@ -95,20 +98,71 @@ class Command(BaseCommand):
             if payment.raw_description and payment.raw_value is not None
         )
 
+    def merge_tags(self, source: list[Tag], target: list[Tag]) -> list[Tag]:
+        merged = list(target)
+        seen_ids = {tag.id for tag in merged if tag.id is not None}
+
+        for tag in source:
+            if tag.id not in seen_ids:
+                merged.append(tag)
+                seen_ids.add(tag.id)
+
+        return merged
+
+    def finish_with_error(self, payments_to_process: list[ImportedPayment]):
+        for payment in payments_to_process:
+            payment.status = ImportedPayment.IMPORT_STATUS_FAILED
+            payment.save()
+
+    def finish_with_success(self, payments_to_process: list[ImportedPayment]):
+        for payment in payments_to_process:
+            payment.status = ImportedPayment.IMPORT_STATUS_COMPLETED
+            payment.save()
+
     def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
         # TODO buscar nota target
         # TODO atualizar dados necessarios
-        pass
+        matched_payment = next(
+            (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
+            None,
+        )
+        if matched_payment is None:
+            self.finish_with_error(payments_to_process)
+            return
+        payment_description = self.get_payment_description(payments_to_process)
+        matched_payment.description = payment_description
+        matched_payment.reference = payments_to_process[0].reference
+        matched_payment.save()
+        self.finish_with_success(payments_to_process)
 
     def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
         max_installments = max(
             self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
-        payment_name = self.get_valid_name_by_list(payments_to_process)
+        invoice_name = self.get_valid_name_by_list(payments_to_process)
         payment_description = self.get_payment_description(payments_to_process)
-        # TODO criar invoice
-        # TODO criar nota
-        pass
+        invoice_value = sum(payment.raw_value for payment in payments_to_process)
+        invoice = Invoice.objects.create(
+            status=Invoice.STATUS_OPEN,
+            type=payments_to_process[0].raw_type,
+            name=invoice_name,
+            date=payments_to_process[0].raw_date,
+            installments=max_installments,
+            payment_date=payments_to_process[0].raw_payment_date,
+            fixed=False,
+            active=True,
+            value=invoice_value,
+            value_open=invoice_value,
+            user=payments_to_process[0].user,
+        )
+        invoice_tags = []
+        for payment in payments_to_process:
+            invoice_tags = self.merge_tags(list(payment.raw_tags.all()), invoice_tags)
+
+        invoice.tags.set(invoice_tags)
+
+        generate_payments(invoice, payment_description, payments_to_process[0].reference)
+        self.finish_with_success(payments_to_process)
 
     def process_payment(self, payments_to_process: list[ImportedPayment]):
         has_merge = any(
@@ -127,14 +181,18 @@ class Command(BaseCommand):
         list_to_process = self.list_to_process()
 
         for payment_to_process in list_to_process:
-            if not self.try_set_processing(payment_to_process.id):
-                continue
-            payments_to_process = [payment_to_process]
-            if payment_to_process.merge_group:
-                others = self.claim_merge_group_payments(payment_to_process.merge_group)
-                payments_to_process.extend(others)
+            try:
+                if not self.try_set_processing(payment_to_process.id):
+                    continue
+                payments_to_process = [payment_to_process]
+                if payment_to_process.merge_group:
+                    others = self.claim_merge_group_payments(payment_to_process.merge_group)
+                    payments_to_process.extend(others)
 
-            self.process_payment(payments_to_process)
+                self.process_payment(payments_to_process)
+            except Exception as e:
+                print(e)
+                self.finish_with_error([payment_to_process])
 
     def handle(self, *args, **options):
         begin = time.time()

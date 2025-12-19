@@ -227,7 +227,7 @@ def include_new_invoice_view(request, user):
     name = data.get("name")
     date = data.get("date")
     installments = data.get("installments")
-    payment_date = data.get("payment_date")
+    payment_date = format_date(data.get("payment_date"))
     fixed = data.get("fixed", False)
     value = data.get("value")
     type = data.get("type")
