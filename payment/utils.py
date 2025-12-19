@@ -20,7 +20,6 @@ def csv_header_mapping(header_column):
     mapping = {
         "data": "date",
         "valor": "value",
-        "amount": "amount",
         "identificador": "reference",
         "descrição": "description",
         "date": "date",
