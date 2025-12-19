@@ -13,6 +13,13 @@ from kawori.utils import boolean, format_date, paginate
 from payment.models import Payment
 
 
+def parse_type(value: str) -> int:
+    try:
+        return Invoice.Type[value.upper()]
+    except KeyError:
+        raise ValueError("Invalid type. Use 'credit' or 'debit'")
+
+
 # Create your views here.
 @require_GET
 @validate_user("financial")
@@ -211,6 +218,7 @@ def include_new_invoice_view(request, user):
         {"field": "installments", "msg": "Campo parcelas é obrigatório"},
         {"field": "payment_date", "msg": "Campo dia de pagamento é obrigatório"},
         {"field": "value", "msg": "Campo valor é obrigatório"},
+        {"field": "type", "msg": "Campo tipo de pagamento é obrigatório"},
     ]
     for field in required_fields:
         if not data.get(field["field"]):
@@ -222,10 +230,16 @@ def include_new_invoice_view(request, user):
     payment_date = data.get("payment_date")
     fixed = data.get("fixed", False)
     value = data.get("value")
+    type = data.get("type")
+
+    try:
+        invoice_type = parse_type(type)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
     invoice = Invoice.objects.create(
         status=Invoice.STATUS_OPEN,
-        type=Invoice.TYPE_DEBIT,
+        type=invoice_type,
         name=name,
         date=date,
         installments=installments,

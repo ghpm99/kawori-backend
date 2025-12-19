@@ -7,6 +7,7 @@ class Tag(models.Model):
 
     class Meta:
         db_table = "financial_tag"
+        unique_together = ("user", "name")
 
     name = models.TextField(max_length=255)
     color = models.CharField(max_length=7, null=True)

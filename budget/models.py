@@ -9,6 +9,7 @@ class Budget(models.Model):
 
     class Meta:
         db_table = "financial_budget"
+        unique_together = ("user", "tag")
 
     allocation_percentage = models.DecimalField(
         max_digits=5,

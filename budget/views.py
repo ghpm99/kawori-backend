@@ -39,7 +39,7 @@ def get_period_filter(query_params: dict) -> dict:
 def get_all_budgets_view(request, user):
     filters = get_period_filter(query_params=request.GET)
 
-    budgets = Budget.objects.filter(user=user).select_related("tag")
+    budgets = Budget.objects.filter(user=user).exclude(tag__name__icontains="Entradas").select_related("tag")
 
     total_earned = Payment.objects.filter(
         payment_date__gte=filters["start"],

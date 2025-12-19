@@ -12,17 +12,16 @@ class Invoice(models.Model):
     class Meta:
         db_table = "financial_invoice"
 
-    TYPE_CREDIT = 0
-    TYPE_DEBIT = 1
-
-    TYPES = [(TYPE_CREDIT, "credit"), (TYPE_DEBIT, "debit")]
+    class Type(models.IntegerChoices):
+        CREDIT = 0, "credit"
+        DEBIT = 1, "debit"
 
     STATUS_OPEN = 0
     STATUS_DONE = 1
 
     STATUS = [(STATUS_OPEN, "open"), (STATUS_DONE, "done")]
     status = models.IntegerField(default=STATUS_OPEN, choices=STATUS)
-    type = models.IntegerField(default=TYPE_CREDIT, choices=TYPES)
+    type = models.IntegerField(default=Type.DEBIT, choices=Type.choices)
     name = models.TextField(max_length=255)
     date = models.DateField()
     installments = models.IntegerField(default=1)

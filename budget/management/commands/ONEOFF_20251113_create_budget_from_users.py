@@ -1,6 +1,6 @@
 import time
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User
 from django.db.models import Count
 from django.db.models.functions import Trim, Lower
 
