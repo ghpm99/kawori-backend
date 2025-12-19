@@ -78,15 +78,13 @@ class Command(BaseCommand):
     def is_auxiliary_payment(self, name: str) -> bool:
         return any(k in name.lower() for k in self.INVALID_KEYWORDS)
 
-    def get_valid_name_by_list(self, payments_to_process: list[ImportedPayment]) -> str:
-        if not payments_to_process:
-            return ""
+    def get_main_payment(self, payments_to_process: list[ImportedPayment]) -> ImportedPayment:
 
         for payment in payments_to_process:
             if not self.is_auxiliary_payment(payment.raw_name):
-                return payment.raw_name
+                return payment
 
-        return payments_to_process[0].raw_name
+        return payments_to_process[0]
 
     def format_brl(self, value: Decimal) -> str:
         return f"R${value:.2f}"
@@ -120,8 +118,6 @@ class Command(BaseCommand):
             payment.save()
 
     def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
-        # TODO buscar nota target
-        # TODO atualizar dados necessarios
         matched_payment = next(
             (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
             None,
@@ -136,24 +132,25 @@ class Command(BaseCommand):
         self.finish_with_success(payments_to_process)
 
     def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
+        main_payment = self.get_main_payment(payments_to_process)
         max_installments = max(
             self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
-        invoice_name = self.get_valid_name_by_list(payments_to_process)
+        invoice_name = main_payment.raw_name
         payment_description = self.get_payment_description(payments_to_process)
         invoice_value = sum(payment.raw_value for payment in payments_to_process)
         invoice = Invoice.objects.create(
             status=Invoice.STATUS_OPEN,
-            type=payments_to_process[0].raw_type,
+            type=main_payment.raw_type,
             name=invoice_name,
-            date=payments_to_process[0].raw_date,
+            date=main_payment.raw_date,
             installments=max_installments,
-            payment_date=payments_to_process[0].raw_payment_date,
+            payment_date=main_payment.raw_payment_date,
             fixed=False,
             active=True,
             value=invoice_value,
             value_open=invoice_value,
-            user=payments_to_process[0].user,
+            user=main_payment.user,
         )
         invoice_tags = []
         for payment in payments_to_process:
