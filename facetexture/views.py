@@ -148,10 +148,10 @@ def preview_background(request, user):
         else:
             countX = countX + 1
 
-        imageCrop = image.crop((x, y, x + width, y + height))
+        imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style)
+            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style).convert("RGBA")
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
@@ -203,10 +203,10 @@ def download_background(request, user):
         else:
             countX = countX + 1
 
-        imageCrop = image.crop((x, y, x + width, y + height))
+        imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style)
+            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style).convert("RGBA")
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
