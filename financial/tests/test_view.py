@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 
 from contract.models import Contract
@@ -15,11 +15,13 @@ class FinancialTestCase(TestCase):
         cls.client = Client()
 
         user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        financial_group, _ = Group.objects.get_or_create(name="financial")
+        financial_group.user_set.add(user)
 
         contract_1 = Contract.objects.create(name="test 1", user=user)
 
         invoice_1 = Invoice.objects.create(
-            type=Invoice.TYPE_DEBIT,
+            type=Invoice.Type.DEBIT,
             name="test invoice 1",
             date=datetime.now().date(),
             payment_date=datetime.now().date(),
@@ -28,7 +30,7 @@ class FinancialTestCase(TestCase):
         )
 
         invoice_2 = Invoice.objects.create(
-            type=Invoice.TYPE_DEBIT,
+            type=Invoice.Type.DEBIT,
             name="test invoice 2",
             date=datetime.now().date(),
             payment_date=datetime.now().date(),
@@ -66,7 +68,7 @@ class FinancialTestCase(TestCase):
         contract_2 = Contract.objects.create(name="test 2", user=user)
 
         invoice_3 = Invoice.objects.create(
-            type=Invoice.TYPE_DEBIT,
+            type=Invoice.Type.DEBIT,
             name="test invoice 3",
             date=datetime.now().date(),
             payment_date=datetime.now().date(),
@@ -86,7 +88,7 @@ class FinancialTestCase(TestCase):
         contract_3 = Contract.objects.create(name="test 3", user=user)
 
         payment_5 = Invoice.objects.create(
-            type=Invoice.TYPE_DEBIT,
+            type=Invoice.Type.DEBIT,
             name="test invoice 4",
             date=datetime.now().date(),
             payment_date=datetime.now().date(),
@@ -111,10 +113,11 @@ class FinancialTestCase(TestCase):
             data={"username": "test", "password": "123"},
         )
 
-        cls.token_json = json.loads(token.content)
+        cls.cookies = token.cookies
 
     def setUp(self) -> None:
-        self.client.defaults["HTTP_AUTHORIZATION"] = "Bearer " + self.token_json["tokens"]["access"]
+        for key, morsel in self.cookies.items():
+            self.client.cookies[key] = morsel.value
 
     def test_contract_value_total(self):
         """Valor total = valor aberto + valor fechado"""

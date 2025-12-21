@@ -1,5 +1,5 @@
 from django.contrib.auth.models import Group, User
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def get_token(user: User) -> dict:

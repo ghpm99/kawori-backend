@@ -1,14 +1,16 @@
 import json
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
+
+from django.conf import settings
 
 
 # Create your tests here.
 class AuthenticationTestCase(TestCase):
     def setUp(self):
         self.client = Client()
-        User.objects.create_user(
+        user = User.objects.create_user(
             username="test_auth",
             email="test@auth.com",
             password="user123",
@@ -25,6 +27,10 @@ class AuthenticationTestCase(TestCase):
         )
         inactive.is_active = False
         inactive.save()
+
+        user_group, _ = Group.objects.get_or_create(name="user")
+        user_group.user_set.add(user)
+        user_group.user_set.add(inactive)
 
     def test_fail_signup_user(self):
         """Testa se falha o cadastro"""
@@ -69,9 +75,9 @@ class AuthenticationTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        response_json = json.loads(response.content)
+        response_cookies = response.cookies
 
-        access_token = response_json["tokens"]["access"]
+        access_token = response_cookies.get(settings.ACCESS_TOKEN_NAME)
         self.assertIsNotNone(access_token)
 
     def test_fail_login(self):
@@ -126,15 +132,15 @@ class AuthenticationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        response_json = json.loads(response.content)
-
-        access_token = response_json["tokens"]["access"]
+        cookies = response.cookies
+        access_token = cookies.get(settings.ACCESS_TOKEN_NAME)
 
         self.assertIsNotNone(access_token)
 
-        self.client.defaults["HTTP_AUTHORIZATION"] = "Bearer " + access_token
+        for key, morsel in cookies.items():
+            self.client.cookies[key] = morsel.value
 
-        response_user = self.client.get("/auth/user")
+        response_user = self.client.get("/profile/")
 
         self.assertEqual(response_user.status_code, 200)
 

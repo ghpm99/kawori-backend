@@ -3,7 +3,7 @@ import io
 from unittest.mock import patch
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from facetexture.models import BDOClass, Character
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
 from PIL import Image
@@ -16,12 +16,15 @@ class GetBDOClassSymbolURLTest(TestCase):
         cls.client = Client()
 
         cls.user = User.objects.create_user(username="test", email="test@test.com", password="123")
+        black_desert_group, _ = Group.objects.get_or_create(name="blackdesert")
+        black_desert_group.user_set.add(cls.user)
 
         cls.user_2 = User.objects.create_user(username="test_2", email="test2@test.com", password="1234")
+        black_desert_group.user_set.add(cls.user_2)
 
-        cls.bdo_class_warrior = BDOClass.objects.create(name="Warrior", abbreviation="Wr")
-        cls.bdo_class_witch = BDOClass.objects.create(name="Witch", abbreviation="Wt")
-        cls.bdo_class_archer = BDOClass.objects.create(name="Arqueiro", abbreviation="Archer")
+        cls.bdo_class_warrior = BDOClass.objects.create(name="Warrior", abbreviation="Wr", color="#4a2206")
+        cls.bdo_class_witch = BDOClass.objects.create(name="Witch", abbreviation="Wt", color="#4a2206")
+        cls.bdo_class_archer = BDOClass.objects.create(name="Arqueiro", abbreviation="Archer", color="#4a2206")
 
         Character.objects.create(
             user=cls.user,
@@ -90,10 +93,11 @@ class GetBDOClassSymbolURLTest(TestCase):
             data={"username": "test", "password": "123"},
         )
 
-        cls.token_json = json.loads(token.content)
+        cls.cookies = token.cookies
 
     def setUp(self) -> None:
-        self.client.defaults["HTTP_AUTHORIZATION"] = "Bearer " + self.token_json["tokens"]["access"]
+        for key, morsel in self.cookies.items():
+            self.client.cookies[key] = morsel.value
 
     def test_users_created(self):
         self.assertEqual(User.objects.count(), 2)
@@ -345,7 +349,7 @@ class GetBDOClassSymbolURLTest(TestCase):
 
     def test_new_character_limit_exceeded(self):
 
-        for i in range(32):
+        for i in range(45):
             Character.objects.create(
                 user=self.user,
                 name=f"new_character_{i}",
@@ -362,7 +366,7 @@ class GetBDOClassSymbolURLTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertJSONEqual(response.content, {"data": "O limite de facetexture são 32!"})
+        self.assertJSONEqual(response.content, {"data": "O limite de facetexture são 44!"})
 
     def test_new_character_no_character(self):
         response = self.client.post(

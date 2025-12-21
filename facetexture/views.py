@@ -1,21 +1,20 @@
-import http
 import io
 import json
-import os
 import math
-from django.db import connection
+import os
 from wsgiref.util import FileWrapper
 from zipfile import ZipFile
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.views.decorators.http import require_GET, require_POST
+
 from django.conf import settings
-import numpy as np
-from kawori.utils import get_image_class, get_symbol_class
-from kawori.decorators import validate_user
-from facetexture.models import Facetexture, BDOClass, Character
-from PIL import Image, ImageOps, ImageFilter, ImageEnhance
-from django.templatetags.static import static
+from django.db import connection
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
+from PIL import Image, ImageOps
+
+from facetexture.models import BDOClass, Character, Facetexture
+from kawori.decorators import validate_user
+from kawori.utils import get_image_class, get_symbol_class
 
 
 def get_bdo_class_image_url(class_id):
