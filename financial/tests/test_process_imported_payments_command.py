@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 
 from django.test import TestCase
 
+import contract
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
 
@@ -12,6 +13,87 @@ User = get_user_model()
 
 
 class ProcessImportedPaymentsCommandTest(TestCase):
+
+    def assertInvoiceEqual(self, invoice, expected: dict):
+        """
+        Helper para comparar Invoice persistida no banco com valores esperados.
+        """
+
+        # Status e tipo
+        self.assertEqual(invoice.status, expected.get("status"))
+        self.assertEqual(invoice.type, expected.get("type"))
+
+        # Texto
+        self.assertEqual(invoice.name, expected.get("name"))
+
+        # Datas
+        if isinstance(expected.get("date"), str):
+            self.assertEqual(invoice.date.isoformat(), expected["date"])
+        else:
+            self.assertEqual(invoice.date, expected.get("date"))
+
+        if isinstance(expected.get("payment_date"), str):
+            self.assertEqual(invoice.payment_date.isoformat(), expected["payment_date"])
+        else:
+            self.assertEqual(invoice.payment_date, expected.get("payment_date"))
+
+        # Numéricos
+        self.assertEqual(invoice.installments, expected.get("installments", 1))
+        self.assertEqual(invoice.value, expected.get("value", Decimal("0.00")))
+        self.assertEqual(invoice.value_open, expected.get("value_open", Decimal("0.00")))
+        self.assertEqual(invoice.value_closed, expected.get("value_closed", Decimal("0.00")))
+
+        # Flags
+        self.assertEqual(invoice.fixed, expected.get("fixed", False))
+        self.assertEqual(invoice.active, expected.get("active", True))
+
+        # Relacionamentos
+        if "contract" in expected:
+            self.assertEqual(invoice.contract, expected["contract"])
+        else:
+            self.assertIsNone(invoice.contract)
+
+        if "user" in expected:
+            self.assertEqual(invoice.user, expected["user"])
+
+    def assertPaymentEqual(self, payment, expected: dict):
+        """
+        Helper para comparar Payment persistido no banco com valores esperados.
+        """
+
+        self.assertEqual(payment.status, expected.get("status"))
+        self.assertEqual(payment.type, expected.get("type"))
+        self.assertEqual(payment.name, expected.get("name"))
+
+        # Campos de texto opcionais
+        self.assertEqual(payment.description or "", expected.get("description", ""))
+        self.assertEqual(payment.reference or "", expected.get("reference", ""))
+
+        # Datas
+        if isinstance(expected.get("date"), str):
+            self.assertEqual(payment.date.isoformat(), expected["date"])
+        else:
+            self.assertEqual(payment.date, expected.get("date"))
+
+        if isinstance(expected.get("payment_date"), str):
+            self.assertEqual(payment.payment_date.isoformat(), expected["payment_date"])
+        else:
+            self.assertEqual(payment.payment_date, expected.get("payment_date"))
+
+        # Numéricos
+        self.assertEqual(payment.installments, expected.get("installments", 1))
+        self.assertEqual(payment.value, expected.get("value", Decimal("0.00")))
+
+        # Flags
+        self.assertEqual(payment.fixed, expected.get("fixed", False))
+        self.assertEqual(payment.active, expected.get("active", True))
+
+        # Relacionamentos
+        if "invoice" in expected:
+            self.assertEqual(payment.invoice, expected["invoice"])
+
+        if "user" in expected:
+            self.assertEqual(payment.user, expected["user"])
 
     def setUp(self):
         self.user = User.objects.create_user(username="test", email="test@test.com", password="123")
@@ -107,3 +189,66 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         self.assertEqual(Invoice.objects.count(), 1)
         self.assertEqual(Payment.objects.count(), 1)
+
+    def test_processing_logic(self):
+        ImportedPayment.objects.create(
+            reference="ref_1",
+            user=self.user,
+            raw_name="Compra X",
+            raw_description='descricao',
+            raw_value=Decimal("50.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        self.assertEqual(
+            ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_COMPLETED).count(), 1
+        )
+
+        self.assertEqual(Invoice.objects.count(), 1)
+        self.assertEqual(Payment.objects.count(), 1)
+
+        expected_invoice = {
+            'status':Invoice.STATUS_OPEN,
+            'type':Invoice.Type.DEBIT,
+            'name':"Compra X",
+            'date':"2024-01-10",
+            'installments':1,
+            'payment_date':"2024-01-10",
+            'fixed':False,
+            'active':True,
+            'value':Decimal("50.00"),
+            'value_open':Decimal("50.00"),
+            'value_closed':Decimal("0.00"),
+            'contract':None,
+            'user':self.user
+        }
+
+        expected_payment = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Compra X #1",
+            "description": "descricao R$50.00",
+            'reference': "ref_1",
+            'date':"2024-01-10",
+            'installments': 1,
+            'payment_date':"2024-01-10",
+            'fixed': False,
+            'active': True,
+            'value': Decimal("50.00"),
+            'user': self.user
+        }
+
+        invoice = Invoice.objects.get()
+        self.assertInvoiceEqual(invoice, expected_invoice)
+
+        payment = Payment.objects.get()
+        self.assertPaymentEqual(payment, expected_payment)
+
+
+
