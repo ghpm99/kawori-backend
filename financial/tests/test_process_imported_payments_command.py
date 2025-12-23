@@ -508,3 +508,59 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertPaymentEqual(payment_list[0], expected_payment_1)
         self.assertPaymentEqual(payment_list[1], expected_payment_2)
         self.assertPaymentEqual(payment_list[2], expected_payment_3)
+
+    def test_create_payment_with_one_installments(self):
+        ImportedPayment.objects.create(
+            reference="ref_1",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Notebook Dell Parcela 1/1",
+            raw_description="descricao",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("100.00"),
+            user=self.user,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+
+        expected_invoice = {
+            "status": Invoice.STATUS_OPEN,
+            "type": Invoice.Type.DEBIT,
+            "name": "Notebook Dell",
+            "date": "2024-01-10",
+            "installments": 1,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("100.00"),
+            "value_open": Decimal("100.00"),
+            "value_closed": Decimal("0.00"),
+            "contract": None,
+            "user": self.user,
+        }
+
+        expected_payment_1 = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Notebook Dell #1",
+            "description": "descricao R$100.00",
+            "reference": "ref_1",
+            "date": "2024-01-10",
+            "installments": 1,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("100.00"),
+            "user": self.user,
+        }
+
+        self.assertInvoiceEqual(invoice, expected_invoice)
+
+        payment_list = Payment.objects.all()
+        self.assertEqual(payment_list.__len__(), 1)
+
+        self.assertPaymentEqual(payment_list[0], expected_payment_1)
