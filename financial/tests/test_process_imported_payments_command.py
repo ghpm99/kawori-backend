@@ -564,3 +564,204 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertEqual(payment_list.__len__(), 1)
 
         self.assertPaymentEqual(payment_list[0], expected_payment_1)
+
+    def test_create_payments_installments_with_iof(self):
+        ImportedPayment.objects.create(
+            reference="ref_1",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Notebook Dell Parcela 10/12",
+            raw_description="descricao",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("100.00"),
+            user=self.user,
+        )
+
+        ImportedPayment.objects.create(
+            reference="ref_2",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="IOF Dell Parcela",
+            raw_description="IOF",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("50.00"),
+            user=self.user,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+
+        expected_invoice = {
+            "status": Invoice.STATUS_OPEN,
+            "type": Invoice.Type.DEBIT,
+            "name": "Notebook Dell",
+            "date": "2024-01-10",
+            "installments": 3,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("450.00"),
+            "value_open": Decimal("450.00"),
+            "value_closed": Decimal("0.00"),
+            "contract": None,
+            "user": self.user,
+        }
+
+        expected_payment_1 = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Notebook Dell #1",
+            "description": "descricao R$100.00 | IOF R$50.00",
+            "reference": "ref_1",
+            "date": "2024-01-10",
+            "installments": 1,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("150.00"),
+            "user": self.user,
+        }
+        expected_payment_2 = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Notebook Dell #2",
+            "description": "descricao R$100.00 | IOF R$50.00",
+            "reference": "ref_1",
+            "date": "2024-01-10",
+            "installments": 2,
+            "payment_date": "2024-02-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("150.00"),
+            "user": self.user,
+        }
+        expected_payment_3 = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Notebook Dell #3",
+            "description": "descricao R$100.00 | IOF R$50.00",
+            "reference": "ref_1",
+            "date": "2024-01-10",
+            "installments": 3,
+            "payment_date": "2024-03-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("150.00"),
+            "user": self.user,
+        }
+
+        self.assertInvoiceEqual(invoice, expected_invoice)
+
+        payment_list = Payment.objects.all()
+        self.assertEqual(payment_list.__len__(), 3)
+
+        self.assertPaymentEqual(payment_list[0], expected_payment_1)
+        self.assertPaymentEqual(payment_list[1], expected_payment_2)
+        self.assertPaymentEqual(payment_list[2], expected_payment_3)
+
+    def test_create_multiple_merge_group(self):
+
+        ImportedPayment.objects.create(
+            reference="ref_1",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Pagamento Parcela 1/2",
+            raw_description="descricao1",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("1.00"),
+            user=self.user,
+        )
+
+        ImportedPayment.objects.create(
+            reference="ref_2",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Pagamento Parcela 5/8",
+            raw_description="descricao2",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("1.00"),
+            user=self.user,
+        )
+
+        ImportedPayment.objects.create(
+            reference="ref_3",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Pagamento Parcela 3/5",
+            raw_description="descricao3",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("1.00"),
+            user=self.user,
+        )
+
+        ImportedPayment.objects.create(
+            reference="ref_4",
+            merge_group="abc",
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+            raw_type=Invoice.Type.DEBIT,
+            raw_name="Pagamento Parcela 12/12",
+            raw_description="descricao4",
+            raw_date="2024-01-10",
+            raw_installments=1,
+            raw_payment_date="2024-01-10",
+            raw_value=Decimal("1.00"),
+            user=self.user,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+
+        expected_invoice = {
+            "status": Invoice.STATUS_OPEN,
+            "type": Invoice.Type.DEBIT,
+            "name": "Pagamento",
+            "date": "2024-01-10",
+            "installments": 1,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("4.00"),
+            "value_open": Decimal("4.00"),
+            "value_closed": Decimal("0.00"),
+            "contract": None,
+            "user": self.user,
+        }
+
+        expected_payment = {
+            "status": Payment.STATUS_OPEN,
+            "type": Payment.TYPE_DEBIT,
+            "name": "Pagamento #1",
+            "description": "descricao1 R$1.00 | descricao2 R$1.00 | descricao3 R$1.00 | descricao4 R$1.00",
+            "reference": "ref_1",
+            "date": "2024-01-10",
+            "installments": 1,
+            "payment_date": "2024-01-10",
+            "fixed": False,
+            "active": True,
+            "value": Decimal("4.00"),
+            "user": self.user,
+        }
+
+        self.assertInvoiceEqual(invoice, expected_invoice)
+
+        payment_list = Payment.objects.all()
+        self.assertEqual(payment_list.__len__(), 1)
+
+        self.assertPaymentEqual(payment_list[0], expected_payment)
