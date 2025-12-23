@@ -1,5 +1,4 @@
 from decimal import Decimal
-from multiprocessing.managers import BaseManager
 import re
 import time
 from financial.utils import generate_payments
@@ -131,14 +130,28 @@ class Command(BaseCommand):
         matched_payment.save()
         self.finish_with_success(payments_to_process)
 
+    def normalize_invoice_name(self, name: str) -> str:
+        if not name:
+            return ""
+
+        patterns = [
+            r"parcela\s*\d+\s*(?:/|de)\s*\d+",
+            r"\b\d+\s*/\s*\d+\b",
+        ]
+
+        for pattern in patterns:
+            name = re.sub(pattern, "", name, flags=re.IGNORECASE)
+
+        return re.sub(r"\s{2,}", " ", name).strip()
+
     def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
         main_payment = self.get_main_payment(payments_to_process)
         max_installments = max(
             self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
-        invoice_name = main_payment.raw_name
+        invoice_name = self.normalize_invoice_name(main_payment.raw_name)
         payment_description = self.get_payment_description(payments_to_process)
-        invoice_value = sum(payment.raw_value for payment in payments_to_process)
+        invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * max_installments
         invoice = Invoice.objects.create(
             status=Invoice.STATUS_OPEN,
             type=main_payment.raw_type,
