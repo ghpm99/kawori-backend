@@ -146,18 +146,22 @@ class Command(BaseCommand):
 
     def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
         main_payment = self.get_main_payment(payments_to_process)
-        max_installments = max(
+        current_installments = max(
+            self.generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
+        )
+        total_installments = max(
             self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
+        installments_to_import = total_installments - current_installments + 1
         invoice_name = self.normalize_invoice_name(main_payment.raw_name)
         payment_description = self.get_payment_description(payments_to_process)
-        invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * max_installments
+        invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * installments_to_import
         invoice = Invoice.objects.create(
             status=Invoice.STATUS_OPEN,
             type=main_payment.raw_type,
             name=invoice_name,
             date=main_payment.raw_date,
-            installments=max_installments,
+            installments=installments_to_import,
             payment_date=main_payment.raw_payment_date,
             fixed=False,
             active=True,
