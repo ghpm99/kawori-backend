@@ -765,3 +765,132 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertEqual(payment_list.__len__(), 1)
 
         self.assertPaymentEqual(payment_list[0], expected_payment)
+
+    def test_ignore_non_queued_imported_payment(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Compra Ignorada",
+            raw_value=Decimal("100.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_COMPLETED,
+        )
+
+        call_command("process_imported_payments")
+
+        self.assertEqual(Invoice.objects.count(), 0)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_multiple_merge_groups_generate_separate_invoices(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            merge_group="a",
+            raw_name="Compra A",
+            raw_value=Decimal("10.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        ImportedPayment.objects.create(
+            user=self.user,
+            merge_group="b",
+            raw_name="Compra B",
+            raw_value=Decimal("20.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        self.assertEqual(Invoice.objects.count(), 2)
+        self.assertEqual(Payment.objects.count(), 2)
+
+    def test_iof_only_does_not_create_invoice(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="IOF Cartão",
+            raw_description="IOF",
+            raw_value=Decimal("5.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        self.assertEqual(Invoice.objects.count(), 0)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_empty_name_uses_fallback(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="",
+            raw_description="descricao",
+            raw_value=Decimal("10.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+        self.assertTrue(invoice.name)
+
+    def test_zero_value_payment_is_ignored(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Compra Zero",
+            raw_value=Decimal("0.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        self.assertEqual(Invoice.objects.count(), 0)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_invalid_installment_fallbacks_to_single_payment(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Compra Parcela 3/2",
+            raw_value=Decimal("100.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+        self.assertEqual(invoice.installments, 1)
+        self.assertEqual(Payment.objects.count(), 1)
+
+    def test_payment_invoice_relationship(self):
+        ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Compra X",
+            raw_value=Decimal("50.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+        payment = Payment.objects.get()
+
+        self.assertEqual(payment.invoice, invoice)
