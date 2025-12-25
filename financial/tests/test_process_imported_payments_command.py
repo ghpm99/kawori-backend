@@ -295,7 +295,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         call_command("process_imported_payments")
 
-        self.assertEqual(ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_COMPLETED).count(), 1)
+        self.assertEqual(ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_FAILED).count(), 1)
 
         self.assertEqual(Invoice.objects.count(), 1)
         self.assertEqual(Payment.objects.count(), 1)
@@ -303,7 +303,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         expected_invoice = {
             "status": Invoice.STATUS_OPEN,
             "type": Invoice.Type.DEBIT,
-            "name": "Compra X",
+            "name": "Computador ref",
             "date": "2024-01-10",
             "installments": 1,
             "payment_date": "2024-01-10",
@@ -319,7 +319,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         expected_payment = {
             "status": Payment.STATUS_OPEN,
             "type": Payment.TYPE_DEBIT,
-            "name": "Compra X #1",
+            "name": "Computador ref #1",
             "description": "descricao R$50.00",
             "reference": "ref_1",
             "date": "2024-01-10",

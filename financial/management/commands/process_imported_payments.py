@@ -3,7 +3,7 @@ import re
 import time
 from financial.utils import generate_payments
 from invoice.models import Invoice
-from payment.models import ImportedPayment
+from payment.models import ImportedPayment, Payment
 from django.core.management.base import BaseCommand
 
 from tag.models import Tag
@@ -124,9 +124,12 @@ class Command(BaseCommand):
         if matched_payment is None:
             self.finish_with_error(payments_to_process)
             return
+
         payment_description = self.get_payment_description(payments_to_process)
         matched_payment.description = payment_description
         matched_payment.reference = payments_to_process[0].reference
+        matched_payment.date = payments_to_process[0].raw_date
+        matched_payment.payment_date = payments_to_process[0].raw_payment_date
         matched_payment.save()
         self.finish_with_success(payments_to_process)
 
@@ -178,10 +181,15 @@ class Command(BaseCommand):
         generate_payments(invoice, payment_description, payments_to_process[0].reference)
         self.finish_with_success(payments_to_process)
 
+    def check_payment_is_merge(self, payment_to_process: ImportedPayment):
+        already_exist_payment = Payment.objects.filter(reference=payment_to_process.reference).exists()
+        has_merge_strategy = payment_to_process.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE
+        has_payment_matched = payment_to_process.matched_payment is not None
+
+        return already_exist_payment | has_merge_strategy | has_payment_matched
+
     def process_payment(self, payments_to_process: list[ImportedPayment]):
-        has_merge = any(
-            payment.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE for payment in payments_to_process
-        )
+        has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
         if has_merge:
             self.process_payment_by_merge(payments_to_process)
         else:
@@ -198,6 +206,7 @@ class Command(BaseCommand):
             try:
                 if not self.try_set_processing(payment_to_process.id):
                     continue
+
                 payments_to_process = [payment_to_process]
                 if payment_to_process.merge_group:
                     others = self.claim_merge_group_payments(payment_to_process.merge_group)
