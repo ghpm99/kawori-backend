@@ -136,6 +136,7 @@ class ImportedPayment(models.Model):
     matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
     merge_group = models.TextField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=32, default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
+    status_description = models.TextField(max_length=1024, blank=True)
 
     raw_type = models.IntegerField(choices=Payment.TYPES)
     raw_name = models.TextField(max_length=255)

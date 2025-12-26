@@ -304,13 +304,13 @@ class ProcessImportedPaymentsCommandTest(TestCase):
             "status": Invoice.STATUS_OPEN,
             "type": Invoice.Type.DEBIT,
             "name": "Computador ref",
-            "date": "2024-01-10",
+            "date": "2025-01-10",
             "installments": 1,
-            "payment_date": "2024-01-10",
+            "payment_date": "2025-01-10",
             "fixed": False,
             "active": True,
-            "value": Decimal("50.00"),
-            "value_open": Decimal("50.00"),
+            "value": Decimal("25.00"),
+            "value_open": Decimal("25.00"),
             "value_closed": Decimal("0.00"),
             "contract": None,
             "user": self.user,
@@ -320,14 +320,14 @@ class ProcessImportedPaymentsCommandTest(TestCase):
             "status": Payment.STATUS_OPEN,
             "type": Payment.TYPE_DEBIT,
             "name": "Computador ref #1",
-            "description": "descricao R$50.00",
+            "description": "descricao R$25.00",
             "reference": "ref_1",
-            "date": "2024-01-10",
+            "date": "2025-01-10",
             "installments": 1,
-            "payment_date": "2024-01-10",
+            "payment_date": "2025-01-10",
             "fixed": False,
             "active": True,
-            "value": Decimal("50.00"),
+            "value": Decimal("25.00"),
             "user": self.user,
         }
 
@@ -836,6 +836,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
     def test_empty_name_uses_fallback(self):
         ImportedPayment.objects.create(
             user=self.user,
+            reference="abc",
             raw_name="",
             raw_description="descricao",
             raw_value=Decimal("10.00"),
@@ -850,6 +851,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         invoice = Invoice.objects.get()
         self.assertTrue(invoice.name)
+        self.assertEqual(invoice.name, "Pagamento descricao abc")
 
     def test_zero_value_payment_is_ignored(self):
         ImportedPayment.objects.create(

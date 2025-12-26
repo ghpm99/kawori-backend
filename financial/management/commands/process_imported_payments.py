@@ -3,8 +3,10 @@ import re
 import time
 from financial.utils import generate_payments
 from invoice.models import Invoice
+from invoice.utils import validate_invoice_data
 from payment.models import ImportedPayment, Payment
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from tag.models import Tag
 
@@ -83,7 +85,7 @@ class Command(BaseCommand):
             if not self.is_auxiliary_payment(payment.raw_name):
                 return payment
 
-        return payments_to_process[0]
+        raise Exception("Não foi possivel encontrar o pagamento principal")
 
     def format_brl(self, value: Decimal) -> str:
         return f"R${value:.2f}"
@@ -106,9 +108,10 @@ class Command(BaseCommand):
 
         return merged
 
-    def finish_with_error(self, payments_to_process: list[ImportedPayment]):
+    def finish_with_error(self, error_description: str, payments_to_process: list[ImportedPayment]):
         for payment in payments_to_process:
             payment.status = ImportedPayment.IMPORT_STATUS_FAILED
+            payment.status_description = error_description
             payment.save()
 
     def finish_with_success(self, payments_to_process: list[ImportedPayment]):
@@ -116,21 +119,24 @@ class Command(BaseCommand):
             payment.status = ImportedPayment.IMPORT_STATUS_COMPLETED
             payment.save()
 
-    def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
+    def update_invoice_by_imported_payment(self, payments_to_process: list[ImportedPayment]):
         matched_payment = next(
             (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
             None,
         )
         if matched_payment is None:
-            self.finish_with_error(payments_to_process)
-            return
+            raise Exception("Pagamento merge sem pagamento selecionado")
+        main_payment = self.get_main_payment(payments_to_process)
 
         payment_description = self.get_payment_description(payments_to_process)
         matched_payment.description = payment_description
-        matched_payment.reference = payments_to_process[0].reference
-        matched_payment.date = payments_to_process[0].raw_date
-        matched_payment.payment_date = payments_to_process[0].raw_payment_date
+        matched_payment.reference = main_payment.reference
+        matched_payment.date = main_payment.raw_date
+        matched_payment.payment_date = main_payment.raw_payment_date
         matched_payment.save()
+
+    def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
+        self.update_invoice_by_imported_payment(payments_to_process)
         self.finish_with_success(payments_to_process)
 
     def normalize_invoice_name(self, name: str) -> str:
@@ -147,7 +153,17 @@ class Command(BaseCommand):
 
         return re.sub(r"\s{2,}", " ", name).strip()
 
-    def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
+    def get_invoice_name(self, payment: ImportedPayment) -> str:
+        name = self.normalize_invoice_name(payment.raw_name)
+
+        if name:
+            return name
+
+        payment_name_fallback = f"Pagamento {payment.raw_description} {payment.reference}"
+
+        return payment_name_fallback[:255]
+
+    def create_invoice_by_imported_payment(self, payments_to_process: list[ImportedPayment]):
         main_payment = self.get_main_payment(payments_to_process)
         current_installments = max(
             self.generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
@@ -156,10 +172,9 @@ class Command(BaseCommand):
             self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
         installments_to_import = total_installments - current_installments + 1
-        invoice_name = self.normalize_invoice_name(main_payment.raw_name)
-        payment_description = self.get_payment_description(payments_to_process)
+        invoice_name = self.get_invoice_name(main_payment)
         invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * installments_to_import
-        invoice = Invoice.objects.create(
+        invoice = Invoice(
             status=Invoice.STATUS_OPEN,
             type=main_payment.raw_type,
             name=invoice_name,
@@ -172,21 +187,27 @@ class Command(BaseCommand):
             value_open=invoice_value,
             user=main_payment.user,
         )
+        validate_invoice_data(invoice)
+        invoice.save()
         invoice_tags = []
         for payment in payments_to_process:
             invoice_tags = self.merge_tags(list(payment.raw_tags.all()), invoice_tags)
 
         invoice.tags.set(invoice_tags)
+        return invoice
 
-        generate_payments(invoice, payment_description, payments_to_process[0].reference)
-        self.finish_with_success(payments_to_process)
+    def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
+        with transaction.atomic():
+            invoice = self.create_invoice_by_imported_payment(payments_to_process)
+            payment_description = self.get_payment_description(payments_to_process)
+            generate_payments(invoice, payment_description, payments_to_process[0].reference)
+            self.finish_with_success(payments_to_process)
 
     def check_payment_is_merge(self, payment_to_process: ImportedPayment):
-        already_exist_payment = Payment.objects.filter(reference=payment_to_process.reference).exists()
         has_merge_strategy = payment_to_process.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE
         has_payment_matched = payment_to_process.matched_payment is not None
 
-        return already_exist_payment | has_merge_strategy | has_payment_matched
+        return has_merge_strategy or has_payment_matched
 
     def process_payment(self, payments_to_process: list[ImportedPayment]):
         has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
@@ -194,6 +215,10 @@ class Command(BaseCommand):
             self.process_payment_by_merge(payments_to_process)
         else:
             self.process_payment_by_new(payments_to_process)
+
+    def check_existing_payments(self, payments: list[ImportedPayment]):
+        references = {p.reference for p in payments if p.reference}
+        return Payment.objects.filter(reference__in=references).exists()
 
     def run_command(self):
         if self.is_processing_running():
@@ -211,11 +236,13 @@ class Command(BaseCommand):
                 if payment_to_process.merge_group:
                     others = self.claim_merge_group_payments(payment_to_process.merge_group)
                     payments_to_process.extend(others)
-
+                if self.check_existing_payments(payments_to_process):
+                    raise Exception("Já existe pagamento cadastrado com a mesma referência")
                 self.process_payment(payments_to_process)
             except Exception as e:
-                print(e)
-                self.finish_with_error([payment_to_process])
+                self.finish_with_error(
+                    e.__str__(), payments_to_process if payments_to_process else [payment_to_process]
+                )
 
     def handle(self, *args, **options):
         begin = time.time()
