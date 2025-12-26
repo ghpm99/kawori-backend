@@ -1,7 +1,7 @@
 from decimal import Decimal
 import re
 import time
-from financial.utils import generate_payments
+from financial.utils import generate_payments, update_invoice_value
 from invoice.models import Invoice
 from invoice.utils import validate_invoice_data
 from payment.models import ImportedPayment, Payment
@@ -56,23 +56,17 @@ class Command(BaseCommand):
             return (1, 1)
         match = re.search(r"parcela\s*(\d+)\s*(?:/|de)\s*(\d+)", name, re.IGNORECASE)
         if match:
-            try:
-                current = int(match.group(1))
-                total = int(match.group(2))
-                if current >= 1 and total >= current:
-                    return (current, total)
-            except ValueError:
-                pass
+            current = int(match.group(1))
+            total = int(match.group(2))
+            if current >= 1 and total >= current:
+                return (current, total)
 
         match = re.search(r"(\d+)\s*/\s*(\d+)", name)
         if match:
-            try:
-                current = int(match.group(1))
-                total = int(match.group(2))
-                if current >= 1 and total >= current:
-                    return (current, total)
-            except ValueError:
-                pass
+            current = int(match.group(1))
+            total = int(match.group(2))
+            if current >= 1 and total >= current:
+                return (current, total)
 
         return (1, 1)
 
@@ -137,7 +131,6 @@ class Command(BaseCommand):
 
     def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
         self.update_invoice_by_imported_payment(payments_to_process)
-        self.finish_with_success(payments_to_process)
 
     def normalize_invoice_name(self, name: str) -> str:
         if not name:
@@ -187,7 +180,6 @@ class Command(BaseCommand):
             value_open=invoice_value,
             user=main_payment.user,
         )
-        validate_invoice_data(invoice)
         invoice.save()
         invoice_tags = []
         for payment in payments_to_process:
@@ -197,11 +189,11 @@ class Command(BaseCommand):
         return invoice
 
     def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
-        with transaction.atomic():
-            invoice = self.create_invoice_by_imported_payment(payments_to_process)
-            payment_description = self.get_payment_description(payments_to_process)
-            generate_payments(invoice, payment_description, payments_to_process[0].reference)
-            self.finish_with_success(payments_to_process)
+        invoice = self.create_invoice_by_imported_payment(payments_to_process)
+        payment_description = self.get_payment_description(payments_to_process)
+        generate_payments(invoice, payment_description, payments_to_process[0].reference)
+        update_invoice_value(invoice)
+        validate_invoice_data(invoice)
 
     def check_payment_is_merge(self, payment_to_process: ImportedPayment):
         has_merge_strategy = payment_to_process.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE
@@ -210,11 +202,13 @@ class Command(BaseCommand):
         return has_merge_strategy or has_payment_matched
 
     def process_payment(self, payments_to_process: list[ImportedPayment]):
-        has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
-        if has_merge:
-            self.process_payment_by_merge(payments_to_process)
-        else:
-            self.process_payment_by_new(payments_to_process)
+        with transaction.atomic():
+            has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
+            if has_merge:
+                self.process_payment_by_merge(payments_to_process)
+            else:
+                self.process_payment_by_new(payments_to_process)
+            self.finish_with_success(payments_to_process)
 
     def check_existing_payments(self, payments: list[ImportedPayment]):
         references = {p.reference for p in payments if p.reference}
@@ -240,6 +234,7 @@ class Command(BaseCommand):
                     raise Exception("Já existe pagamento cadastrado com a mesma referência")
                 self.process_payment(payments_to_process)
             except Exception as e:
+                print(e)
                 self.finish_with_error(
                     e.__str__(), payments_to_process if payments_to_process else [payment_to_process]
                 )

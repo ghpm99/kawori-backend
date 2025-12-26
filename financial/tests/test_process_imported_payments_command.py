@@ -137,7 +137,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertEqual(payment.status, ImportedPayment.IMPORT_STATUS_COMPLETED)
 
     def test_rollback_on_error(self):
-        ImportedPayment.objects.create(
+        imported_payment = ImportedPayment.objects.create(
             user=self.user,
             raw_name="Erro Teste",
             raw_value=Decimal("100.00"),
@@ -148,10 +148,21 @@ class ProcessImportedPaymentsCommandTest(TestCase):
             status=ImportedPayment.IMPORT_STATUS_QUEUED,
         )
 
-        with patch("financial.utils.generate_payments", side_effect=ValueError("Erro forçado")):
+        with patch(
+            "financial.management.commands.process_imported_payments.Invoice.save",
+            autospec=True,
+            wraps=Invoice.save,
+        ) as save_mock, patch(
+            "financial.management.commands.process_imported_payments.generate_payments",
+            side_effect=ValueError("Erro forçado"),
+        ):
             call_command("process_imported_payments")
 
+        imported_payment.refresh_from_db()
+        self.assertTrue(save_mock.called)
         self.assertEqual(Invoice.objects.count(), 0)
+        self.assertEqual(imported_payment.status_description, "Erro forçado")
+        self.assertEqual(imported_payment.status, ImportedPayment.IMPORT_STATUS_FAILED)
 
     def test_merge_group_processing(self):
         p1 = ImportedPayment.objects.create(
@@ -853,11 +864,11 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertTrue(invoice.name)
         self.assertEqual(invoice.name, "Pagamento descricao abc")
 
-    def test_zero_value_payment_is_ignored(self):
+    def test_negative_value_payment_is_ignored(self):
         ImportedPayment.objects.create(
             user=self.user,
             raw_name="Compra Zero",
-            raw_value=Decimal("0.00"),
+            raw_value=Decimal("-1.00"),
             raw_installments=1,
             raw_date="2024-01-10",
             raw_payment_date="2024-01-10",

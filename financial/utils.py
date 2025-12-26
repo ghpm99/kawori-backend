@@ -87,10 +87,7 @@ def update_invoice_value(invoice: Invoice):
         .order_by("payment_date")
         .first()
     )
-    next_payment_date_query = Payment.objects.filter(
-        invoice=invoice.id, active=True, status=Payment.STATUS_OPEN
-    ).order_by("payment_date")
-    print(next_payment_date_query.query)
+
     if next_payment_date:
         invoice.payment_date = next_payment_date.payment_date
 
