@@ -10,6 +10,7 @@ from functools import reduce
 from typing import Dict, List, Optional, TypedDict
 
 from django.db.models import Q
+from django.utils import timezone
 from rapidfuzz import fuzz
 
 from invoice.models import Invoice
@@ -323,100 +324,134 @@ def _normalize_text(s: str) -> str:
 def find_possible_payment_matches(
     user,
     payment_data: PaymentDetail,
-    date_window_days: int = 30,
-    value_tolerance_pct: float = 0.15,
+    date_window_days: int = 45,
     top_n: int = 10,
-    threshold: float = 0.30,
+    threshold: float = 0.45,
 ):
-    base_qs = Payment.objects.filter(user_id=user.id, installments=payment_data.installments, active=True)
 
-    dt = payment_data.date
-    payment_date = payment_data.payment_date
+    # ---------------------------------------------------------
+    # 1. FILTRO LARGO (RECALL FIRST)
+    # ---------------------------------------------------------
+    base_qs = Payment.objects.filter(
+        user_id=user.id,
+        active=True,
+    )
+
     delta = timedelta(days=date_window_days)
+    date_clauses = []
 
-    recent_q = Q()
-    recent_clauses = []
-    if dt:
-        recent_clauses.append(Q(date__range=(dt - delta, dt + delta)))
-    if payment_date:
-        recent_clauses.append(Q(payment_date__range=(payment_date - delta, payment_date + delta)))
-    if recent_clauses:
-        recent_q = reduce(operator.or_, recent_clauses)
+    if payment_data.date:
+        date_clauses.append(Q(date__range=(payment_data.date - delta, payment_data.date + delta)))
+
+    if payment_data.payment_date:
+        date_clauses.append(
+            Q(payment_date__range=(payment_data.payment_date - delta, payment_data.payment_date + delta))
+        )
+
+    if date_clauses:
+        base_qs = base_qs.filter(reduce(operator.or_, date_clauses))
     else:
-        today = datetime.now().date()
-        recent_q = Q(date__range=(today - delta, today + delta))
+        today = timezone.now().date()
+        base_qs = base_qs.filter(date__range=(today - delta, today + delta))
 
-    low_value = None
-    high_value = None
-    if payment_data.value is not None:
-        pv = float(payment_data.value)
-        low_value = pv * (1 - value_tolerance_pct)
-        high_value = pv * (1 + value_tolerance_pct)
-
-    q_value = Q()
-    if low_value is not None:
-        q_value = Q(value__gte=low_value, value__lte=high_value)
-
-    q_text = Q()
-    if payment_data.name:
-        sample = payment_data.name[:40]
-        q_text = Q(name__icontains=sample) | Q(description__icontains=sample)
-
-    filtered_qs = base_qs.filter(recent_q & (q_value | q_text)).distinct()
-
+    # ---------------------------------------------------------
+    # 2. NORMALIZAÇÕES
+    # ---------------------------------------------------------
     norm_name = _normalize_text(payment_data.name or "")
     norm_desc = _normalize_text(payment_data.description or "")
 
-    candidates: List[PaymentMatchCandidate] = []
-    for p in filtered_qs:
+    pv = float(payment_data.value) if payment_data.value is not None else None
+
+    candidates = []
+
+    # ---------------------------------------------------------
+    # 3. SCORE
+    # ---------------------------------------------------------
+    for p in base_qs:
         score = 0.0
-        weights = {"reference": 0.45, "date": 0.30, "value": 0.30, "text": 0.15}
 
-        if payment_data.reference and p.reference and payment_data.reference == p.reference:
-            score += weights["reference"] * 1.0
+        # ---------- PESOS BASE ----------
+        weights = {
+            "text": 0.0,  # dinâmico
+            "value": 0.30,
+            "date": 0.25,
+            "installments": 0.10,
+        }
 
-        if dt and p.date:
-            days_diff = abs((p.date - dt).days)
-            date_score = max(0.0, 1.0 - (days_diff / max(1, date_window_days)))
-        else:
-            days_diff = None
-            date_score = 0.0
+        # ---------- DATA (usa a melhor das duas) ----------
+        date_score = 0.0
+
+        if payment_data.date and p.date:
+            diff = abs((p.date - payment_data.date).days)
+            date_score = max(date_score, 1.0 - (diff / date_window_days))
+
+        if payment_data.payment_date and p.payment_date:
+            diff = abs((p.payment_date - payment_data.payment_date).days)
+            date_score = max(date_score, 1.0 - (diff / date_window_days))
+
+        date_score = max(0.0, min(1.0, date_score))
         score += weights["date"] * date_score
 
-        if payment_date and p.payment_date:
-            pd_days_diff = abs((p.payment_date - payment_date).days)
-            payment_date_score = max(0.0, 1.0 - (pd_days_diff / max(1, date_window_days)))
-            score += weights["date"] * payment_date_score
+        # ---------- VALOR ----------
+        value_score = 0.0
+        if pv is not None:
+            try:
+                pv2 = float(p.value)
+                maxv = max(abs(pv), abs(pv2), 1.0)
+                value_score = 1.0 - (abs(pv - pv2) / maxv)
 
-        try:
-            pv = float(payment_data.value)
-            pv2 = float(p.value)
-            maxv = max(abs(pv), abs(pv2), 1.0)
-            value_score = max(0.0, 1.0 - (abs(pv - pv2) / maxv))
-        except Exception:
-            value_score = 0.0
+                # PIX costuma bater valor exato
+                if pv == pv2:
+                    value_score = min(1.2, value_score + 0.2)
+
+            except Exception:
+                value_score = 0.0
+
+        value_score = max(0.0, min(1.2, value_score))
         score += weights["value"] * value_score
 
+        # ---------- TEXTO (PESO DINÂMICO) ----------
         tn = _normalize_text(p.name or "")
         td = _normalize_text(p.description or "")
-        text_score_name = fuzz.token_set_ratio(norm_name, tn, score_cutoff=0) / 100.0
-        text_score_desc = fuzz.token_set_ratio(norm_desc, td, score_cutoff=0) / 100.0
+
+        text_score_name = fuzz.token_set_ratio(norm_name, tn) / 100.0 if norm_name else 0.0
+        text_score_desc = fuzz.token_set_ratio(norm_desc, td) / 100.0 if norm_desc else 0.0
         text_score = max(text_score_name, text_score_desc)
+
+        if text_score >= 0.90:
+            weights["text"] = 0.50
+        elif text_score >= 0.75:
+            weights["text"] = 0.35
+        elif text_score >= 0.60:
+            weights["text"] = 0.20
+        else:
+            weights["text"] = 0.05
+
         score += weights["text"] * text_score
 
-        candidates.append(
-            {
-                "payment": p,
-                "score": score,
-                "days_diff": days_diff,
-                "value_diff": abs(
-                    (float(p.value) - float(payment_data.value)) if payment_data.value is not None else 0
-                ),
-                "text_score": text_score,
-            }
-        )
+        # ---------- PARCELAS (SINAL FRACO) ----------
+        installment_score = 0.0
+        if payment_data.installments and p.installments:
+            if payment_data.installments == p.installments:
+                installment_score = 1.0
+            else:
+                installment_score = 0.3
 
-    candidates = sorted(candidates, key=lambda x: x["score"], reverse=True)
+        score += weights["installments"] * installment_score
+
+        # ---------- THRESHOLD ----------
+        if score >= threshold:
+            candidates.append(
+                {
+                    "payment": p,
+                    "score": round(score, 4),
+                    "text_score": round(text_score, 3),
+                    "value_score": round(value_score, 3),
+                    "date_score": round(date_score, 3),
+                }
+            )
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
     return candidates[:top_n]
 
 
