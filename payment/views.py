@@ -87,6 +87,15 @@ def get_all_view(request, user):
             "value": float(payment.value or 0),
             "invoice_id": payment.invoice.id,
             "invoice_name": payment.invoice.name,
+            "tags": [
+                {
+                    "id": tag.id,
+                    "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
+                    "color": tag.color,
+                    "is_budget": hasattr(tag, "budget"),
+                }
+                for tag in payment.invoice.tags.all().order_by("budget", "name")
+            ],
         }
         for payment in data.get("data")
     ]
