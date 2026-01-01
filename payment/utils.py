@@ -141,6 +141,8 @@ class ParsedTransaction:
         }
         result["mapped_data"] = self.mapped_data.to_dict() if self.mapped_data else None
 
+        result["matched_payment"] = self.matched_payment.to_dict() if self.matched_payment else None
+
         result["possibly_matched_payment_list"] = (
             [
                 {
@@ -506,6 +508,8 @@ def process_csv_row(user, import_type: str, header_mapping: List[CSVMapping], ro
         payment_detail, import_type, len(parser_transaction.validation_errors)
     )
     parser_transaction.matched_payment = find_payment_by_reference(user, payment_detail.reference)
-    parser_transaction.possibly_matched_payment_list = find_possible_payment_matches(user, payment_detail)
+
+    if parser_transaction.matched_payment is None:
+        parser_transaction.possibly_matched_payment_list = find_possible_payment_matches(user, payment_detail)
 
     return parser_transaction
