@@ -107,7 +107,7 @@ def verify_token(request: HttpRequest) -> JsonResponse:
     access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
 
     if access_token_cookie is None:
-        return JsonResponse({"msg": "Token não encontrado"}, status=HTTPStatus.UNAUTHORIZED)
+        return JsonResponse({"msg": "Token não encontrado"}, status=HTTPStatus.BAD_REQUEST)
 
     try:
 

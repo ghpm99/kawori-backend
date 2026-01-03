@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from dateutil.relativedelta import relativedelta
 
 from contract.models import Contract
@@ -12,8 +10,6 @@ def generate_payments(invoice: Invoice, description="", reference=""):
     payment_date = invoice.payment_date
 
     value_installments = calculate_installments(float(invoice.value), installments)
-
-    date_format = "%Y-%m-%d"
 
     for i in range(installments):
         payment = Payment(

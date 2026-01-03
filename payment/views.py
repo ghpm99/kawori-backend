@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 from dateutil.relativedelta import relativedelta
-from django.db import connection
+from django.db import connection, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -293,26 +293,25 @@ def payoff_detail_view(request, id, user):
     if payment.status == 1:
         return JsonResponse({"msg": "Pagamento ja baixado"}, status=400)
 
-    date_format = "%Y-%m-%d"
-
     if payment.invoice.fixed is True:
         future_payment = payment.payment_date + relativedelta(months=1)
-        payment_date = future_payment.strftime(date_format)
-        new_invoice = Invoice(
-            type=payment.type,
-            name=payment.name,
-            date=payment.date,
-            installments=payment.installments,
-            payment_date=payment_date,
-            fixed=payment.fixed,
-            value=payment.value,
-            value_open=payment.value,
-            user=user,
-        )
-        new_invoice.save()
-        tags = [tag.id for tag in payment.invoice.tags.all()]
-        new_invoice.tags.set(tags)
-        generate_payments(new_invoice)
+
+        with transaction.atomic():
+            new_invoice = Invoice.objects.create(
+                type=payment.invoice.type,
+                name=payment.invoice.name,
+                date=datetime.now(),
+                installments=payment.invoice.installments,
+                payment_date=future_payment,
+                fixed=payment.invoice.fixed,
+                value=payment.invoice.value,
+                value_open=payment.invoice.value,
+                user=user,
+            )
+
+            tags = [tag.id for tag in payment.invoice.tags.all()]
+            new_invoice.tags.set(tags)
+            generate_payments(new_invoice)
 
     payment.status = Payment.STATUS_DONE
     payment.save()
@@ -400,11 +399,12 @@ def process_csv_upload(request, user):
     csv_headers: List[CSVMapping] = data.get("headers", [])
     csv_body: List[Row] = data.get("body", [])
     import_type: str = data.get("import_type", "transactions")
+    payment_date = format_date(data.get("payment_date"))
 
     processed_payments = []
 
     for row in csv_body:
-        processed_row = process_csv_row(user, import_type, csv_headers, row)
+        processed_row = process_csv_row(user, import_type, csv_headers, row, payment_date)
         processed_payments.append(processed_row)
 
     processed = [pt.to_dict() for pt in processed_payments]

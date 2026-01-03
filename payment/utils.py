@@ -217,7 +217,9 @@ def generate_payment_installments_by_name(name: str) -> int:
     return 1
 
 
-def paymment_mapped_to_detail(user, import_type, mapped_data: Dict[str, any]) -> PaymentDetail:
+def paymment_mapped_to_detail(
+    user, import_type, mapped_data: Dict[str, any], payment_date_import: datetime
+) -> PaymentDetail:
 
     payment_value = mapped_data.get("value", 0.0)
     payment_type = Payment.TYPE_CREDIT
@@ -258,7 +260,7 @@ def paymment_mapped_to_detail(user, import_type, mapped_data: Dict[str, any]) ->
         reference=mapped_data.get("reference", ""),
         date=payment_date or Date.today(),
         installments=payment_installments or 1,
-        payment_date=payment_payment_date,
+        payment_date=payment_date_import.date() or payment_payment_date,
         fixed=False,
         active=True,
         value=payment_value,
@@ -463,7 +465,9 @@ def check_payment_is_valid(payment_data: PaymentDetail, import_type: str, valida
     return validation_errors_lenght == 0
 
 
-def process_csv_row(user, import_type: str, header_mapping: List[CSVMapping], row: Row) -> ParsedTransaction:
+def process_csv_row(
+    user, import_type: str, header_mapping: List[CSVMapping], row: Row, payment_date: datetime
+) -> ParsedTransaction:
     parser_transaction = ParsedTransaction(
         id=str(datetime.now().timestamp()),
         original_row=row,
@@ -497,7 +501,7 @@ def process_csv_row(user, import_type: str, header_mapping: List[CSVMapping], ro
 
         payment_data_mapped[system_field] = process_func_col
 
-    payment_detail = paymment_mapped_to_detail(user, import_type, payment_data_mapped)
+    payment_detail = paymment_mapped_to_detail(user, import_type, payment_data_mapped, payment_date)
 
     if payment_detail.reference == "" or payment_detail.reference is None:
         payment_detail.reference = generate_payment_reference(row, user)
