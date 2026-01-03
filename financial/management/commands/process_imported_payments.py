@@ -113,24 +113,28 @@ class Command(BaseCommand):
             payment.status = ImportedPayment.IMPORT_STATUS_COMPLETED
             payment.save()
 
-    def update_invoice_by_imported_payment(self, payments_to_process: list[ImportedPayment]):
-        matched_payment = next(
-            (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
-            None,
-        )
-        if matched_payment is None:
+    def update_invoice_by_imported_payment(self, payment: Payment | None, payments_to_process: list[ImportedPayment]):
+        if payment is None:
             raise Exception("Pagamento merge sem pagamento selecionado")
+
         main_payment = self.get_main_payment(payments_to_process)
 
         payment_description = self.get_payment_description(payments_to_process)
-        matched_payment.description = payment_description
-        matched_payment.reference = main_payment.reference
-        matched_payment.date = main_payment.raw_date
-        matched_payment.payment_date = main_payment.raw_payment_date
-        matched_payment.save()
+        payment.description = payment_description
+
+        if not payment.reference:
+            payment.reference = main_payment.reference
+
+        payment.date = main_payment.raw_date
+        payment.payment_date = main_payment.raw_payment_date
+        payment.save()
 
     def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
-        self.update_invoice_by_imported_payment(payments_to_process)
+        payment = next(
+            (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
+            None,
+        )
+        self.update_invoice_by_imported_payment(payment, payments_to_process)
 
     def normalize_invoice_name(self, name: str) -> str:
         if not name:
@@ -212,7 +216,8 @@ class Command(BaseCommand):
 
     def check_existing_payments(self, payments: list[ImportedPayment]):
         references = {p.reference for p in payments if p.reference}
-        return Payment.objects.filter(reference__in=references).exists()
+        user = {p.user for p in payments}
+        return Payment.objects.filter(reference__in=references, user__in=user, active=True).exists()
 
     def run_command(self):
         if self.is_processing_running():
