@@ -111,7 +111,7 @@ class ImportedPayment(models.Model):
         (IMPORT_STATUS_FAILED, "Failed"),
     ]
 
-    EDITABLE_STATUS = [IMPORT_STATUS_PENDING, IMPORT_STATUS_FAILED, IMPORT_STATUS_COMPLETED]
+    EDITABLE_STATUS = [IMPORT_STATUS_PENDING, IMPORT_STATUS_FAILED]
 
     class Meta:
         db_table = "financial_imported_payment"
