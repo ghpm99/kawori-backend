@@ -27,10 +27,10 @@ class Command(BaseCommand):
             2252,
             2195,
             2207,
-            2068,
+            2069,
             2253,
             2254,
-            1981,
+            1982,
             2183,
         ]
         payments = Payment.objects.filter(id__in=ids_to_update).all()
