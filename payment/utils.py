@@ -336,10 +336,7 @@ def find_possible_payment_matches(
     # ---------------------------------------------------------
     # 1. FILTRO LARGO (RECALL FIRST)
     # ---------------------------------------------------------
-    base_qs = Payment.objects.filter(
-        user_id=user.id,
-        active=True,
-    )
+    base_qs = Payment.objects.filter(user_id=user.id, active=True, reference="")
 
     delta = timedelta(days=date_window_days)
     date_clauses = []

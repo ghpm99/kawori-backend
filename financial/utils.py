@@ -22,7 +22,7 @@ def generate_payments(invoice: Invoice, description="", reference=""):
             fixed=invoice.fixed,
             value=value_installments[i],
             invoice=invoice,
-            reference=reference,
+            reference=reference if i == 0 else None,
             user=invoice.user,
         )
         payment.save()
