@@ -19,6 +19,12 @@ class Command(BaseCommand):
             invoice_value_open = 0
             invoice_value_closed = 0
 
+            total_installments = Payment.objects.filter(invoice=invoice.id, active=True).count()
+            if total_installments == 0:
+                print(f"Invoice {invoice.id} has no payments.")
+                invoice.active = False
+                invoice.save()
+                continue
             next_payment_date = None
             for payment in Payment.objects.filter(invoice=invoice.id, active=True).all():
                 invoice_value = invoice_value + payment.value
@@ -32,6 +38,11 @@ class Command(BaseCommand):
             invoice.value_open = invoice_value_open
             invoice.value_closed = invoice_value_closed
             invoice.payment_date = next_payment_date
+
+            isValid = invoice.validate_invoice()
+            if isValid != Invoice.ValidationStatus.VALID:
+                print(f"Invoice {invoice.id} is not valid: {isValid}")
+                continue
             invoice.save()
 
     def handle(self, *args, **options):
