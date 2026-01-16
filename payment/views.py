@@ -188,6 +188,7 @@ def get_payments_month(request, user):
         WHERE
             (
                 0 = 0
+                AND fi.active = true
                 AND fi.user_id = %(user_id)s
                 AND fp.payment_date BETWEEN %(begin)s AND %(end)s
                 AND fp.active = true

@@ -126,6 +126,7 @@ def get_payments_month(request, user):
                 AND fc.user_id = %(user_id)s
                 AND fp.payment_date BETWEEN %(begin)s AND %(end)s
                 AND fp.active = true
+                AND fi.active = true
             )
         GROUP BY
             fc.id,
@@ -832,12 +833,13 @@ def report_amount_invoice_by_tag_view(request, user):
             ft.id = fit.tag_id
         INNER JOIN financial_invoice fi ON
             fit.invoice_id = fi.id
-
         INNER JOIN financial_payment fp ON
             fp.invoice_id = fi.id
         WHERE
             ft.user_id=%(user_id)s
             AND fp."payment_date" BETWEEN %(begin)s AND %(end)s
+            AND fi.active=true
+            AND fp.active=true
         GROUP BY
             ft.id
         ORDER BY
