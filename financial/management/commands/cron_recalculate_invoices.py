@@ -1,10 +1,5 @@
 import time
-from datetime import datetime, timedelta
-
-import requests
-from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import connection
 
 from invoice.models import Invoice
 from payment.models import Payment

@@ -45,7 +45,7 @@ def get_all_view(request, user):
     if req.get("invoice"):
         filters["invoice__name__icontains"] = req.get("invoice")
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date")
+    payments_query = Payment.objects.filter(**filters, user=user, active=True).order_by("payment_date")
 
     data = paginate(payments_query, req.get("page"), req.get("page_size"))
 
@@ -441,7 +441,7 @@ def get_all_invoice_view(request, user):
     if req.get("date__lte"):
         filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user).order_by("id")
+    invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by("id")
 
     data = paginate(invoices_query, req.get("page"), req.get("page_size"))
 
@@ -500,7 +500,7 @@ def detail_contract_view(request, id, user):
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
-    invoices_query = Invoice.objects.filter(contract=id, user=user).order_by("id")
+    invoices_query = Invoice.objects.filter(contract=id, user=user, active=True).order_by("id")
 
     data = paginate(invoices_query, req.get("page"), req.get("page_size"))
 
@@ -591,7 +591,7 @@ def detail_invoice_view(request, id, user):
 @validate_user("financial")
 def detail_invoice_payments_view(request, id, user):
     req = request.GET
-    payments_query = Payment.objects.filter(invoice=id, user=user).order_by("id")
+    payments_query = Payment.objects.filter(invoice=id, user=user, active=True).order_by("id")
 
     data = paginate(payments_query, req.get("page"), req.get("page_size"))
 
@@ -626,7 +626,7 @@ def merge_contract_view(request, id, user):
     contracts = data.get("contracts")
 
     for id in contracts:
-        invoices = Invoice.objects.filter(contract=id, user=user).all()
+        invoices = Invoice.objects.filter(contract=id, user=user, active=True).all()
         for invoice in invoices:
             invoice.contract = contract
             invoice.save()
@@ -904,28 +904,17 @@ def get_total_payment_from_date(date_begin, date_end, user_id, type):
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(sum_payment_value, {
-            "begin": date_begin,
-            "end": date_end,
-            "type": type,
-            "user_id": user_id
-        })
+        cursor.execute(sum_payment_value, {"begin": date_begin, "end": date_end, "type": type, "user_id": user_id})
         total_payment_current = float(cursor.fetchone()[0])
 
     date_end = date_begin - timedelta(days=1)
     date_begin = date_end.replace(day=1)
 
     with connection.cursor() as cursor:
-        cursor.execute(sum_payment_value, {
-            "begin": date_begin,
-            "end": date_end,
-            "type": type,
-            "user_id": user_id
-        })
+        cursor.execute(sum_payment_value, {"begin": date_begin, "end": date_end, "type": type, "user_id": user_id})
         total_payment_last_month = float(cursor.fetchone()[0])
 
     return (total_payment_current, total_payment_last_month)
-
 
 
 @require_GET
@@ -945,31 +934,21 @@ def get_metrics_view(request, user):
 
     revenue_data = {
         "value": revenues_current,
-        "metric_value": metric_value(revenues_current - revenues_last_month, revenues_last_month)
+        "metric_value": metric_value(revenues_current - revenues_last_month, revenues_last_month),
     }
 
     expenses_data = {
         "value": expenses_current,
-        "metric_value": metric_value(expenses_current - expenses_last_month, expenses_last_month)
+        "metric_value": metric_value(expenses_current - expenses_last_month, expenses_last_month),
     }
 
     profit_current = revenues_current - expenses_current
     profit_last_month = revenues_last_month - expenses_last_month
 
-    profit_data = {
-        "value": profit_current,
-        "metric_value":metric_value(profit_current, profit_last_month)
-    }
+    profit_data = {"value": profit_current, "metric_value": metric_value(profit_current, profit_last_month)}
 
-    growth_data = {
-        "value": profit_current /  profit_last_month if profit_last_month != 0 else 0
-    }
+    growth_data = {"value": profit_current / profit_last_month if profit_last_month != 0 else 0}
 
-    data = {
-        "revenues": revenue_data,
-        "expenses": expenses_data,
-        "profit": profit_data,
-        "growth": growth_data
-    }
+    data = {"revenues": revenue_data, "expenses": expenses_data, "profit": profit_data, "growth": growth_data}
 
     return JsonResponse(data)

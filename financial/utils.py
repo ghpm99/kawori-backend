@@ -95,7 +95,7 @@ def update_contract_value(contract: Contract):
     value_open = 0
     value_closed = 0
 
-    invoices = Invoice.objects.filter(contract=contract.id).all()
+    invoices = Invoice.objects.filter(contract=contract.id, active=True).all()
 
     for invoice in invoices:
         update_invoice_value(invoice)

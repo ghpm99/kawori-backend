@@ -2,7 +2,7 @@ import json
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 
 
 from kawori.decorators import validate_user
@@ -21,10 +21,10 @@ def get_all_tag_view(request, user):
     datas = (
         Tag.objects.filter(**filters, user=user)
         .annotate(
-            total_payments=Count("invoices", distinct=True),
-            total_value=Sum("invoices__value"),
-            total_open=Sum("invoices__value_open"),
-            total_closed=Sum("invoices__value_closed"),
+            total_payments=Count("invoices", filter=Q(invoices__active=True), distinct=True),
+            total_value=Sum("invoices__value", filter=Q(invoices__active=True)),
+            total_open=Sum("invoices__value_open", filter=Q(invoices__active=True)),
+            total_closed=Sum("invoices__value_closed", filter=Q(invoices__active=True)),
         )
         .order_by("budget", "name")
     )

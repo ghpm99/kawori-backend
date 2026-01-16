@@ -84,7 +84,7 @@ def detail_contract_view(request, id, user):
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
-    invoices_query = Invoice.objects.filter(contract=id, user=user).order_by("id")
+    invoices_query = Invoice.objects.filter(contract=id, user=user, active=True).order_by("id")
 
     data = paginate(invoices_query, req.get("page"), req.get("page_size"))
 
@@ -155,7 +155,7 @@ def merge_contract_view(request, id, user):
     contracts = data.get("contracts")
 
     for id in contracts:
-        invoices = Invoice.objects.filter(contract=id, user=user).all()
+        invoices = Invoice.objects.filter(contract=id, user=user, active=True).all()
         for invoice in invoices:
             invoice.contract = contract
             invoice.save()
