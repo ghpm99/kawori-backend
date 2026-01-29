@@ -153,6 +153,7 @@ def get_payments_month(request, user):
         SELECT
             fi.id,
             fi.name,
+            fp.payment_date,
             SUM(
                 CASE
                     fp.type
@@ -195,9 +196,11 @@ def get_payments_month(request, user):
             )
         GROUP BY
             fi.id,
-            fi.name
+            fi.name,
+            fp.payment_date
         ORDER BY
-            fi.id;
+            fp.payment_date ASC,
+            fi.id ASC;
     """
 
     with connection.cursor() as cursor:
@@ -208,11 +211,12 @@ def get_payments_month(request, user):
         {
             "id": invoice[0],
             "name": invoice[1],
-            "total_value_credit": float(invoice[2] or 0),
-            "total_value_debit": float(invoice[3] or 0),
-            "total_value_open": float(invoice[4] or 0),
-            "total_value_closed": float(invoice[5] or 0),
-            "total_payments": invoice[6],
+            "date": invoice[2],
+            "total_value_credit": float(invoice[3] or 0),
+            "total_value_debit": float(invoice[4] or 0),
+            "total_value_open": float(invoice[5] or 0),
+            "total_value_closed": float(invoice[6] or 0),
+            "total_payments": invoice[7],
         }
         for invoice in invoices
     ]
