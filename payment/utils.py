@@ -221,49 +221,49 @@ def paymment_mapped_to_detail(
     user, import_type, mapped_data: Dict[str, any], payment_date_import: datetime
 ) -> PaymentDetail:
 
-    payment_value = mapped_data.get("value", 0.0)
-    payment_type = Payment.TYPE_CREDIT
-    payment_name = mapped_data.get("name", "")
-    payment_description = mapped_data.get("description", "")
-    payment_date = mapped_data.get("date", None)
-    payment_payment_date = mapped_data.get("payment_date", None)
-    payment_installments = mapped_data.get("installments", None)
+    value = mapped_data.get("value", 0.0)
+    type = Payment.TYPE_CREDIT
+    name = mapped_data.get("name", "")
+    description = mapped_data.get("description", "")
+    date = mapped_data.get("date", None)
+    payment_date = mapped_data.get("payment_date", None)
+    installments = mapped_data.get("installments", None)
 
     if import_type == "card_payments":
-        payment_type = Payment.TYPE_DEBIT
-        if payment_value < 0:
-            payment_type = Payment.TYPE_CREDIT
+        type = Payment.TYPE_DEBIT
+        if value < 0:
+            type = Payment.TYPE_CREDIT
     elif import_type == "transactions":
-        if payment_value > 0:
-            payment_type = Payment.TYPE_CREDIT
+        if value > 0:
+            type = Payment.TYPE_CREDIT
         else:
-            payment_type = Payment.TYPE_DEBIT
+            type = Payment.TYPE_DEBIT
 
-    if payment_value < 0:
-        payment_value = abs(payment_value)
+    if value < 0:
+        value = abs(value)
 
-    if not payment_name and payment_description:
-        payment_name = payment_description[:255]
+    if not name and description:
+        name = description[:255]
 
-    if not payment_payment_date and payment_date:
-        payment_payment_date = payment_date
+    if not payment_date and date:
+        payment_date = date
 
-    if not payment_installments:
-        payment_installments = generate_payment_installments_by_name(payment_name)
+    if not installments:
+        installments = generate_payment_installments_by_name(name)
 
     return PaymentDetail(
         id=None,
         status=0,
-        type=payment_type,
-        name=payment_name,
-        description=payment_description,
+        type=type,
+        name=name,
+        description=description,
         reference=mapped_data.get("reference", ""),
-        date=payment_date or Date.today(),
-        installments=payment_installments or 1,
-        payment_date=payment_date_import.date() or payment_payment_date,
+        date=date or Date.today(),
+        installments=installments or 1,
+        payment_date=payment_date_import.date() if payment_date_import else payment_date,
         fixed=False,
         active=True,
-        value=payment_value,
+        value=value,
         invoice_id=None,
         user_id=user.id,
     )
