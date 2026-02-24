@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notificação de Pagamentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+        .payment-item {
+            background-color: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .payment-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .payment-details {
+            color: #666;
+            font-size: 14px;
+        }
+        .total {
+            background-color: #e9ecef;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-radius: 0 0 5px 5px;
+            font-size: 12px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📅 Notificação de Pagamentos</h1>
+        <p>Pagamentos com vencimento até {{ final_date }}</p>
+    </div>
+    
+    <div class="content">
+        {% if payments %}
+            <p>Olá,</p>
+            <p>Encontramos {{ payments|length }} pagamento(s) pendente(s) com vencimento próximo:</p>
+            
+            {% for payment in payments %}
+            <div class="payment-item">
+                <div class="payment-name">{{ payment.name }}</div>
+                <div class="payment-details">
+                    <strong>Tipo:</strong> {{ payment.type }}<br>
+                    <strong>Vencimento:</strong> {{ payment.payment_date }}<br>
+                    <strong>Valor:</strong> R$ {{ payment.value|floatformat:2 }}<br>
+                    <a href="{{ payment.payment_url }}" class="btn">Visualizar Pagamento</a>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="total">
+                Valor Total: R$ {{ total_value|floatformat:2 }}
+            </div>
+            
+            <p style="margin-top: 20px;">
+                <strong>Atenção:</strong> Por favor, regularize esses pagamentos para evitar juros e multas.
+            </p>
+        {% else %}
+            <p>Ótima notícia! Não há pagamentos pendentes com vencimento até {{ final_date }}.</p>
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <p>Este é um email automático do Sistema Financeiro Kawori</p>
+        <p>Gerado em: {% now "d/m/Y H:i" %}</p>
+    </div>
+</body>
+</html>
