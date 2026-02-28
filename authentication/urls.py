@@ -8,4 +8,7 @@ urlpatterns = [
     path("signup", views.signup_view, name="auth_signup"),
     path("signout", views.signout_view, name="auth_signout"),
     path("csrf/", views.obtain_csrf_cookie, name="obtain_csrf_cookie"),
+    path("password-reset/request/", views.request_password_reset, name="auth_password_reset_request"),
+    path("password-reset/validate/", views.validate_reset_token, name="auth_password_reset_validate"),
+    path("password-reset/confirm/", views.confirm_password_reset, name="auth_password_reset_confirm"),
 ]

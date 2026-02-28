@@ -5,6 +5,8 @@ from datetime import datetime
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -12,7 +14,8 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.utils import register_groups
+from authentication.models import PasswordResetToken
+from authentication.utils import get_client_ip, register_groups, send_password_reset_email_async
 
 
 @require_POST
@@ -203,3 +206,133 @@ def signup_view(request: HttpRequest) -> JsonResponse:
 @ensure_csrf_cookie
 def obtain_csrf_cookie(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"msg": "Token registrado"})
+
+
+# ─── Password reset ───────────────────────────────────────────────────────────
+
+_RESET_GENERIC_MSG = "Se o e-mail estiver cadastrado, você receberá as instruções em breve."
+
+
+@require_POST
+def request_password_reset(request: HttpRequest) -> JsonResponse:
+    """
+    Solicita a redefinição de senha.
+    Gera um token único com expiração e envia o e-mail de forma assíncrona.
+    Retorna sempre a mesma mensagem genérica para evitar enumeração de usuários.
+    """
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+
+    email = data.get("email", "").strip().lower()
+    if not email:
+        return JsonResponse({"msg": "E-mail é obrigatório."}, status=HTTPStatus.BAD_REQUEST)
+
+    ip_address = get_client_ip(request)
+
+    # Proteção anti-spam por IP (5 tentativas por hora)
+    if PasswordResetToken.is_rate_limited_by_ip(ip_address):
+        return JsonResponse(
+            {"msg": "Muitas tentativas. Tente novamente mais tarde."},
+            status=429,
+        )
+
+    try:
+        user = User.objects.get(email__iexact=email, is_active=True)
+    except User.DoesNotExist:
+        # Retorna 200 genérico para não revelar se o e-mail existe
+        return JsonResponse({"msg": _RESET_GENERIC_MSG})
+
+    # Proteção anti-spam por usuário (3 tentativas por hora)
+    if PasswordResetToken.is_rate_limited_by_user(user):
+        return JsonResponse({"msg": _RESET_GENERIC_MSG})
+
+    raw_token = PasswordResetToken.create_for_user(user, ip_address)
+    send_password_reset_email_async(user, raw_token)
+
+    return JsonResponse({"msg": _RESET_GENERIC_MSG})
+
+
+@require_GET
+def validate_reset_token(request: HttpRequest) -> JsonResponse:
+    """
+    Valida se um token de reset ainda é válido (não usado e não expirado).
+    Usado pelo frontend para verificar o token antes de exibir o formulário de nova senha.
+    """
+    raw_token = request.GET.get("token", "").strip()
+    if not raw_token:
+        return JsonResponse(
+            {"valid": False, "msg": "Token é obrigatório."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    token_hash = PasswordResetToken.hash_token(raw_token)
+
+    try:
+        token_obj = PasswordResetToken.objects.get(token_hash=token_hash)
+    except PasswordResetToken.DoesNotExist:
+        return JsonResponse(
+            {"valid": False, "msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    if not token_obj.is_valid():
+        return JsonResponse(
+            {"valid": False, "msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    return JsonResponse({"valid": True})
+
+
+@require_POST
+def confirm_password_reset(request: HttpRequest) -> JsonResponse:
+    """
+    Confirma a redefinição de senha com o token recebido por e-mail.
+    Valida token, aplica regras de senha do Django e invalida o token após uso.
+    """
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+
+    raw_token = data.get("token", "").strip()
+    new_password = data.get("new_password", "")
+
+    if not raw_token or not new_password:
+        return JsonResponse(
+            {"msg": "Token e nova senha são obrigatórios."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    token_hash = PasswordResetToken.hash_token(raw_token)
+
+    try:
+        token_obj = PasswordResetToken.objects.select_related("user").get(token_hash=token_hash)
+    except PasswordResetToken.DoesNotExist:
+        return JsonResponse(
+            {"msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    if not token_obj.is_valid():
+        return JsonResponse(
+            {"msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    user = token_obj.user
+
+    try:
+        validate_password(new_password, user)
+    except ValidationError as e:
+        return JsonResponse({"msg": list(e.messages)}, status=HTTPStatus.BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    ip_address = get_client_ip(request)
+    token_obj.consume(ip_address)
+
+    return JsonResponse({"msg": "Senha redefinida com sucesso."})
