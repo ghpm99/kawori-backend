@@ -5,8 +5,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.db import connection
 from django.template.loader import render_to_string
 
 from payment.models import Payment
@@ -15,53 +15,35 @@ from payment.models import Payment
 class Command(BaseCommand):
     help = "Send payment email notifications"
 
-    def send_email(self, final_date):
-        query_payments = """
-            SELECT
-                id,
-                type,
-                name,
-                payment_date,
-                value
-            FROM
-                financial_payment fp
-            WHERE
-                0 = 0
-                AND (fp.payment_date AT TIME ZONE 'Brazil/East')::DATE <= %(final_date)s
-                AND fp.status = 0
-                AND fp.active = TRUE;
-        """
+    def send_email_to_user(self, user, final_date):
+        user_payments = Payment.objects.filter(
+            user=user,
+            payment_date__lte=final_date,
+            status=Payment.STATUS_OPEN,
+            active=True,
+        ).order_by("payment_date")
 
-        filters = {"final_date": final_date}
-
-        with connection.cursor() as cursor:
-            cursor.execute(query_payments, filters)
-            payments_list = cursor.fetchall()
-
-        if not payments_list:
-            print("No payments found to notify")
-            return
+        if not user_payments.exists():
+            return False
 
         payments = []
         total_value = 0
 
-        for item in payments_list:
-            type = Payment.TYPES[item[1]]
-            payment_value = float(item[4])
+        for payment in user_payments:
+            payment_value = float(payment.value)
             total_value += payment_value
 
             payments.append(
                 {
-                    "id": item[0],
-                    "type": type[1],
-                    "name": item[2],
-                    "payment_date": datetime.strptime(str(item[3]), "%Y-%m-%d").strftime("%d/%m/%Y"),
+                    "id": payment.id,
+                    "type": Payment.TYPES[payment.type][1],
+                    "name": payment.name,
+                    "payment_date": payment.payment_date.strftime("%d/%m/%Y"),
                     "value": payment_value,
-                    "payment_url": settings.BASE_URL_FRONTEND + "/admin/financial/payments/details/" + str(item[0]),
+                    "payment_url": settings.BASE_URL_FRONTEND + "/admin/financial/payments/details/" + str(payment.id),
                 }
             )
 
-        # Render HTML email template
         html_content = render_to_string(
             "payment_email_template.html",
             {
@@ -71,17 +53,14 @@ class Command(BaseCommand):
             },
         )
 
-        # Create email message
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}'
         msg["From"] = settings.EMAIL_HOST_USER
-        msg["To"] = settings.NOTIFICATION_EMAIL
+        msg["To"] = user.email
 
-        # Attach HTML content
         html_part = MIMEText(html_content, "html")
         msg.attach(html_part)
 
-        # Send email
         try:
             with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
                 server.ehlo()
@@ -89,9 +68,11 @@ class Command(BaseCommand):
                 server.ehlo()
                 server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
                 server.send_message(msg)
-            print(f"Email sent successfully to {settings.NOTIFICATION_EMAIL}")
+            print(f"Email sent successfully to {user.email} (user: {user.username})")
+            return True
         except Exception as e:
-            print(f"Error sending email: {str(e)}")
+            print(f"Error sending email to {user.email} (user: {user.username}): {str(e)}")
+            return False
 
     def run_command(self):
         date_referrer = datetime.now().date()
@@ -99,7 +80,33 @@ class Command(BaseCommand):
 
         print("Final date: {}".format(final_date))
         print("Sending payment notifications via email")
-        self.send_email(final_date)
+
+        users_with_payments = User.objects.filter(
+            payment__payment_date__lte=final_date,
+            payment__status=Payment.STATUS_OPEN,
+            payment__active=True,
+        ).distinct()
+
+        if not users_with_payments.exists():
+            print("No payments found to notify")
+            return
+
+        print(f"Found {users_with_payments.count()} user(s) with pending payments")
+
+        sent_count = 0
+        error_count = 0
+
+        for user in users_with_payments:
+            if not user.email:
+                print(f"User {user.username} has no email address, skipping")
+                continue
+
+            if self.send_email_to_user(user, final_date):
+                sent_count += 1
+            else:
+                error_count += 1
+
+        print(f"Emails sent: {sent_count}, errors: {error_count}")
 
     def handle(self, *args, **options):
         begin = time.time()
