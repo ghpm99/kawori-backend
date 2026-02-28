@@ -62,26 +62,31 @@ class Command(BaseCommand):
             )
 
         # Render HTML email template
-        html_content = render_to_string('payment_email_template.html', {
-            'payments': payments,
-            'total_value': total_value,
-            'final_date': final_date.strftime("%d/%m/%Y"),
-        })
+        html_content = render_to_string(
+            "payment_email_template.html",
+            {
+                "payments": payments,
+                "total_value": total_value,
+                "final_date": final_date.strftime("%d/%m/%Y"),
+            },
+        )
 
         # Create email message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}'
-        msg['From'] = settings.EMAIL_HOST_USER
-        msg['To'] = settings.NOTIFICATION_EMAIL
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}'
+        msg["From"] = settings.EMAIL_HOST_USER
+        msg["To"] = settings.NOTIFICATION_EMAIL
 
         # Attach HTML content
-        html_part = MIMEText(html_content, 'html')
+        html_part = MIMEText(html_content, "html")
         msg.attach(html_part)
 
         # Send email
         try:
             with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
+                server.ehlo()
                 server.starttls()
+                server.ehlo()
                 server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
                 server.send_message(msg)
             print(f"Email sent successfully to {settings.NOTIFICATION_EMAIL}")
