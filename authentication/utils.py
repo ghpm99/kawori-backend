@@ -41,7 +41,7 @@ def get_client_ip(request) -> str:
 
 def _send_password_reset_email(user: User, raw_token: str) -> None:
     """Builds and sends the password reset email via SMTP. Runs in a background thread."""
-    from authentication.models import PasswordResetToken
+    from authentication.models import UserToken
 
     try:
         reset_url = f"{settings.BASE_URL_FRONTEND}/reset-password?token={raw_token}"
@@ -52,7 +52,7 @@ def _send_password_reset_email(user: User, raw_token: str) -> None:
                 "user": user,
                 "token": raw_token,
                 "reset_url": reset_url,
-                "expiry_minutes": PasswordResetToken.EXPIRY_MINUTES,
+                "expiry_minutes": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_PASSWORD_RESET],
             },
         )
 
@@ -77,6 +77,49 @@ def send_password_reset_email_async(user: User, raw_token: str) -> None:
     """Dispatches the password reset email in a daemon thread."""
     thread = threading.Thread(
         target=_send_password_reset_email,
+        args=(user, raw_token),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _send_verification_email(user: User, raw_token: str) -> None:
+    """Builds and sends the email verification email via SMTP. Runs in a background thread."""
+    from authentication.models import UserToken
+
+    try:
+        verify_url = f"{settings.BASE_URL_FRONTEND}/verify-email?token={raw_token}"
+
+        html_content = render_to_string(
+            "email_verification.html",
+            {
+                "user": user,
+                "verify_url": verify_url,
+                "expiry_hours": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_EMAIL_VERIFICATION] // 60,
+            },
+        )
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Bem-vindo ao Kawori - Verifique seu email"
+        msg["From"] = settings.EMAIL_HOST_USER
+        msg["To"] = user.email
+        msg.attach(MIMEText(html_content, "html"))
+
+        with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+            server.send_message(msg)
+
+    except Exception as e:
+        print(f"[email_verification] Erro ao enviar email para {user.email}: {e}")
+
+
+def send_verification_email_async(user: User, raw_token: str) -> None:
+    """Dispatches the verification email in a daemon thread."""
+    thread = threading.Thread(
+        target=_send_verification_email,
         args=(user, raw_token),
         daemon=True,
     )
