@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from django.conf import settings
 
-from authentication.models import PasswordResetToken
+from authentication.models import EmailVerification, UserToken
 
 
 # Create your tests here.
@@ -50,7 +50,8 @@ class AuthenticationTestCase(TestCase):
 
         self.assertEqual(response_json["msg"], "Todos os campos são obrigatórios.")
 
-    def test_success_signup_user(self):
+    @patch("authentication.views.send_verification_email_async")
+    def test_success_signup_user(self, mock_send_verification):
         """Testa o sucesso no cadastro"""
         user_data = {
             "username": "test_user",
@@ -197,7 +198,12 @@ class PasswordResetRequestTestCase(TestCase):
         mock_send.assert_called_once()
 
         # Token deve ter sido criado no banco
-        self.assertEqual(PasswordResetToken.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(
+            UserToken.objects.filter(
+                user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+            ).count(),
+            1,
+        )
 
     @patch("authentication.views.send_password_reset_email_async")
     def test_request_email_case_insensitive(self, mock_send):
@@ -223,7 +229,7 @@ class PasswordResetRequestTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         # Não deve ter enviado e-mail nem criado token
         mock_send.assert_not_called()
-        self.assertEqual(PasswordResetToken.objects.count(), 0)
+        self.assertEqual(UserToken.objects.count(), 0)
 
     @patch("authentication.views.send_password_reset_email_async")
     def test_request_inactive_user_returns_200(self, mock_send):
@@ -264,7 +270,9 @@ class PasswordResetRequestTestCase(TestCase):
             data={"email": "reset@test.com"},
         )
 
-        first_token = PasswordResetToken.objects.get(user=self.user)
+        first_token = UserToken.objects.get(
+            user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
         first_hash = first_token.token_hash
 
         # Segunda solicitação
@@ -279,14 +287,16 @@ class PasswordResetRequestTestCase(TestCase):
         self.assertTrue(first_token.used)
 
         # Deve existir um novo token ativo
-        active_tokens = PasswordResetToken.objects.filter(user=self.user, used=False)
+        active_tokens = UserToken.objects.filter(
+            user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, used=False
+        )
         self.assertEqual(active_tokens.count(), 1)
         self.assertNotEqual(active_tokens.first().token_hash, first_hash)
 
     @patch("authentication.views.send_password_reset_email_async")
     def test_request_rate_limit_by_ip(self, mock_send):
         """Bloqueia após exceder o limite de tentativas por IP"""
-        limit = PasswordResetToken.MAX_REQUESTS_PER_IP_PER_HOUR
+        limit = UserToken.MAX_REQUESTS_PER_IP_PER_HOUR
 
         # Cria usuários distintos para não acionar o rate-limit por usuário
         users = []
@@ -315,7 +325,7 @@ class PasswordResetRequestTestCase(TestCase):
     @patch("authentication.views.send_password_reset_email_async")
     def test_request_rate_limit_by_user(self, mock_send):
         """Retorna mensagem genérica após exceder o limite por usuário"""
-        limit = PasswordResetToken.MAX_REQUESTS_PER_USER_PER_HOUR
+        limit = UserToken.MAX_REQUESTS_PER_USER_PER_HOUR
 
         for _ in range(limit):
             self.client.post(
@@ -349,7 +359,9 @@ class PasswordResetValidateTestCase(TestCase):
 
     def test_validate_valid_token(self):
         """Token válido retorna valid=True"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
 
         response = self.client.get(
             "/auth/password-reset/validate/",
@@ -373,11 +385,12 @@ class PasswordResetValidateTestCase(TestCase):
 
     def test_validate_expired_token(self):
         """Token expirado retorna 400"""
-        raw_token = PasswordResetToken.generate_raw_token()
-        token_hash = PasswordResetToken.hash_token(raw_token)
-        PasswordResetToken.objects.create(
+        raw_token = UserToken.generate_raw_token()
+        token_hash = UserToken.hash_token(raw_token)
+        UserToken.objects.create(
             user=self.user,
             token_hash=token_hash,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
             expires_at=timezone.now() - timedelta(minutes=1),  # já expirado
         )
 
@@ -392,8 +405,10 @@ class PasswordResetValidateTestCase(TestCase):
 
     def test_validate_used_token(self):
         """Token já utilizado retorna 400"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
-        token_obj = PasswordResetToken.objects.get(user=self.user)
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
+        token_obj = UserToken.objects.get(user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
         token_obj.consume("127.0.0.1")
 
         response = self.client.get(
@@ -425,7 +440,9 @@ class PasswordResetConfirmTestCase(TestCase):
 
     def test_confirm_success(self):
         """Redefinição bem-sucedida retorna 200 e atualiza a senha"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
 
         response = self.client.post(
             "/auth/password-reset/confirm/",
@@ -442,7 +459,7 @@ class PasswordResetConfirmTestCase(TestCase):
         self.assertTrue(self.user.check_password("NewStrongPassword456!"))
 
         # Token deve estar marcado como usado
-        token_obj = PasswordResetToken.objects.get(token_hash=PasswordResetToken.hash_token(raw_token))
+        token_obj = UserToken.objects.get(token_hash=UserToken.hash_token(raw_token))
         self.assertTrue(token_obj.used)
         self.assertIsNotNone(token_obj.ip_used)
 
@@ -458,11 +475,12 @@ class PasswordResetConfirmTestCase(TestCase):
 
     def test_confirm_expired_token(self):
         """Token expirado retorna 400"""
-        raw_token = PasswordResetToken.generate_raw_token()
-        token_hash = PasswordResetToken.hash_token(raw_token)
-        PasswordResetToken.objects.create(
+        raw_token = UserToken.generate_raw_token()
+        token_hash = UserToken.hash_token(raw_token)
+        UserToken.objects.create(
             user=self.user,
             token_hash=token_hash,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
             expires_at=timezone.now() - timedelta(minutes=1),
         )
 
@@ -476,8 +494,10 @@ class PasswordResetConfirmTestCase(TestCase):
 
     def test_confirm_used_token(self):
         """Token já utilizado retorna 400"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
-        token_obj = PasswordResetToken.objects.get(user=self.user)
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
+        token_obj = UserToken.objects.get(user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
         token_obj.consume("127.0.0.1")
 
         response = self.client.post(
@@ -490,7 +510,9 @@ class PasswordResetConfirmTestCase(TestCase):
 
     def test_confirm_weak_password(self):
         """Senha fraca é rejeitada pelas validações do Django"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
 
         response = self.client.post(
             "/auth/password-reset/confirm/",
@@ -525,7 +547,9 @@ class PasswordResetConfirmTestCase(TestCase):
 
     def test_confirm_token_not_reusable(self):
         """Token não pode ser usado duas vezes"""
-        raw_token = PasswordResetToken.create_for_user(self.user, "127.0.0.1")
+        raw_token = UserToken.create_for_user(
+            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+        )
 
         # Primeiro uso — sucesso
         self.client.post(
@@ -542,3 +566,235 @@ class PasswordResetConfirmTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+
+class EmailVerificationSignupTestCase(TestCase):
+    """Testes para verificação de email no signup"""
+
+    def setUp(self):
+        self.client = Client()
+        Group.objects.get_or_create(name="user")
+        Group.objects.get_or_create(name="blackdesert")
+        Group.objects.get_or_create(name="financial")
+
+    @patch("authentication.views.send_verification_email_async")
+    def test_signup_creates_email_verification(self, mock_send):
+        """Signup cria EmailVerification com is_verified=False"""
+        user_data = {
+            "username": "new_user",
+            "password": "user123",
+            "email": "new@test.com",
+            "name": "New",
+            "last_name": "User",
+        }
+
+        response = self.client.post(
+            "/auth/signup",
+            content_type="application/json",
+            data=user_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        user = User.objects.get(username="new_user")
+        verification = EmailVerification.objects.get(user=user)
+        self.assertFalse(verification.is_verified)
+        self.assertIsNone(verification.verified_at)
+
+    @patch("authentication.views.send_verification_email_async")
+    def test_signup_creates_verification_token(self, mock_send):
+        """Signup cria token de verificação e envia email"""
+        user_data = {
+            "username": "token_user",
+            "password": "user123",
+            "email": "token@test.com",
+            "name": "Token",
+            "last_name": "User",
+        }
+
+        response = self.client.post(
+            "/auth/signup",
+            content_type="application/json",
+            data=user_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        user = User.objects.get(username="token_user")
+        token = UserToken.objects.get(
+            user=user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION
+        )
+        self.assertFalse(token.used)
+        mock_send.assert_called_once()
+
+
+class EmailVerificationVerifyTestCase(TestCase):
+    """Testes para POST /auth/email/verify/"""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="verify_user",
+            email="verify@test.com",
+            password="Password123!",
+        )
+        EmailVerification.objects.create(user=self.user)
+
+    def test_verify_email_success(self):
+        """Token válido verifica email com sucesso"""
+        raw_token = UserToken.create_for_user(
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
+            ip_address="127.0.0.1",
+        )
+
+        response = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data={"token": raw_token},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["msg"], "Email verificado com sucesso.")
+
+        verification = EmailVerification.objects.get(user=self.user)
+        self.assertTrue(verification.is_verified)
+        self.assertIsNotNone(verification.verified_at)
+
+        # Token deve estar consumido
+        token_obj = UserToken.objects.get(token_hash=UserToken.hash_token(raw_token))
+        self.assertTrue(token_obj.used)
+
+    def test_verify_email_invalid_token(self):
+        """Token inválido retorna erro"""
+        response = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data={"token": "tokenfalso"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_verify_email_expired_token(self):
+        """Token expirado retorna erro"""
+        raw_token = UserToken.generate_raw_token()
+        token_hash = UserToken.hash_token(raw_token)
+        UserToken.objects.create(
+            user=self.user,
+            token_hash=token_hash,
+            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data={"token": raw_token},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_verify_email_used_token(self):
+        """Token já usado retorna erro"""
+        raw_token = UserToken.create_for_user(
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
+            ip_address="127.0.0.1",
+        )
+        token_obj = UserToken.objects.get(
+            user=self.user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, used=False
+        )
+        token_obj.consume("127.0.0.1")
+
+        response = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data={"token": raw_token},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_verify_email_missing_token(self):
+        """Token ausente retorna erro"""
+        response = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data={},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class EmailVerificationResendTestCase(TestCase):
+    """Testes para POST /auth/email/resend-verification/"""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="resend_user",
+            email="resend@test.com",
+            password="Password123!",
+        )
+        user_group, _ = Group.objects.get_or_create(name="user")
+        user_group.user_set.add(self.user)
+        EmailVerification.objects.create(user=self.user)
+
+    def _login(self):
+        response = self.client.post(
+            "/auth/token/",
+            content_type="application/json",
+            data={"username": "resend_user", "password": "Password123!"},
+        )
+        for key, morsel in response.cookies.items():
+            self.client.cookies[key] = morsel.value
+
+    @patch("authentication.views.send_verification_email_async")
+    def test_resend_success(self, mock_send):
+        """Reenvio funciona para não-verificados"""
+        self._login()
+
+        response = self.client.post("/auth/email/resend-verification/")
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["msg"], "Email de verificação reenviado.")
+        mock_send.assert_called_once()
+
+    @patch("authentication.views.send_verification_email_async")
+    def test_resend_already_verified(self, mock_send):
+        """Reenvio retorna mensagem quando já verificado"""
+        self._login()
+
+        verification = EmailVerification.objects.get(user=self.user)
+        verification.is_verified = True
+        verification.verified_at = timezone.now()
+        verification.save()
+
+        response = self.client.post("/auth/email/resend-verification/")
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["msg"], "Email já verificado.")
+        mock_send.assert_not_called()
+
+    def test_resend_requires_authentication(self):
+        """Reenvio requer autenticação"""
+        response = self.client.post("/auth/email/resend-verification/")
+
+        self.assertEqual(response.status_code, 401)
+
+    @patch("authentication.views.send_verification_email_async")
+    def test_resend_rate_limited(self, mock_send):
+        """Reenvio é bloqueado após exceder limite"""
+        self._login()
+
+        limit = UserToken.MAX_REQUESTS_PER_USER_PER_HOUR
+        for _ in range(limit):
+            self.client.post("/auth/email/resend-verification/")
+
+        response = self.client.post("/auth/email/resend-verification/")
+
+        self.assertEqual(response.status_code, 429)
+        data = json.loads(response.content)
+        self.assertEqual(data["msg"], "Muitas tentativas. Tente novamente mais tarde.")

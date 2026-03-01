@@ -14,8 +14,14 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.models import PasswordResetToken
-from authentication.utils import get_client_ip, register_groups, send_password_reset_email_async
+from authentication.models import EmailVerification, UserToken
+from authentication.utils import (
+    get_client_ip,
+    register_groups,
+    send_password_reset_email_async,
+    send_verification_email_async,
+)
+from kawori.decorators import validate_user
 
 
 @require_POST
@@ -200,6 +206,17 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     except Exception:
         pass
 
+    EmailVerification.objects.create(user=user)
+
+    try:
+        ip_address = get_client_ip(request)
+        raw_token = UserToken.create_for_user(
+            user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, ip_address=ip_address
+        )
+        send_verification_email_async(user, raw_token)
+    except Exception:
+        pass
+
     return JsonResponse({"msg": "Usuário criado com sucesso!"})
 
 
@@ -231,8 +248,7 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
 
     ip_address = get_client_ip(request)
 
-    # Proteção anti-spam por IP (5 tentativas por hora)
-    if PasswordResetToken.is_rate_limited_by_ip(ip_address):
+    if UserToken.is_rate_limited_by_ip(ip_address, UserToken.TOKEN_TYPE_PASSWORD_RESET):
         return JsonResponse(
             {"msg": "Muitas tentativas. Tente novamente mais tarde."},
             status=429,
@@ -241,14 +257,12 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
     try:
         user = User.objects.get(email__iexact=email, is_active=True)
     except User.DoesNotExist:
-        # Retorna 200 genérico para não revelar se o e-mail existe
         return JsonResponse({"msg": _RESET_GENERIC_MSG})
 
-    # Proteção anti-spam por usuário (3 tentativas por hora)
-    if PasswordResetToken.is_rate_limited_by_user(user):
+    if UserToken.is_rate_limited_by_user(user, UserToken.TOKEN_TYPE_PASSWORD_RESET):
         return JsonResponse({"msg": _RESET_GENERIC_MSG})
 
-    raw_token = PasswordResetToken.create_for_user(user, ip_address)
+    raw_token = UserToken.create_for_user(user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address=ip_address)
     send_password_reset_email_async(user, raw_token)
 
     return JsonResponse({"msg": _RESET_GENERIC_MSG})
@@ -267,11 +281,13 @@ def validate_reset_token(request: HttpRequest) -> JsonResponse:
             status=HTTPStatus.BAD_REQUEST,
         )
 
-    token_hash = PasswordResetToken.hash_token(raw_token)
+    token_hash = UserToken.hash_token(raw_token)
 
     try:
-        token_obj = PasswordResetToken.objects.get(token_hash=token_hash)
-    except PasswordResetToken.DoesNotExist:
+        token_obj = UserToken.objects.get(
+            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
+    except UserToken.DoesNotExist:
         return JsonResponse(
             {"valid": False, "msg": "Token inválido ou expirado."},
             status=HTTPStatus.BAD_REQUEST,
@@ -306,11 +322,13 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
             status=HTTPStatus.BAD_REQUEST,
         )
 
-    token_hash = PasswordResetToken.hash_token(raw_token)
+    token_hash = UserToken.hash_token(raw_token)
 
     try:
-        token_obj = PasswordResetToken.objects.select_related("user").get(token_hash=token_hash)
-    except PasswordResetToken.DoesNotExist:
+        token_obj = UserToken.objects.select_related("user").get(
+            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
+    except UserToken.DoesNotExist:
         return JsonResponse(
             {"msg": "Token inválido ou expirado."},
             status=HTTPStatus.BAD_REQUEST,
@@ -336,3 +354,80 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
     token_obj.consume(ip_address)
 
     return JsonResponse({"msg": "Senha redefinida com sucesso."})
+
+
+# ─── Email verification ──────────────────────────────────────────────────────
+
+
+@require_POST
+def verify_email(request: HttpRequest) -> JsonResponse:
+    """
+    Verifica o email do usuário usando o token recebido por email.
+    """
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+
+    raw_token = data.get("token", "").strip()
+    if not raw_token:
+        return JsonResponse({"msg": "Token é obrigatório."}, status=HTTPStatus.BAD_REQUEST)
+
+    token_hash = UserToken.hash_token(raw_token)
+
+    try:
+        token_obj = UserToken.objects.select_related("user").get(
+            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION
+        )
+    except UserToken.DoesNotExist:
+        return JsonResponse(
+            {"msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    if not token_obj.is_valid():
+        return JsonResponse(
+            {"msg": "Token inválido ou expirado."},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    user = token_obj.user
+
+    verification, _ = EmailVerification.objects.get_or_create(user=user)
+    verification.is_verified = True
+    verification.verified_at = timezone.now()
+    verification.save(update_fields=["is_verified", "verified_at"])
+
+    ip_address = get_client_ip(request)
+    token_obj.consume(ip_address)
+
+    return JsonResponse({"msg": "Email verificado com sucesso."})
+
+
+@require_POST
+@validate_user("user")
+def resend_verification_email(request: HttpRequest, user: User) -> JsonResponse:
+    """
+    Reenvia o email de verificação para o usuário autenticado.
+    """
+    try:
+        verification = EmailVerification.objects.get(user=user)
+    except EmailVerification.DoesNotExist:
+        verification = EmailVerification.objects.create(user=user)
+
+    if verification.is_verified:
+        return JsonResponse({"msg": "Email já verificado."})
+
+    if UserToken.is_rate_limited_by_user(user, UserToken.TOKEN_TYPE_EMAIL_VERIFICATION):
+        return JsonResponse(
+            {"msg": "Muitas tentativas. Tente novamente mais tarde."},
+            status=429,
+        )
+
+    ip_address = get_client_ip(request)
+    raw_token = UserToken.create_for_user(
+        user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, ip_address=ip_address
+    )
+    send_verification_email_async(user, raw_token)
+
+    return JsonResponse({"msg": "Email de verificação reenviado."})
