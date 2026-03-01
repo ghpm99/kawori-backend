@@ -10,6 +10,8 @@ from financial.utils import generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from payment.models import Payment
 
 
@@ -193,6 +195,7 @@ def detail_invoice_payments_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("invoice.update_tags", CATEGORY_FINANCIAL, "Invoice")
 def save_tag_invoice_view(request, id, user):
 
     data = json.loads(request.body)
@@ -209,6 +212,7 @@ def save_tag_invoice_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("invoice.create", CATEGORY_FINANCIAL, "Invoice")
 def include_new_invoice_view(request, user):
     data = json.loads(request.body)
 
@@ -261,6 +265,7 @@ def include_new_invoice_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("invoice.update", CATEGORY_FINANCIAL, "Invoice")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
     invoice = Invoice.objects.filter(id=id, user=user).first()

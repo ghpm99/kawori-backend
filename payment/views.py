@@ -20,6 +20,8 @@ from payment.utils import (
     csv_header_mapping,
     process_csv_row,
 )
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from tag.models import Tag
 
 
@@ -108,6 +110,7 @@ def get_all_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.create", CATEGORY_FINANCIAL, "Payment")
 def save_new_view(request, user):
     data = json.loads(request.body)
 
@@ -252,6 +255,7 @@ def detail_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.update", CATEGORY_FINANCIAL, "Payment")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
     payment = Payment.objects.filter(id=id, user=user).first()
@@ -289,6 +293,7 @@ def save_detail_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.payoff", CATEGORY_FINANCIAL, "Payment")
 def payoff_detail_view(request, id, user):
     payment = Payment.objects.filter(id=id, user=user).first()
 
@@ -383,6 +388,7 @@ def get_all_scheduled_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.csv_mapping", CATEGORY_FINANCIAL, "Payment")
 def get_csv_mapping(request, user):
     data = json.loads(request.body)
 
@@ -398,6 +404,7 @@ def get_csv_mapping(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.csv_upload", CATEGORY_FINANCIAL, "Payment")
 def process_csv_upload(request, user):
     data = json.loads(request.body)
 
@@ -419,6 +426,7 @@ def process_csv_upload(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.csv_resolve_imports", CATEGORY_FINANCIAL, "Payment")
 def csv_resolve_imports_view(request, user):
     data = json.loads(request.body)
 
@@ -517,6 +525,7 @@ def csv_resolve_imports_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("payment.csv_import", CATEGORY_FINANCIAL, "Payment")
 def csv_import_view(request, user):
     payload = json.loads(request.body)
 

@@ -3,6 +3,8 @@ from django.http import JsonResponse
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
+from audit.decorators import audit_log
+from audit.models import CATEGORY_CLASSIFICATION
 from kawori.decorators import validate_user
 from django.views.decorators.http import require_GET, require_POST
 
@@ -41,6 +43,7 @@ def get_all_answers(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("answer.register", CATEGORY_CLASSIFICATION, "Answer")
 def register_answer(request, user):
     data = json.loads(request.body)
 
