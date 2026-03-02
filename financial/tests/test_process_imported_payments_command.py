@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 from django.core.management import call_command
@@ -917,3 +918,71 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         payment = Payment.objects.get()
 
         self.assertEqual(payment.invoice, invoice)
+
+    def test_assert_helpers_cover_non_string_dates_and_invoice_contract_branches(self):
+        invoice = Invoice.objects.create(
+            status=Invoice.STATUS_OPEN,
+            type=Invoice.Type.DEBIT,
+            name="Helper Invoice",
+            date=date(2026, 1, 10),
+            payment_date=date(2026, 1, 10),
+            installments=1,
+            fixed=False,
+            active=True,
+            value=Decimal("10.00"),
+            value_open=Decimal("10.00"),
+            value_closed=Decimal("0.00"),
+            contract=None,
+            user=self.user,
+        )
+        payment = Payment.objects.create(
+            status=Payment.STATUS_OPEN,
+            type=Payment.TYPE_DEBIT,
+            name="Helper Payment",
+            description="",
+            reference="helper",
+            installments=1,
+            date=date(2026, 1, 10),
+            payment_date=date(2026, 1, 10),
+            fixed=False,
+            active=True,
+            value=Decimal("10.00"),
+            user=self.user,
+            invoice=invoice,
+        )
+
+        self.assertInvoiceEqual(
+            invoice,
+            {
+                "status": invoice.status,
+                "type": invoice.type,
+                "name": invoice.name,
+                "date": invoice.date,
+                "installments": invoice.installments,
+                "payment_date": invoice.payment_date,
+                "fixed": invoice.fixed,
+                "active": invoice.active,
+                "value": invoice.value,
+                "value_open": invoice.value_open,
+                "value_closed": invoice.value_closed,
+            },
+        )
+
+        self.assertPaymentEqual(
+            payment,
+            {
+                "status": payment.status,
+                "type": payment.type,
+                "name": payment.name,
+                "description": payment.description,
+                "reference": payment.reference,
+                "date": payment.date,
+                "installments": payment.installments,
+                "payment_date": payment.payment_date,
+                "fixed": payment.fixed,
+                "active": payment.active,
+                "value": payment.value,
+                "invoice": invoice,
+                "user": self.user,
+            },
+        )

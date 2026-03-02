@@ -117,7 +117,11 @@ def save_new_view(request, user):
     installments = data.get("installments")
     payment_date = data.get("payment_date")
 
-    value_installments = calculate_installments(data.get("value"), installments)
+    value = data.get("value")
+    if isinstance(value, str):
+        value = float(value)
+
+    value_installments = calculate_installments(value, installments)
 
     date_format = "%Y-%m-%d"
 
@@ -156,7 +160,7 @@ def get_payments_month(request, user):
         SELECT
             fi.id,
             fi.name,
-            fp.payment_date,
+            MIN(fp.payment_date) AS payment_date,
             SUM(
                 CASE
                     fp.type
@@ -199,10 +203,9 @@ def get_payments_month(request, user):
             )
         GROUP BY
             fi.id,
-            fi.name,
-            fp.payment_date
+            fi.name
         ORDER BY
-            fp.payment_date ASC,
+            MIN(fp.payment_date) ASC,
             fi.id ASC;
     """
 
@@ -266,7 +269,7 @@ def save_detail_view(request, id, user):
     if payment.status == Payment.STATUS_DONE:
         return JsonResponse({"msg": "Pagamento ja foi baixado"}, status=500)
 
-    if data.get("type"):
+    if data.get("type") is not None:
         payment.type = data.get("type")
     if data.get("name"):
         payment.name = data.get("name")
@@ -276,9 +279,11 @@ def save_detail_view(request, id, user):
         payment.fixed = data.get("fixed")
     if data.get("active") is not None:
         payment.active = data.get("active")
-    if data.get("value"):
+    if data.get("value") is not None:
         old_value = payment.value
         new_value = data.get("value")
+        if isinstance(new_value, str):
+            new_value = float(new_value)
 
         invoice_value = float(payment.invoice.value_open - old_value) + new_value
         payment.invoice.value_open = invoice_value
@@ -461,8 +466,6 @@ def csv_resolve_imports_view(request, user):
         import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
 
         if matched_payment_id:
-            import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
-
             matched_payment = (
                 Payment.objects.filter(id=matched_payment_id, user=user)
                 .select_related("invoice")
@@ -470,11 +473,12 @@ def csv_resolve_imports_view(request, user):
                 .first()
             )
 
-            if not matched_payment:
-                continue
-
-            matched_invoice_tags = matched_payment.invoice.tags.all()
-            has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists()
+            if matched_payment:
+                import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
+                matched_invoice_tags = matched_payment.invoice.tags.all()
+                has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists()
+            else:
+                matched_payment_id = None
 
         imported_payment, created = ImportedPayment.objects.update_or_create(
             reference=reference,
@@ -484,13 +488,15 @@ def csv_resolve_imports_view(request, user):
                 "matched_payment_id": matched_payment_id,
                 "import_strategy": import_strategy,
                 "import_source": import_type,
-                "raw_type": mapped_payment.get("type"),
-                "raw_name": mapped_payment.get("name"),
-                "raw_description": mapped_payment.get("description"),
-                "raw_date": mapped_payment.get("date"),
-                "raw_installments": mapped_payment.get("installments"),
-                "raw_payment_date": mapped_payment.get("payment_date"),
-                "raw_value": mapped_payment.get("value"),
+                "raw_type": mapped_payment.get("type", Payment.TYPE_DEBIT),
+                "raw_name": mapped_payment.get("name") or "",
+                "raw_description": mapped_payment.get("description") or "",
+                "raw_date": mapped_payment.get("date") or datetime.now().date(),
+                "raw_installments": mapped_payment.get("installments") or 1,
+                "raw_payment_date": mapped_payment.get("payment_date")
+                or mapped_payment.get("date")
+                or datetime.now().date(),
+                "raw_value": mapped_payment.get("value") or 0,
             },
         )
 

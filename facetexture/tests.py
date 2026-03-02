@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth.models import Group, User
-from facetexture.models import BDOClass, Character
+from facetexture.models import BDOClass, Character, Facetexture
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
 from PIL import Image
 
@@ -482,3 +482,104 @@ class GetBDOClassSymbolURLTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/png")
+
+    def test_save_detail_view_create_and_update(self):
+        Facetexture.objects.filter(user=self.user).delete()
+        create_response = self.client.post(
+            reverse("facetexture_save"),
+            content_type="application/json",
+            data={"characters": [{"id": 1}]},
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        update_response = self.client.post(
+            reverse("facetexture_save"),
+            content_type="application/json",
+            data={"characters": [{"id": 2}]},
+        )
+        self.assertEqual(update_response.status_code, 200)
+
+    def test_preview_and_download_invalid_symbol_style(self):
+        image = Image.new("RGB", (1000, 1000))
+        image_file = io.BytesIO()
+        image.save(image_file, format="PNG")
+        image_file.seek(0)
+
+        preview = self.client.post(
+            reverse("facetexture_preview_background"),
+            {"background": image_file, "icon_style": "X"},
+        )
+        self.assertEqual(preview.status_code, 400)
+
+        image_file = io.BytesIO()
+        image.save(image_file, format="PNG")
+        image_file.seek(0)
+        download = self.client.post(
+            reverse("facetexture_download_background"),
+            {"background": image_file, "icon_style": "X"},
+        )
+        self.assertEqual(download.status_code, 400)
+
+    def test_preview_and_download_cover_line_breaks_and_long_name_path(self):
+        Character.objects.filter(user=self.user).delete()
+        for index in range(7):
+            Character.objects.create(
+                user=self.user,
+                name=f"char_{index}" if index < 6 else "this_character_name_is_long_enough",
+                show=True,
+                bdoClass=self.bdo_class_witch,
+                image="x.png",
+                order=index,
+                upload=False,
+            )
+
+        image = Image.new("RGB", (1000, 1000))
+        image_file = io.BytesIO()
+        image.save(image_file, format="PNG")
+        image_file.seek(0)
+        preview = self.client.post(reverse("facetexture_preview_background"), {"background": image_file})
+        self.assertEqual(preview.status_code, 200)
+
+        image_file = io.BytesIO()
+        image.save(image_file, format="PNG")
+        image_file.seek(0)
+        download = self.client.post(reverse("facetexture_download_background"), {"background": image_file})
+        self.assertEqual(download.status_code, 200)
+
+    @patch("facetexture.views.get_bdo_class_image_url")
+    def test_new_character_first_item_sets_order_zero(self, mock_get_bdo_class_image_url):
+        Character.objects.filter(user=self.user).delete()
+        mock_get_bdo_class_image_url.return_value = "http://testserver/static/class.png"
+
+        response = self.client.post(
+            reverse("facetexture_new_character"),
+            data={"name": "first", "visible": True, "classId": self.bdo_class_witch.id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["character"]["order"], 0)
+
+    def test_get_symbol_and_image_class_views_extra_paths(self):
+        not_found = self.client.get(reverse("facetexture_get_symbol_class", args=[99999]))
+        self.assertEqual(not_found.status_code, 404)
+
+        with patch("facetexture.views.get_image_class", return_value=Image.new("RGBA", (10, 10), (255, 0, 0, 255))):
+            image_class_response = self.client.get(reverse("facetexture_get_image_class", args=[self.bdo_class_witch.id]))
+
+        self.assertEqual(image_class_response.status_code, 200)
+        self.assertEqual(image_class_response["Content-Type"], "image/png")
+
+    def test_facetexture_model_default_characters_json(self):
+        dummy = Facetexture.__new__(Facetexture)
+        self.assertEqual(Facetexture.characteres_json_default(dummy), {"characters": []})
+
+    def test_get_image_class_view_handles_none_values_queryset(self):
+        class DummyFilter:
+            def values(self, *args, **kwargs):
+                return None
+
+        with patch("facetexture.views.BDOClass.objects.filter", return_value=DummyFilter()):
+            response = self.client.get(reverse("facetexture_get_image_class", args=[99999]))
+
+        self.assertEqual(response.status_code, 404)

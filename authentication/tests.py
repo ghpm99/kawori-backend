@@ -1,14 +1,18 @@
 import json
+import inspect
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
-from django.test import Client, TestCase
+from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
 
 from django.conf import settings
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from authentication.models import EmailVerification, UserToken
+from authentication import views
+from authentication import utils as auth_utils
 
 
 # Create your tests here.
@@ -798,3 +802,260 @@ class EmailVerificationResendTestCase(TestCase):
         self.assertEqual(response.status_code, 429)
         data = json.loads(response.content)
         self.assertEqual(data["msg"], "Muitas tentativas. Tente novamente mais tarde.")
+
+
+class AuthenticationViewsRegressionExtraTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.rf = RequestFactory()
+        self.active_user = User.objects.create_user(
+            username="active_extra",
+            email="active_extra@test.com",
+            password="StrongPass123!",
+        )
+        self.inactive_user = User.objects.create_user(
+            username="inactive_extra",
+            email="inactive_extra@test.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        user_group, _ = Group.objects.get_or_create(name="user")
+        user_group.user_set.add(self.active_user)
+
+    def _post_unwrapped(self, fn, data=None, cookies=None):
+        request = self.rf.post("/", data=json.dumps(data or {}), content_type="application/json")
+        for key, value in (cookies or {}).items():
+            request.COOKIES[key] = value
+        return inspect.unwrap(fn)(request)
+
+    def test_obtain_token_pair_inactive_user_branch(self):
+        with patch("authentication.views.authenticate", return_value=self.inactive_user):
+            response = self._post_unwrapped(views.obtain_token_pair, {"username": "x", "password": "y"})
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_obtain_token_pair_updates_existing_last_login(self):
+        self.active_user.last_login = timezone.now() - timedelta(days=1)
+        self.active_user.save(update_fields=["last_login"])
+
+        with patch("authentication.views.authenticate", return_value=self.active_user):
+            response = self._post_unwrapped(views.obtain_token_pair, {"username": "x", "password": "y"})
+
+        self.assertEqual(response.status_code, 200)
+        self.active_user.refresh_from_db()
+        self.assertIsNotNone(self.active_user.last_login)
+
+    def test_signout_verify_and_refresh_token_branches(self):
+        signout = self.client.get("/auth/signout")
+        self.assertEqual(signout.status_code, 200)
+        self.assertIn(settings.ACCESS_TOKEN_NAME, signout.cookies)
+        self.assertIn(settings.REFRESH_TOKEN_NAME, signout.cookies)
+        self.assertIn("lifetimetoken", signout.cookies)
+
+        missing_verify = self._post_unwrapped(views.verify_token, {})
+        self.assertEqual(missing_verify.status_code, 400)
+
+        valid_access = str(AccessToken.for_user(self.active_user))
+        valid_verify = self._post_unwrapped(
+            views.verify_token,
+            {},
+            cookies={settings.ACCESS_TOKEN_NAME: valid_access},
+        )
+        self.assertEqual(valid_verify.status_code, 200)
+
+        invalid_verify = self._post_unwrapped(
+            views.verify_token,
+            {},
+            cookies={settings.ACCESS_TOKEN_NAME: "invalid.token.value"},
+        )
+        self.assertEqual(invalid_verify.status_code, 401)
+
+        missing_refresh = self._post_unwrapped(views.refresh_token, {})
+        self.assertEqual(missing_refresh.status_code, 403)
+
+        valid_refresh = str(RefreshToken.for_user(self.active_user))
+        refresh_ok = self._post_unwrapped(
+            views.refresh_token,
+            {},
+            cookies={settings.REFRESH_TOKEN_NAME: valid_refresh},
+        )
+        self.assertEqual(refresh_ok.status_code, 200)
+        self.assertIn(settings.ACCESS_TOKEN_NAME, refresh_ok.cookies)
+
+        refresh_invalid = self._post_unwrapped(
+            views.refresh_token,
+            {},
+            cookies={settings.REFRESH_TOKEN_NAME: "invalid.token.value"},
+        )
+        self.assertEqual(refresh_invalid.status_code, 403)
+
+    def test_signup_duplicate_and_optional_failures_and_csrf(self):
+        User.objects.create_user(username="dup_user", email="dup@test.com", password="x")
+
+        duplicate_username = self.client.post(
+            "/auth/signup",
+            content_type="application/json",
+            data={
+                "username": "dup_user",
+                "password": "x",
+                "email": "newdup@test.com",
+                "name": "Dup",
+                "last_name": "User",
+            },
+        )
+        self.assertEqual(duplicate_username.status_code, 400)
+
+        duplicate_email = self.client.post(
+            "/auth/signup",
+            content_type="application/json",
+            data={
+                "username": "newdup",
+                "password": "x",
+                "email": "dup@test.com",
+                "name": "Dup",
+                "last_name": "Email",
+            },
+        )
+        self.assertEqual(duplicate_email.status_code, 400)
+
+        with patch("budget.services.create_default_budgets_for_user", side_effect=Exception("budget-fail")), patch(
+            "authentication.views.UserToken.create_for_user", side_effect=Exception("token-fail")
+        ):
+            optional_fail = self.client.post(
+                "/auth/signup",
+                content_type="application/json",
+                data={
+                    "username": "optional_fail_user",
+                    "password": "x",
+                    "email": "optional_fail@test.com",
+                    "name": "Optional",
+                    "last_name": "Fail",
+                },
+            )
+        self.assertEqual(optional_fail.status_code, 200)
+
+        csrf_response = self.client.get("/auth/csrf/")
+        self.assertEqual(csrf_response.status_code, 200)
+
+    def test_invalid_json_and_resend_without_existing_verification(self):
+        invalid_reset = self.client.post(
+            "/auth/password-reset/request/",
+            content_type="application/json",
+            data="{",
+        )
+        self.assertEqual(invalid_reset.status_code, 400)
+
+        invalid_confirm = self.client.post(
+            "/auth/password-reset/confirm/",
+            content_type="application/json",
+            data="{",
+        )
+        self.assertEqual(invalid_confirm.status_code, 400)
+
+        invalid_verify_email = self.client.post(
+            "/auth/email/verify/",
+            content_type="application/json",
+            data="{",
+        )
+        self.assertEqual(invalid_verify_email.status_code, 400)
+
+        no_verif_user = User.objects.create_user(
+            username="resend_no_verif",
+            email="resend_no_verif@test.com",
+            password="StrongPass123!",
+        )
+        user_group = Group.objects.get(name="user")
+        user_group.user_set.add(no_verif_user)
+
+        login = self.client.post(
+            "/auth/token/",
+            content_type="application/json",
+            data={"username": "resend_no_verif", "password": "StrongPass123!"},
+        )
+        for key, morsel in login.cookies.items():
+            self.client.cookies[key] = morsel.value
+
+        with patch("authentication.views.send_verification_email_async"):
+            resend = self.client.post("/auth/email/resend-verification/")
+
+        self.assertEqual(resend.status_code, 200)
+        self.assertTrue(EmailVerification.objects.filter(user=no_verif_user).exists())
+
+
+class AuthenticationUtilsRegressionTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            username="utils_user",
+            email="utils@test.com",
+            password="StrongPass123!",
+        )
+
+    def test_get_token_register_groups_and_get_client_ip(self):
+        Group.objects.get_or_create(name="user")
+        Group.objects.get_or_create(name="blackdesert")
+        Group.objects.get_or_create(name="financial")
+
+        tokens = auth_utils.get_token(self.user)
+        self.assertIn("refresh", tokens)
+        self.assertIn("access", tokens)
+
+        auth_utils.register_groups(self.user)
+        self.assertTrue(self.user.groups.filter(name="user").exists())
+        self.assertTrue(self.user.groups.filter(name="blackdesert").exists())
+        self.assertTrue(self.user.groups.filter(name="financial").exists())
+
+        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="10.0.0.1, 10.0.0.2", REMOTE_ADDR="127.0.0.1")
+        self.assertEqual(auth_utils.get_client_ip(request), "10.0.0.1")
+
+        request_no_proxy = RequestFactory().get("/", REMOTE_ADDR="127.0.0.1")
+        self.assertEqual(auth_utils.get_client_ip(request_no_proxy), "127.0.0.1")
+
+    def test_send_password_reset_email_sync_success_and_exception(self):
+        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
+            "authentication.utils.SMTP"
+        ) as mocked_smtp:
+            smtp_instance = mocked_smtp.return_value.__enter__.return_value
+            auth_utils._send_password_reset_email(self.user, "raw-token")
+        self.assertTrue(smtp_instance.send_message.called)
+
+        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
+            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
+        ), patch("builtins.print") as mocked_print:
+            auth_utils._send_password_reset_email(self.user, "raw-token")
+        self.assertTrue(mocked_print.called)
+
+    def test_send_verification_email_sync_success_and_exception(self):
+        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
+            "authentication.utils.SMTP"
+        ) as mocked_smtp:
+            smtp_instance = mocked_smtp.return_value.__enter__.return_value
+            auth_utils._send_verification_email(self.user, "verify-token")
+        self.assertTrue(smtp_instance.send_message.called)
+
+        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
+            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
+        ), patch("builtins.print") as mocked_print:
+            auth_utils._send_verification_email(self.user, "verify-token")
+        self.assertTrue(mocked_print.called)
+
+    def test_send_email_async_helpers_start_thread(self):
+        thread_mock = MagicMock()
+        with patch("authentication.utils.threading.Thread", return_value=thread_mock) as mocked_thread:
+            auth_utils.send_password_reset_email_async(self.user, "token-1")
+            mocked_thread.assert_called_with(
+                target=auth_utils._send_password_reset_email,
+                args=(self.user, "token-1"),
+                daemon=True,
+            )
+        self.assertTrue(thread_mock.start.called)
+
+        thread_mock = MagicMock()
+        with patch("authentication.utils.threading.Thread", return_value=thread_mock) as mocked_thread:
+            auth_utils.send_verification_email_async(self.user, "token-2")
+            mocked_thread.assert_called_with(
+                target=auth_utils._send_verification_email,
+                args=(self.user, "token-2"),
+                daemon=True,
+            )
+        self.assertTrue(thread_mock.start.called)

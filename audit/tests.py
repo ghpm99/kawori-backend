@@ -1,10 +1,25 @@
 import json
 import logging
+import inspect
+from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, User
-from django.test import Client, TestCase
+from django.http import JsonResponse
+from django.test import Client, RequestFactory, TestCase
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
 
-from audit.decorators import sanitize_body
+from audit.decorators import (
+    audit_log,
+    audit_log_auth,
+    get_user_from_access_token,
+    sanitize_body,
+    sanitize_query_params,
+    sanitize_request_detail,
+)
+from audit.admin import AuditLogAdmin
+from audit import views as audit_views
 from audit.models import (
     CATEGORY_AUTH,
     CATEGORY_FINANCIAL,
@@ -421,3 +436,163 @@ class AuditViewsTestCase(TestCase):
         data = response.json()["data"]
         self.assertEqual(len(data["data"]), 1)
         self.assertTrue(data["has_next"])
+
+
+class AuditDecoratorsRegressionTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="audit-decorator", email="audit-decorator@test.com", password="123")
+
+    def setUp(self):
+        self.rf = RequestFactory()
+
+    def test_sanitize_helpers_cover_list_query_and_nondict_body(self):
+        self.assertEqual(
+            sanitize_body('{"password":"x","safe":"ok"}'),
+            {"password": "***", "safe": "ok"},
+        )
+        self.assertEqual(sanitize_body('["a", {"token":"x"}]'), ["a", {"token": "***"}])
+        self.assertEqual(sanitize_body('"text"'), "text")
+
+        request = self.rf.get("/x", {"a": ["1", "2"], "token": "abc"})
+        query = sanitize_query_params(request)
+        self.assertEqual(query["a"], ["1", "2"])
+        self.assertEqual(query["token"], "***")
+
+        req_dict = self.rf.get("/x", {"q": "z"})
+        req_dict._body = b'{"ok": true}'
+        dict_detail = sanitize_request_detail(req_dict)
+        self.assertEqual(dict_detail["ok"], True)
+        self.assertEqual(dict_detail["query_params"]["q"], "z")
+
+        req_non_dict = self.rf.get("/x", {"q": "x"})
+        req_non_dict._body = b'["item"]'
+        detail = sanitize_request_detail(req_non_dict)
+        self.assertEqual(detail["body"], ["item"])
+        self.assertEqual(detail["query_params"]["q"], "x")
+
+    def test_get_user_from_access_token_missing_user_id_and_invalid_token(self):
+        valid_token = str(AccessToken.for_user(self.user))
+        request = self.rf.get("/x")
+        request.COOKIES["access_token"] = valid_token
+
+        with patch("audit.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
+            "audit.decorators.AccessToken.get", return_value=None
+        ):
+            self.assertIsNone(get_user_from_access_token(request))
+
+        request_bad = self.rf.get("/x")
+        request_bad.COOKIES["access_token"] = "invalid"
+        with patch("audit.decorators.settings.ACCESS_TOKEN_NAME", "access_token"):
+            self.assertIsNone(get_user_from_access_token(request_bad))
+
+    def test_audit_log_and_audit_log_auth_error_branches(self):
+        @audit_log("custom.action", CATEGORY_FINANCIAL, "X")
+        def failing_view(request, *args, **kwargs):
+            raise RuntimeError("boom")
+
+        request = self.rf.post("/x", data='{"token":"s"}', content_type="application/json")
+        with self.assertRaises(RuntimeError):
+            failing_view(request, user=self.user, id=10)
+
+        error_log = AuditLog.objects.filter(action="custom.action").first()
+        self.assertIsNotNone(error_log)
+        self.assertEqual(error_log.result, RESULT_ERROR)
+        self.assertEqual(error_log.target_id, "10")
+
+        @audit_log_auth("custom.auth")
+        def failing_auth_view(request, *args, **kwargs):
+            raise RuntimeError("boom-auth")
+
+        request_auth = self.rf.post("/x", data='{"email":"audit-decorator@test.com"}', content_type="application/json")
+        with self.assertRaises(RuntimeError):
+            failing_auth_view(request_auth)
+
+        auth_error_log = AuditLog.objects.filter(action="custom.auth").first()
+        self.assertIsNotNone(auth_error_log)
+        self.assertEqual(auth_error_log.result, RESULT_ERROR)
+        self.assertEqual(auth_error_log.username, "audit-decorator")
+
+
+class AuditViewsRegressionTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="audit-view-admin", email="audit-view-admin@test.com", password="123")
+        now = timezone.now()
+        AuditLog.objects.create(
+            action="a1",
+            category=CATEGORY_AUTH,
+            result=RESULT_SUCCESS,
+            user=cls.user,
+            username=cls.user.username,
+            ip_address="1.1.1.1",
+            created_at=now,
+        )
+        AuditLog.objects.create(
+            action="a2",
+            category=CATEGORY_FINANCIAL,
+            result=RESULT_FAILURE,
+            user=cls.user,
+            username=cls.user.username,
+            ip_address="2.2.2.2",
+            created_at=now,
+        )
+
+    def setUp(self):
+        self.rf = RequestFactory()
+
+    def test_get_audit_logs_all_filter_branches(self):
+        request = self.rf.get(
+            "/audit/",
+            {
+                "action": "a1",
+                "category": CATEGORY_AUTH,
+                "result": RESULT_SUCCESS,
+                "user_id": self.user.id,
+                "username": "audit-view",
+                "ip_address": "1.1.1.1",
+                "date_from": "2020-01-01",
+                "date_to": "2030-01-01",
+                "page": 1,
+                "page_size": 5,
+            },
+        )
+        response = inspect.unwrap(audit_views.get_audit_logs)(request, user=self.user)
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)["data"]["data"]
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["action"], "a1")
+
+    def test_get_audit_report_filter_branches_and_limit_bounds(self):
+        request_small_limit = self.rf.get(
+            "/audit/report/",
+            {
+                "category": CATEGORY_AUTH,
+                "action": "a1",
+                "result": RESULT_SUCCESS,
+                "user_id": self.user.id,
+                "username": "audit-view",
+                "date_from": "2020-01-01",
+                "date_to": "2030-01-01",
+                "limit": 0,
+            },
+        )
+        response_small = inspect.unwrap(audit_views.get_audit_report)(request_small_limit, user=self.user)
+        self.assertEqual(response_small.status_code, 200)
+        data_small = json.loads(response_small.content)["data"]
+        self.assertEqual(data_small["filters"]["action"], "a1")
+        self.assertEqual(data_small["summary"]["total_events"], 1)
+
+        request_big_limit = self.rf.get("/audit/report/", {"limit": 1000})
+        response_big = inspect.unwrap(audit_views.get_audit_report)(request_big_limit, user=self.user)
+        self.assertEqual(response_big.status_code, 200)
+
+
+class AuditAdminRegressionTestCase(TestCase):
+    def test_audit_admin_permissions_are_read_only(self):
+        admin_instance = AuditLogAdmin(AuditLog, AdminSite())
+        request = RequestFactory().get("/admin/")
+
+        self.assertFalse(admin_instance.has_add_permission(request))
+        self.assertFalse(admin_instance.has_change_permission(request))
+        self.assertFalse(admin_instance.has_delete_permission(request))

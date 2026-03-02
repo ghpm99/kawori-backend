@@ -45,7 +45,10 @@ def get_all_view(request, user):
     if req.get("invoice"):
         filters["invoice__name__icontains"] = req.get("invoice")
 
-    payments_query = Payment.objects.filter(**filters, user=user, active=True).order_by("payment_date")
+    if "active" not in filters:
+        filters["active"] = True
+
+    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date")
 
     data = paginate(payments_query, req.get("page"), req.get("page_size"))
 
