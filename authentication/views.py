@@ -93,6 +93,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+@audit_log_auth("logout")
 def signout_view(request: HttpRequest) -> JsonResponse:
     response = JsonResponse({"msg": "Deslogou"})
 
@@ -114,6 +115,7 @@ def signout_view(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("token.verify")
 def verify_token(request: HttpRequest) -> JsonResponse:
 
     access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
@@ -141,6 +143,7 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("token.refresh")
 def refresh_token(request: HttpRequest) -> JsonResponse:
 
     refresh_token_cookie = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
@@ -274,6 +277,7 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+@audit_log_auth("password_reset.validate")
 def validate_reset_token(request: HttpRequest) -> JsonResponse:
     """
     Valida se um token de reset ainda é válido (não usado e não expirado).

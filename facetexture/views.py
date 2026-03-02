@@ -112,6 +112,7 @@ def get_bdo_class(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("facetexture.preview", CATEGORY_FACETEXTURE, "Facetexture")
 def preview_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -170,6 +171,7 @@ def preview_background(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("facetexture.download", CATEGORY_FACETEXTURE, "Facetexture")
 def download_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
