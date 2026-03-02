@@ -12,4 +12,9 @@ urlpatterns = [
     path("amount_invoice_by_tag", views.report_amount_invoice_by_tag_view, name="financial_report_amount_invoice_tag"),
     path("amount_forecast_value", views.report_forecast_amount_value, name="financial_report_amount_forecast_value"),
     path("metrics/", views.get_metrics_view, name="financial_get_metrics_view"),
+    path("daily_cash_flow", views.report_daily_cash_flow_view, name="financial_report_daily_cash_flow"),
+    path("top_expenses", views.report_top_expenses_view, name="financial_report_top_expenses"),
+    path("balance_projection", views.report_balance_projection_view, name="financial_report_balance_projection"),
+    path("overdue_health", views.report_overdue_health_view, name="financial_report_overdue_health"),
+    path("tag_evolution", views.report_tag_evolution_view, name="financial_report_tag_evolution"),
 ]

@@ -1,9 +1,12 @@
 import json
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 
 import numpy
 from dateutil.relativedelta import relativedelta
 from django.db import connection
+from django.db.models import Q, Sum
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -309,6 +312,57 @@ def payoff_detail_view(request, id, user):
     return JsonResponse({"msg": "Pagamento baixado"})
 
 
+MONTHS_PT_BR = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+]
+
+
+def parse_period_filters(request, default_begin=None, default_end=None, required=False):
+    date_from = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
+    date_to = format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
+
+    if required and (date_from is None or date_to is None):
+        return None, JsonResponse({"msg": "date_from and date_to are required"}, status=400)
+
+    begin = date_from or default_begin
+    end = date_to or default_end
+
+    if begin is None or end is None:
+        return None, JsonResponse({"msg": "Invalid period"}, status=400)
+
+    if begin > end:
+        return None, JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
+
+    return {"begin": begin, "end": end}, None
+
+
+def parse_int_query_param(value, default, minimum=1):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    if parsed < minimum:
+        return default
+
+    return parsed
+
+
+def payment_status_to_label(status):
+    return "closed" if status == Payment.STATUS_DONE else "open"
+
+
 @require_GET
 @validate_user("financial")
 def report_payment_view(request, user):
@@ -316,6 +370,10 @@ def report_payment_view(request, user):
 
     end = date_referrer + relativedelta(months=12, day=1)
     begin = date_referrer.replace(day=1) - relativedelta(months=1)
+
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
 
     query_payments = """
         SELECT
@@ -336,7 +394,7 @@ def report_payment_view(request, user):
             fp.payments_date
     """
 
-    filters = {"user_id": user.id, "begin": begin, "end": end}
+    filters = {"user_id": user.id, "begin": params["begin"], "end": params["end"]}
 
     with connection.cursor() as cursor:
         cursor.execute(query_payments, filters)
@@ -689,13 +747,12 @@ def save_tag_invoice_view(request, id, user):
 def report_count_payment_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=1, day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
     begin = date_referrer.replace(day=1)
 
-    params = {
-        "begin": begin,
-        "end": end,
-    }
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
 
     count_payment = """
         SELECT
@@ -721,13 +778,12 @@ def report_count_payment_view(request, user):
 def report_amount_payment_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=1, day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
     begin = date_referrer.replace(day=1)
 
-    params = {
-        "begin": begin,
-        "end": end,
-    }
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
 
     count_payment = """
         SELECT
@@ -753,13 +809,12 @@ def report_amount_payment_view(request, user):
 def report_amount_payment_open_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=1, day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
     begin = date_referrer.replace(day=1)
 
-    params = {
-        "begin": begin,
-        "end": end,
-    }
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
 
     count_payment = """
         SELECT
@@ -786,13 +841,12 @@ def report_amount_payment_open_view(request, user):
 def report_amount_payment_closed_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=1, day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
     begin = date_referrer.replace(day=1)
 
-    params = {
-        "begin": begin,
-        "end": end,
-    }
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
 
     count_payment = """
         SELECT
@@ -819,10 +873,14 @@ def report_amount_payment_closed_view(request, user):
 def report_amount_invoice_by_tag_view(request, user):
     date_referrer = datetime.now().date()
 
-    end = date_referrer + relativedelta(months=1, day=1)
+    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
     begin = date_referrer.replace(day=1)
 
-    params = {"begin": begin, "end": end, "user_id": user.id}
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
+
+    params["user_id"] = user.id
 
     amount_invoice = """
         SELECT
@@ -865,7 +923,11 @@ def report_forecast_amount_value(request, user):
     end = date_referrer + relativedelta(months=12, day=1)
     begin = date_referrer.replace(day=1) - relativedelta(months=12)
 
-    params = {"begin": begin, "end": end, "user_id": user.id}
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
+
+    params["user_id"] = user.id
 
     query_forecast = """
         SELECT
@@ -930,21 +992,28 @@ def get_metrics_view(request, user):
     begin = date_referrer.replace(day=1)
     end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
 
+    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    if error_response:
+        return error_response
+
+    begin = params["begin"]
+    end = params["end"]
+
     revenues_current, revenues_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_CREDIT)
     expenses_current, expenses_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_DEBIT)
 
     def metric_value(current, last_month):
-        value = (current / abs(last_month)) * 100 if last_month != 0 else 0
-        return round(value, 0)
+        value = current / abs(last_month) if last_month != 0 else 0
+        return round(value, 2)
 
     revenue_data = {
         "value": revenues_current,
-        "metric_value": metric_value(revenues_current - revenues_last_month, revenues_last_month),
+        "metric_value": metric_value(revenues_current, revenues_last_month),
     }
 
     expenses_data = {
         "value": expenses_current,
-        "metric_value": metric_value(expenses_current - expenses_last_month, expenses_last_month),
+        "metric_value": metric_value(expenses_current, expenses_last_month),
     }
 
     profit_current = revenues_current - expenses_current
@@ -957,3 +1026,304 @@ def get_metrics_view(request, user):
     data = {"revenues": revenue_data, "expenses": expenses_data, "profit": profit_data, "growth": growth_data}
 
     return JsonResponse(data)
+
+
+@require_GET
+@validate_user("financial")
+def report_daily_cash_flow_view(request, user):
+    filters, error_response = parse_period_filters(request, required=True)
+    if error_response:
+        return error_response
+
+    grouped = (
+        Payment.objects.filter(user=user, active=True, payment_date__range=(filters["begin"], filters["end"]))
+        .values("payment_date")
+        .annotate(
+            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), 0),
+            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), 0),
+        )
+        .order_by("payment_date")
+    )
+
+    by_date = {row["payment_date"]: row for row in grouped}
+    cursor = filters["begin"]
+    accumulated = 0.0
+    data = []
+    total_credit = 0.0
+    total_debit = 0.0
+
+    while cursor <= filters["end"]:
+        row = by_date.get(cursor)
+        credit = float((row or {}).get("credit") or 0)
+        debit = float((row or {}).get("debit") or 0)
+        net = credit - debit
+        accumulated += net
+        total_credit += credit
+        total_debit += debit
+
+        data.append(
+            {
+                "date": cursor,
+                "credit": credit,
+                "debit": debit,
+                "net": net,
+                "accumulated": accumulated,
+            }
+        )
+        cursor += timedelta(days=1)
+
+    return JsonResponse(
+        {
+            "data": data,
+            "summary": {
+                "total_credit": total_credit,
+                "total_debit": total_debit,
+                "net": total_credit - total_debit,
+            },
+        }
+    )
+
+
+@require_GET
+@validate_user("financial")
+def report_top_expenses_view(request, user):
+    filters, error_response = parse_period_filters(request, required=True)
+    if error_response:
+        return error_response
+
+    limit = parse_int_query_param(request.GET.get("limit"), default=10, minimum=1)
+
+    payments = (
+        Payment.objects.filter(
+            user=user,
+            active=True,
+            type=Payment.TYPE_DEBIT,
+            payment_date__range=(filters["begin"], filters["end"]),
+        )
+        .select_related("invoice")
+        .prefetch_related("invoice__tags")
+        .order_by("-value", "payment_date")[:limit]
+    )
+
+    data = []
+    for payment in payments:
+        category = None
+        if payment.invoice_id:
+            category = payment.invoice.tags.order_by("name").values_list("name", flat=True).first()
+
+        data.append(
+            {
+                "id": payment.id,
+                "description": payment.description or payment.name,
+                "category": category,
+                "amount": float(payment.value or 0),
+                "due_date": payment.payment_date,
+                "status": payment_status_to_label(payment.status),
+            }
+        )
+
+    return JsonResponse({"data": data})
+
+
+@require_GET
+@validate_user("financial")
+def report_balance_projection_view(request, user):
+    start_date = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
+    if start_date is None:
+        return JsonResponse({"msg": "date_from is required"}, status=400)
+
+    months_ahead = parse_int_query_param(request.GET.get("months_ahead"), default=6, minimum=1)
+
+    start_month = start_date.replace(day=1)
+    data = []
+
+    for i in range(months_ahead):
+        month_start = start_month + relativedelta(months=i)
+        month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
+
+        sums = Payment.objects.filter(
+            user=user,
+            active=True,
+            payment_date__range=(month_start, month_end),
+        ).aggregate(
+            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), 0),
+            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), 0),
+        )
+
+        projected_credit = float(sums["credit"] or 0)
+        projected_debit = float(sums["debit"] or 0)
+        projected_balance = projected_credit - projected_debit
+
+        if projected_balance < 0:
+            risk_level = "high"
+        elif projected_credit > 0 and (projected_balance / projected_credit) < 0.1:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
+
+        data.append(
+            {
+                "month": month_start.strftime("%Y-%m"),
+                "projected_credit": projected_credit,
+                "projected_debit": projected_debit,
+                "projected_balance": projected_balance,
+                "risk_level": risk_level,
+            }
+        )
+
+    return JsonResponse(
+        {
+            "data": data,
+            "assumptions": {
+                "includes_open_payments": True,
+                "includes_fixed_entries": True,
+            },
+        }
+    )
+
+
+@require_GET
+@validate_user("financial")
+def report_overdue_health_view(request, user):
+    filters, error_response = parse_period_filters(request, required=True)
+    if error_response:
+        return error_response
+
+    today = date.today()
+
+    overdue_payments = (
+        Payment.objects.filter(
+            user=user,
+            active=True,
+            type=Payment.TYPE_DEBIT,
+            status=Payment.STATUS_OPEN,
+            payment_date__range=(filters["begin"], filters["end"]),
+            payment_date__lt=today,
+        )
+        .select_related("invoice")
+        .prefetch_related("invoice__tags")
+    )
+
+    overdue_count = overdue_payments.count()
+    overdue_amount = float(overdue_payments.aggregate(total=Coalesce(Sum("value"), 0))["total"] or 0)
+
+    delays = [(today - payment.payment_date).days for payment in overdue_payments]
+    average_delay_days = round((sum(delays) / len(delays)), 1) if delays else 0
+
+    total_period_amount = float(
+        Payment.objects.filter(
+            user=user,
+            active=True,
+            type=Payment.TYPE_DEBIT,
+            payment_date__range=(filters["begin"], filters["end"]),
+        ).aggregate(total=Coalesce(Sum("value"), 0))["total"]
+        or 0
+    )
+    overdue_ratio = round((overdue_amount / total_period_amount) * 100, 1) if total_period_amount else 0
+
+    critical_map = defaultdict(lambda: {"category": "", "amount": 0.0, "payment_ids": set()})
+    for payment in overdue_payments:
+        for tag in payment.invoice.tags.all():
+            item = critical_map[tag.id]
+            item["category"] = tag.name
+            item["amount"] += float(payment.value or 0)
+            item["payment_ids"].add(payment.id)
+
+    critical_categories = sorted(
+        (
+            {
+                "category": item["category"],
+                "amount": item["amount"],
+                "count": len(item["payment_ids"]),
+            }
+            for item in critical_map.values()
+        ),
+        key=lambda value: value["amount"],
+        reverse=True,
+    )[:3]
+
+    return JsonResponse(
+        {
+            "data": {
+                "overdue_count": overdue_count,
+                "overdue_amount": overdue_amount,
+                "average_delay_days": average_delay_days,
+                "overdue_ratio": overdue_ratio,
+                "critical_categories": critical_categories,
+            }
+        }
+    )
+
+
+@require_GET
+@validate_user("financial")
+def report_tag_evolution_view(request, user):
+    filters, error_response = parse_period_filters(request, required=True)
+    if error_response:
+        return error_response
+
+    compare_with_previous_period = True
+    if request.GET.get("compare_with_previous_period") is not None:
+        compare_with_previous_period = boolean(request.GET.get("compare_with_previous_period"))
+
+    current_rows = (
+        Payment.objects.filter(
+            user=user,
+            active=True,
+            type=Payment.TYPE_DEBIT,
+            payment_date__range=(filters["begin"], filters["end"]),
+            invoice__tags__isnull=False,
+        )
+        .values("invoice__tags__id", "invoice__tags__name")
+        .annotate(amount=Coalesce(Sum("value"), 0))
+    )
+
+    current_data = {
+        row["invoice__tags__id"]: {
+            "tag_id": row["invoice__tags__id"],
+            "tag_name": row["invoice__tags__name"],
+            "current_amount": float(row["amount"] or 0),
+        }
+        for row in current_rows
+    }
+
+    previous_data = {}
+    if compare_with_previous_period:
+        period_days = (filters["end"] - filters["begin"]).days + 1
+        previous_end = filters["begin"] - timedelta(days=1)
+        previous_begin = previous_end - timedelta(days=period_days - 1)
+
+        previous_rows = (
+            Payment.objects.filter(
+                user=user,
+                active=True,
+                type=Payment.TYPE_DEBIT,
+                payment_date__range=(previous_begin, previous_end),
+                invoice__tags__isnull=False,
+            )
+            .values("invoice__tags__id")
+            .annotate(amount=Coalesce(Sum("value"), 0))
+        )
+        previous_data = {row["invoice__tags__id"]: float(row["amount"] or 0) for row in previous_rows}
+
+    data = []
+    for item in current_data.values():
+        previous_amount = previous_data.get(item["tag_id"], 0.0)
+        if previous_amount == 0:
+            variation_percent = 100.0 if item["current_amount"] > 0 else 0.0
+        else:
+            variation_percent = ((item["current_amount"] - previous_amount) / abs(previous_amount)) * 100
+
+        data.append(
+            {
+                "tag_id": item["tag_id"],
+                "tag_name": item["tag_name"],
+                "current_amount": item["current_amount"],
+                "previous_amount": previous_amount if compare_with_previous_period else 0.0,
+                "variation_percent": round(variation_percent, 1) if compare_with_previous_period else 0.0,
+            }
+        )
+
+    data.sort(key=lambda item: item["current_amount"], reverse=True)
+
+    return JsonResponse({"data": data})

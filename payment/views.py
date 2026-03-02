@@ -24,6 +24,21 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from tag.models import Tag
 
+MONTHS_PT_BR = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+]
+
 
 def get_status_filter(status_params):
     if status_params == "all" or status_params == "":
@@ -149,18 +164,25 @@ def save_new_view(request, user):
 def get_payments_month(request, user):
     date_referrer = datetime.now().date()
     date_start = date_referrer.replace(day=1)
-    date_end = date_referrer + relativedelta(months=1, day=1)
+    date_end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
+
+    date_from = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
+    date_to = format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
+
+    begin = date_from or date_start
+    end = date_to or date_end
+
+    if begin > end:
+        return JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
 
     filters = {
-        "begin": date_start,
-        "end": date_end,
+        "begin": begin,
+        "end": end,
     }
 
     invoices_query = """
         SELECT
-            fi.id,
-            fi.name,
-            MIN(fp.payment_date) AS payment_date,
+            DATE_TRUNC('month', fp.payment_date)::date AS payment_month,
             SUM(
                 CASE
                     fp.type
@@ -202,30 +224,38 @@ def get_payments_month(request, user):
                 AND fp.active = true
             )
         GROUP BY
-            fi.id,
-            fi.name
+            DATE_TRUNC('month', fp.payment_date)::date
         ORDER BY
-            MIN(fp.payment_date) ASC,
-            fi.id ASC;
+            DATE_TRUNC('month', fp.payment_date)::date ASC;
     """
 
     with connection.cursor() as cursor:
         cursor.execute(invoices_query, {**filters, "user_id": user.id})
         invoices = cursor.fetchall()
 
-    payments = [
-        {
-            "id": invoice[0],
-            "name": invoice[1],
-            "date": invoice[2],
-            "total_value_credit": float(invoice[3] or 0),
-            "total_value_debit": float(invoice[4] or 0),
-            "total_value_open": float(invoice[5] or 0),
-            "total_value_closed": float(invoice[6] or 0),
-            "total_payments": invoice[7],
-        }
-        for invoice in invoices
-    ]
+    payments = []
+    for index, invoice in enumerate(invoices, start=1):
+        month_date = invoice[0]
+        total_value_credit = float(invoice[1] or 0)
+        total_value_debit = float(invoice[2] or 0)
+        total_value_open = float(invoice[3] or 0)
+        total_value_closed = float(invoice[4] or 0)
+        total_payments = invoice[5]
+
+        payments.append(
+            {
+                "id": index,
+                "name": MONTHS_PT_BR[month_date.month - 1],
+                "date": month_date,
+                "dateTimestamp": int(datetime.combine(month_date, datetime.min.time()).timestamp()),
+                "total": total_value_credit + total_value_debit,
+                "total_value_credit": total_value_credit,
+                "total_value_debit": total_value_debit,
+                "total_value_open": total_value_open,
+                "total_value_closed": total_value_closed,
+                "total_payments": total_payments,
+            }
+        )
 
     return JsonResponse({"data": payments})
 

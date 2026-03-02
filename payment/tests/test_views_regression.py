@@ -112,7 +112,7 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(payment.value, Decimal("80.00"))
         self.assertEqual(invoice.value_open, Decimal("230.00"))
 
-    def test_get_payments_month_aggregates_by_invoice(self):
+    def test_get_payments_month_aggregates_by_month(self):
         invoice = self._create_invoice(name="Monthly aggregate")
         today = date.today().replace(day=1)
         Payment.objects.create(
@@ -146,11 +146,14 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
 
-        aggregated = [item for item in payload["data"] if item["id"] == invoice.id]
-        self.assertEqual(len(aggregated), 1)
-        self.assertEqual(aggregated[0]["total_payments"], 2)
-        self.assertEqual(aggregated[0]["total_value_debit"], 10.0)
-        self.assertEqual(aggregated[0]["total_value_credit"], 20.0)
+        self.assertEqual(len(payload["data"]), 1)
+        aggregated = payload["data"][0]
+        self.assertEqual(aggregated["date"], today.isoformat())
+        self.assertEqual(aggregated["total_payments"], 2)
+        self.assertEqual(aggregated["total_value_debit"], 10.0)
+        self.assertEqual(aggregated["total_value_credit"], 20.0)
+        self.assertEqual(aggregated["total"], 30.0)
+        self.assertIn("dateTimestamp", aggregated)
 
     def test_csv_resolve_imports_view_handles_invalid_match_and_missing_optional_fields(self):
         response = self.client.post(
