@@ -11,6 +11,7 @@ from kawori.decorators import validate_user
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from kawori.utils import paginate
+from tag.models import Tag
 
 
 @require_GET
@@ -66,7 +67,7 @@ def save_new_contract_view(request, user):
 @require_GET
 @validate_user("financial")
 def detail_contract_view(request, id, user):
-    data = Contract.objects.filter(id=id).first()
+    data = Contract.objects.filter(id=id, user=user).first()
 
     if data is None:
         return JsonResponse({"msg": "Contract not found"}, status=404)
@@ -137,7 +138,12 @@ def include_new_invoice_view(request, id, user):
     )
     invoice.save()
     if data.get("tags"):
-        invoice.tags.set(data.get("tags"))
+        tag_ids = data.get("tags")
+        tags = Tag.objects.filter(id__in=tag_ids, user=user)
+        if tags.count() != len(set(tag_ids)):
+            invoice.delete()
+            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+        invoice.tags.set(tags)
 
     generate_payments(invoice)
 
@@ -157,14 +163,16 @@ def merge_contract_view(request, id, user):
     contract = Contract.objects.filter(id=id, user=user).first()
     if contract is None:
         return JsonResponse({"msg": "Contract not found"}, status=404)
-    contracts = data.get("contracts")
+    contracts = data.get("contracts") or []
 
-    for id in contracts:
-        invoices = Invoice.objects.filter(contract=id, user=user, active=True).all()
+    for contract_id in contracts:
+        if contract_id == contract.id:
+            continue
+        invoices = Invoice.objects.filter(contract=contract_id, user=user, active=True).all()
         for invoice in invoices:
             invoice.contract = contract
             invoice.save()
-        Contract.objects.filter(id=id).delete()
+        Contract.objects.filter(id=contract_id, user=user).delete()
 
     update_contract_value(contract)
 
@@ -175,7 +183,7 @@ def merge_contract_view(request, id, user):
 @validate_user("financial")
 @audit_log("contract.update_all_values", CATEGORY_FINANCIAL, "Contract")
 def update_all_contracts_value(request, user):
-    contracts = Contract.objects.all()
+    contracts = Contract.objects.filter(user=user)
     for contract in contracts:
         update_contract_value(contract)
     return JsonResponse({"msg": "ok"})

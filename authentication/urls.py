@@ -13,4 +13,9 @@ urlpatterns = [
     path("password-reset/confirm/", views.confirm_password_reset, name="auth_password_reset_confirm"),
     path("email/verify/", views.verify_email, name="auth_email_verify"),
     path("email/resend-verification/", views.resend_verification_email, name="auth_email_resend_verification"),
+    path("social/providers/", views.social_providers, name="auth_social_providers"),
+    path("social/<str:provider>/authorize/", views.social_authorize, name="auth_social_authorize"),
+    path("social/<str:provider>/callback/", views.social_callback, name="auth_social_callback"),
+    path("social/accounts/", views.social_accounts_list, name="auth_social_accounts_list"),
+    path("social/accounts/<str:provider>/unlink/", views.social_account_unlink, name="auth_social_account_unlink"),
 ]

@@ -28,17 +28,17 @@ def validate_user(group: str):
 
                 user_data = access_token
 
-            except Exception as err:
-                return JsonResponse({"msg": str(err)}, status=HTTPStatus.UNAUTHORIZED)
+            except Exception:
+                return JsonResponse({"msg": "Invalid authorization token."}, status=HTTPStatus.UNAUTHORIZED)
 
             user_id = user_data.get("user_id")
 
             if not user_id:
                 return JsonResponse({"msg": "User not found."}, status=HTTPStatus.FORBIDDEN)
 
-            user = User.objects.get(id=user_id)
-
-            if not user:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
                 return JsonResponse({"msg": "User not found."}, status=HTTPStatus.FORBIDDEN)
             if not user.is_active:
                 return JsonResponse({"msg": "User not active."}, status=HTTPStatus.FORBIDDEN)

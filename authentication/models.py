@@ -94,3 +94,82 @@ class EmailVerification(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="email_verification")
     is_verified = models.BooleanField(default=False)
     verified_at = models.DateTimeField(null=True, blank=True)
+
+
+class SocialAuthState(models.Model):
+    class Meta:
+        db_table = "auth_social_auth_state"
+
+    MODE_LOGIN = "login"
+    MODE_LINK = "link"
+    MODE_CHOICES = [
+        (MODE_LOGIN, "Login"),
+        (MODE_LINK, "Link"),
+    ]
+
+    provider = models.CharField(max_length=30, db_index=True)
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default=MODE_LOGIN)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="social_states")
+    state_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    frontend_redirect_uri = models.URLField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    @staticmethod
+    def generate_raw_state() -> str:
+        return secrets.token_urlsafe(32)
+
+    @staticmethod
+    def hash_state(raw_state: str) -> str:
+        return hashlib.sha256(raw_state.encode()).hexdigest()
+
+    @classmethod
+    def create_for_provider(
+        cls,
+        provider: str,
+        mode: str = MODE_LOGIN,
+        user: User = None,
+        frontend_redirect_uri: str = "",
+        expiration_minutes: int = 10,
+    ) -> str:
+        raw_state = cls.generate_raw_state()
+        expires_at = timezone.now() + timedelta(minutes=expiration_minutes)
+        cls.objects.create(
+            provider=provider,
+            mode=mode,
+            user=user,
+            frontend_redirect_uri=frontend_redirect_uri or "",
+            state_hash=cls.hash_state(raw_state),
+            expires_at=expires_at,
+        )
+        return raw_state
+
+    def is_valid(self) -> bool:
+        return not self.used and timezone.now() < self.expires_at
+
+    def consume(self) -> None:
+        self.used = True
+        self.save(update_fields=["used"])
+
+
+class SocialAccount(models.Model):
+    class Meta:
+        db_table = "auth_social_account"
+        constraints = [
+            models.UniqueConstraint(fields=["provider", "provider_user_id"], name="unique_provider_external_user"),
+            models.UniqueConstraint(fields=["user", "provider"], name="unique_user_provider"),
+        ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="social_accounts")
+    provider = models.CharField(max_length=30)
+    provider_user_id = models.CharField(max_length=191)
+    email = models.EmailField(blank=True, default="")
+    is_email_verified = models.BooleanField(default=False)
+    full_name = models.CharField(max_length=255, blank=True, default="")
+    avatar_url = models.URLField(max_length=600, blank=True, default="")
+    profile_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(auto_now=True)

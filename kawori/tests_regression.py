@@ -137,7 +137,7 @@ class KaworiDecoratorsRegressionTestCase(TestCase):
         request.COOKIES["access_token"] = "token"
         with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
             "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(self.user.id)
-        ), patch("kawori.decorators.User.objects.get", return_value=None):
+        ), patch("kawori.decorators.User.objects.get", side_effect=User.DoesNotExist):
             response = protected_view(request)
         self.assertEqual(response.status_code, 403)
 

@@ -204,7 +204,13 @@ def save_tag_invoice_view(request, id, user):
         return JsonResponse({"msg": "Etiquetas não encontradas"}, status=404)
 
     invoice = Invoice.objects.filter(id=id, user=user).first()
-    invoice.tags.set(data)
+    if invoice is None:
+        return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
+
+    tags = Tag.objects.filter(id__in=data, user=user)
+    if tags.count() != len(set(data)):
+        return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+    invoice.tags.set(tags)
     invoice.save()
 
     return JsonResponse({"msg": "Etiquetas atualizadas com sucesso"})
@@ -256,7 +262,12 @@ def include_new_invoice_view(request, user):
     )
 
     if data.get("tags"):
-        invoice.tags.set(data.get("tags"))
+        tag_ids = data.get("tags")
+        tags = Tag.objects.filter(id__in=tag_ids, user=user)
+        if tags.count() != len(set(tag_ids)):
+            invoice.delete()
+            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+        invoice.tags.set(tags)
 
     generate_payments(invoice)
 
@@ -283,7 +294,11 @@ def save_detail_view(request, id, user):
         invoice.active = data.get("active")
 
     if data.get("tags") is not None:
-        invoice.tags.set(data.get("tags"))
+        tag_ids = data.get("tags")
+        tags = Tag.objects.filter(id__in=tag_ids, user=user)
+        if tags.count() != len(set(tag_ids)):
+            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+        invoice.tags.set(tags)
 
     invoice.save()
 

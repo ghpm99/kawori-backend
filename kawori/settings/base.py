@@ -177,3 +177,28 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Email para receber notificações
 NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', EMAIL_HOST_USER)
+
+# ========== SOCIAL AUTH ==========
+SOCIAL_AUTH_STATE_EXPIRATION_MINUTES = int(os.environ.get("SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", "10"))
+SOCIAL_AUTH_PROVIDERS = {
+    "google": {
+        "client_id": os.environ.get("SOCIAL_GOOGLE_CLIENT_ID", ""),
+        "client_secret": os.environ.get("SOCIAL_GOOGLE_CLIENT_SECRET", ""),
+    },
+    "discord": {
+        "client_id": os.environ.get("SOCIAL_DISCORD_CLIENT_ID", ""),
+        "client_secret": os.environ.get("SOCIAL_DISCORD_CLIENT_SECRET", ""),
+    },
+    "github": {
+        "client_id": os.environ.get("SOCIAL_GITHUB_CLIENT_ID", ""),
+        "client_secret": os.environ.get("SOCIAL_GITHUB_CLIENT_SECRET", ""),
+    },
+    "facebook": {
+        "client_id": os.environ.get("SOCIAL_FACEBOOK_CLIENT_ID", ""),
+        "client_secret": os.environ.get("SOCIAL_FACEBOOK_CLIENT_SECRET", ""),
+    },
+    "microsoft": {
+        "client_id": os.environ.get("SOCIAL_MICROSOFT_CLIENT_ID", ""),
+        "client_secret": os.environ.get("SOCIAL_MICROSOFT_CLIENT_SECRET", ""),
+    },
+}

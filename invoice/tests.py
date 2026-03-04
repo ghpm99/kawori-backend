@@ -19,6 +19,9 @@ class InvoiceViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_superuser(username="invoice-reg", email="invoice-reg@test.com", password="123")
+        cls.other_user = User.objects.create_superuser(
+            username="invoice-reg-other", email="invoice-reg-other@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -49,7 +52,7 @@ class InvoiceViewsRegressionTestCase(TestCase):
             value=kwargs.get("value", Decimal("10.00")),
             value_open=kwargs.get("value_open", Decimal("10.00")),
             value_closed=kwargs.get("value_closed", Decimal("0.00")),
-            user=self.user,
+            user=kwargs.get("user", self.user),
         )
 
     def _create_payment(self, invoice, **kwargs):
@@ -66,7 +69,7 @@ class InvoiceViewsRegressionTestCase(TestCase):
             active=kwargs.get("active", True),
             value=kwargs.get("value", Decimal("10.00")),
             invoice=invoice,
-            user=self.user,
+            user=kwargs.get("user", self.user),
         )
 
     def test_parse_type_and_status_filter_helpers(self):
@@ -175,6 +178,15 @@ class InvoiceViewsRegressionTestCase(TestCase):
         null_response = inspect.unwrap(views.save_tag_invoice_view)(null_payload, id=invoice.id, user=self.user)
         self.assertEqual(null_response.status_code, 404)
 
+    def test_save_tag_invoice_view_rejects_tag_from_other_user(self):
+        invoice = self._create_invoice(name="Tag target foreign")
+        foreign_tag = Tag.objects.create(name="TagForeign", color="#000", user=self.other_user)
+
+        response = self._call(views.save_tag_invoice_view, method="post", id=invoice.id, data=[foreign_tag.id])
+        self.assertEqual(response.status_code, 400)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.tags.count(), 0)
+
     def test_include_new_invoice_view_validations_and_success(self):
         missing = self._call(views.include_new_invoice_view, method="post", data={})
         self.assertEqual(missing.status_code, 400)
@@ -215,6 +227,26 @@ class InvoiceViewsRegressionTestCase(TestCase):
         self.assertEqual(created.tags.count(), 1)
         mocked_generate.assert_called_once()
 
+    def test_include_new_invoice_view_rejects_tag_from_other_user(self):
+        foreign_tag = Tag.objects.create(name="TG-Foreign", color="#123", user=self.other_user)
+
+        response = self._call(
+            views.include_new_invoice_view,
+            method="post",
+            data={
+                "name": "New Foreign Tag",
+                "date": "2026-01-01",
+                "installments": 1,
+                "payment_date": "2026-01-02",
+                "value": 10,
+                "type": "debit",
+                "fixed": True,
+                "tags": [foreign_tag.id],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Invoice.objects.filter(name="New Foreign Tag", user=self.user).exists())
+
     def test_save_detail_view_success_and_not_found(self):
         invoice = self._create_invoice(name="Editable")
         tag = Tag.objects.create(name="T1", color="#999", user=self.user)
@@ -238,6 +270,22 @@ class InvoiceViewsRegressionTestCase(TestCase):
 
         not_found = self._call(views.save_detail_view, method="post", id=99999, data={"name": "x"})
         self.assertEqual(not_found.status_code, 404)
+
+    def test_save_detail_view_rejects_tag_from_other_user(self):
+        invoice = self._create_invoice(name="Editable foreign")
+        foreign_tag = Tag.objects.create(name="T-Other", color="#999", user=self.other_user)
+
+        response = self._call(
+            views.save_detail_view,
+            method="post",
+            id=invoice.id,
+            data={
+                "tags": [foreign_tag.id],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.tags.count(), 0)
 
 
 class InvoiceUtilsRegressionTestCase(TestCase):

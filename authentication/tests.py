@@ -4,13 +4,13 @@ from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
 from django.conf import settings
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.models import EmailVerification, UserToken
+from authentication.models import EmailVerification, SocialAccount, UserToken
 from authentication import views
 from authentication import utils as auth_utils
 
@@ -982,6 +982,211 @@ class AuthenticationViewsRegressionExtraTestCase(TestCase):
         self.assertTrue(EmailVerification.objects.filter(user=no_verif_user).exists())
 
 
+class SocialAuthenticationTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="social_existing",
+            email="social_existing@test.com",
+            password="Password123!",
+            first_name="Social",
+            last_name="Existing",
+        )
+        user_group, _ = Group.objects.get_or_create(name="user")
+        user_group.user_set.add(self.user)
+
+        self.social_settings = {
+            "google": {"client_id": "id", "client_secret": "secret"},
+            "discord": {"client_id": "", "client_secret": ""},
+            "github": {"client_id": "", "client_secret": ""},
+            "facebook": {"client_id": "", "client_secret": ""},
+            "microsoft": {"client_id": "", "client_secret": ""},
+        }
+
+    def _extract_state(self, authorize_url: str) -> str:
+        marker = "state="
+        return authorize_url.split(marker, 1)[1].split("&", 1)[0]
+
+    def _login_user(self):
+        response = self.client.post(
+            "/auth/token/",
+            content_type="application/json",
+            data={"username": "social_existing", "password": "Password123!"},
+        )
+        for key, morsel in response.cookies.items():
+            self.client.cookies[key] = morsel.value
+
+    def test_social_providers_only_lists_enabled(self):
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            response = self.client.get("/auth/social/providers/")
+        self.assertEqual(response.status_code, 200)
+        body = json.loads(response.content)
+        self.assertEqual(len(body["providers"]), 1)
+        self.assertEqual(body["providers"][0]["provider"], "google")
+
+    def test_social_login_links_existing_user_by_email(self):
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            authorize = self.client.get("/auth/social/google/authorize/")
+        state = self._extract_state(json.loads(authorize.content)["authorize_url"])
+
+        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+            "authentication.views.fetch_social_profile",
+            return_value={
+                "provider_user_id": "google-1",
+                "email": "social_existing@test.com",
+                "is_email_verified": True,
+                "full_name": "Social Existing",
+                "avatar_url": "http://avatar",
+                "raw": {"sub": "google-1"},
+            },
+        ):
+            with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+
+        self.assertEqual(callback.status_code, 200)
+        body = json.loads(callback.content)
+        self.assertFalse(body["is_new_user"])
+        self.assertTrue(body["linked_existing_user"])
+        self.assertTrue(SocialAccount.objects.filter(user=self.user, provider="google").exists())
+        self.assertIn(settings.ACCESS_TOKEN_NAME, callback.cookies)
+
+    def test_social_login_creates_new_user_when_email_does_not_exist(self):
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            authorize = self.client.get("/auth/social/google/authorize/")
+        state = self._extract_state(json.loads(authorize.content)["authorize_url"])
+
+        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+            "authentication.views.fetch_social_profile",
+            return_value={
+                "provider_user_id": "google-2",
+                "email": "new_social@test.com",
+                "is_email_verified": True,
+                "full_name": "New Social",
+                "avatar_url": "http://avatar",
+                "raw": {"sub": "google-2"},
+            },
+        ):
+            with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+
+        self.assertEqual(callback.status_code, 200)
+        body = json.loads(callback.content)
+        self.assertTrue(body["is_new_user"])
+        created_user = User.objects.get(email="new_social@test.com")
+        self.assertTrue(SocialAccount.objects.filter(user=created_user, provider="google").exists())
+        self.assertTrue(EmailVerification.objects.get(user=created_user).is_verified)
+
+    def test_social_link_logged_user_even_with_different_email(self):
+        self._login_user()
+
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            authorize = self.client.get("/auth/social/google/authorize/?mode=link")
+        state = self._extract_state(json.loads(authorize.content)["authorize_url"])
+
+        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+            "authentication.views.fetch_social_profile",
+            return_value={
+                "provider_user_id": "google-3",
+                "email": "other_email@test.com",
+                "is_email_verified": True,
+                "full_name": "Other Name",
+                "avatar_url": "http://avatar",
+                "raw": {"sub": "google-3"},
+            },
+        ):
+            with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+
+        self.assertEqual(callback.status_code, 200)
+        body = json.loads(callback.content)
+        self.assertEqual(body["mode"], "link")
+        social = SocialAccount.objects.get(provider="google", provider_user_id="google-3")
+        self.assertEqual(social.user_id, self.user.id)
+
+    def test_social_link_conflict_when_already_linked_to_other_user(self):
+        other_user = User.objects.create_user(
+            username="other_social_user",
+            email="other_social_user@test.com",
+            password="Password123!",
+        )
+        Group.objects.get(name="user").user_set.add(other_user)
+        SocialAccount.objects.create(
+            user=other_user,
+            provider="google",
+            provider_user_id="google-conflict",
+            email="other_social_user@test.com",
+        )
+
+        self._login_user()
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            authorize = self.client.get("/auth/social/google/authorize/?mode=link")
+        state = self._extract_state(json.loads(authorize.content)["authorize_url"])
+
+        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+            "authentication.views.fetch_social_profile",
+            return_value={
+                "provider_user_id": "google-conflict",
+                "email": "whatever@test.com",
+                "is_email_verified": True,
+                "full_name": "Any Name",
+                "avatar_url": "http://avatar",
+                "raw": {"sub": "google-conflict"},
+            },
+        ):
+            with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+
+        self.assertEqual(callback.status_code, 409)
+
+    def test_social_accounts_list_and_unlink(self):
+        self._login_user()
+        SocialAccount.objects.create(
+            user=self.user,
+            provider="google",
+            provider_user_id="google-9",
+            email="social_existing@test.com",
+        )
+
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            list_response = self.client.get("/auth/social/accounts/")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(json.loads(list_response.content)["accounts"]), 1)
+
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            unlink_response = self.client.post("/auth/social/accounts/google/unlink/")
+        self.assertEqual(unlink_response.status_code, 200)
+        self.assertFalse(SocialAccount.objects.filter(user=self.user, provider="google").exists())
+
+    def test_social_unlink_prevents_orphan_access(self):
+        passwordless = User.objects.create_user(username="passwordless_user", email="passwordless@test.com", password=None)
+        passwordless.set_unusable_password()
+        passwordless.save(update_fields=["password"])
+        Group.objects.get(name="user").user_set.add(passwordless)
+
+        SocialAccount.objects.create(
+            user=passwordless,
+            provider="google",
+            provider_user_id="google-passwordless",
+            email="passwordless@test.com",
+        )
+
+        login = self.client.post(
+            "/auth/token/",
+            content_type="application/json",
+            data={"username": "social_existing", "password": "Password123!"},
+        )
+        for key, morsel in login.cookies.items():
+            self.client.cookies[key] = morsel.value
+
+        # troca usuário autenticado para o passwordless via token manual
+        token = str(AccessToken.for_user(passwordless))
+        self.client.cookies[settings.ACCESS_TOKEN_NAME] = token
+
+        with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
+            response = self.client.post("/auth/social/accounts/google/unlink/")
+        self.assertEqual(response.status_code, 400)
+
+
 class AuthenticationUtilsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1010,6 +1215,32 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
 
         request_no_proxy = RequestFactory().get("/", REMOTE_ADDR="127.0.0.1")
         self.assertEqual(auth_utils.get_client_ip(request_no_proxy), "127.0.0.1")
+
+    @override_settings(
+        SOCIAL_AUTH_PROVIDERS={
+            "google": {"client_id": "gid", "client_secret": "gsecret"},
+            "discord": {"client_id": "", "client_secret": ""},
+            "github": {"client_id": "", "client_secret": ""},
+            "facebook": {"client_id": "", "client_secret": ""},
+            "microsoft": {"client_id": "", "client_secret": ""},
+        }
+    )
+    def test_social_helper_config_and_urls(self):
+        providers = auth_utils.list_enabled_social_providers()
+        self.assertEqual(len(providers), 1)
+        self.assertEqual(providers[0]["provider"], "google")
+
+        config = auth_utils.get_social_provider_config("google")
+        authorize_url = auth_utils.build_social_authorize_url(
+            config,
+            state="state-token",
+            redirect_uri="http://localhost:8000/auth/social/google/callback/",
+        )
+        self.assertIn("state=state-token", authorize_url)
+
+        self.assertEqual(auth_utils.slugify_username("John Doe"), "john_doe")
+        self.assertEqual(auth_utils.split_name("John Doe"), ("John", "Doe"))
+        self.assertIsNotNone(auth_utils.parse_iso_datetime("2026-03-03T10:00:00Z"))
 
     def test_send_password_reset_email_sync_success_and_exception(self):
         with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
