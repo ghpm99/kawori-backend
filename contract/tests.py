@@ -17,6 +17,9 @@ class ContractViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_superuser(username="contract-reg", email="contract-reg@test.com", password="123")
+        cls.other_user = User.objects.create_superuser(
+            username="contract-reg-other", email="contract-reg-other@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -40,7 +43,7 @@ class ContractViewsRegressionTestCase(TestCase):
             value=kwargs.get("value", Decimal("0.00")),
             value_open=kwargs.get("value_open", Decimal("0.00")),
             value_closed=kwargs.get("value_closed", Decimal("0.00")),
-            user=self.user,
+            user=kwargs.get("user", self.user),
         )
 
     def _create_invoice(self, contract=None, **kwargs):
@@ -57,7 +60,7 @@ class ContractViewsRegressionTestCase(TestCase):
             value_open=kwargs.get("value_open", Decimal("100.00")),
             value_closed=kwargs.get("value_closed", Decimal("0.00")),
             contract=contract,
-            user=self.user,
+            user=kwargs.get("user", self.user),
         )
 
     def test_get_all_contract_view_with_and_without_filter(self):
@@ -94,6 +97,11 @@ class ContractViewsRegressionTestCase(TestCase):
 
         not_found = self._call(views.detail_contract_view, id=99999)
         self.assertEqual(not_found.status_code, 404)
+
+    def test_detail_contract_view_does_not_expose_other_user_contract(self):
+        other_contract = self._create_contract(name="Other Tenant", user=self.other_user)
+        response = self._call(views.detail_contract_view, id=other_contract.id)
+        self.assertEqual(response.status_code, 404)
 
     def test_detail_contract_invoices_view_returns_active_contract_invoices_with_tags(self):
         contract = self._create_contract(name="Invoices C")
@@ -153,6 +161,30 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(contract.value, Decimal("40.00"))
         self.assertEqual(contract.value_open, Decimal("40.00"))
 
+    def test_include_new_invoice_view_rejects_tag_from_other_user(self):
+        contract = self._create_contract(name="Target", value=Decimal("10.00"), value_open=Decimal("10.00"))
+        foreign_tag = Tag.objects.create(name="Foreign", color="#333333", user=self.other_user)
+
+        response = self._call(
+            views.include_new_invoice_view,
+            method="post",
+            id=contract.id,
+            data={
+                "status": Invoice.STATUS_OPEN,
+                "type": Invoice.Type.DEBIT,
+                "name": "New invoice invalid",
+                "date": "2026-01-01",
+                "installments": 1,
+                "payment_date": "2026-01-02",
+                "fixed": False,
+                "active": True,
+                "value": 30,
+                "tags": [foreign_tag.id],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Invoice.objects.filter(name="New invoice invalid", user=self.user).exists())
+
     def test_merge_contract_view_not_found_and_success(self):
         not_found = self._call(views.merge_contract_view, method="post", id=99999, data={"contracts": []})
         self.assertEqual(not_found.status_code, 404)
@@ -180,9 +212,23 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertFalse(Contract.objects.filter(id=source_two.id).exists())
         mocked_update.assert_called_once_with(target)
 
+    def test_merge_contract_view_does_not_delete_contract_from_other_user(self):
+        target = self._create_contract(name="Target")
+        foreign_contract = self._create_contract(name="Foreign", user=self.other_user)
+
+        response = self._call(
+            views.merge_contract_view,
+            method="post",
+            id=target.id,
+            data={"contracts": [foreign_contract.id]},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Contract.objects.filter(id=foreign_contract.id, user=self.other_user).exists())
+
     def test_update_all_contracts_value_calls_service_for_each_contract(self):
         contract_a = self._create_contract(name="A")
         contract_b = self._create_contract(name="B")
+        foreign_contract = self._create_contract(name="Foreign", user=self.other_user)
 
         with patch("contract.views.update_contract_value") as mocked_update:
             response = self._call(views.update_all_contracts_value, method="post", data={})
@@ -191,6 +237,7 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(mocked_update.call_count, 2)
         called_with = {call.args[0].id for call in mocked_update.call_args_list}
         self.assertEqual(called_with, {contract_a.id, contract_b.id})
+        self.assertNotIn(foreign_contract.id, called_with)
 
 
 class ContractModelsRegressionTestCase(TestCase):
