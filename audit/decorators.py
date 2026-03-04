@@ -89,6 +89,13 @@ def sanitize_request_detail(request):
     return detail
 
 
+def _create_audit_log_safe(**kwargs):
+    try:
+        AuditLog.objects.create(**kwargs)
+    except Exception:
+        return None
+
+
 def get_user_from_access_token(request):
     access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
     if not access_token_cookie:
@@ -120,7 +127,7 @@ def audit_log(action, category, target_model=""):
                 status_code = response.status_code
                 result = RESULT_SUCCESS if status_code < 400 else RESULT_FAILURE
 
-                AuditLog.objects.create(
+                _create_audit_log_safe(
                     action=action,
                     category=category,
                     result=result,
@@ -138,7 +145,7 @@ def audit_log(action, category, target_model=""):
 
                 return response
             except Exception:
-                AuditLog.objects.create(
+                _create_audit_log_safe(
                     action=action,
                     category=category,
                     result=RESULT_ERROR,
@@ -189,7 +196,7 @@ def audit_log_auth(action):
                 status_code = response.status_code
                 result = RESULT_SUCCESS if status_code < 400 else RESULT_FAILURE
 
-                AuditLog.objects.create(
+                _create_audit_log_safe(
                     action=action,
                     category=CATEGORY_AUTH,
                     result=result,
@@ -205,7 +212,7 @@ def audit_log_auth(action):
 
                 return response
             except Exception:
-                AuditLog.objects.create(
+                _create_audit_log_safe(
                     action=action,
                     category=CATEGORY_AUTH,
                     result=RESULT_ERROR,
