@@ -44,6 +44,10 @@ class Invoice(models.Model):
     tags = models.ManyToManyField(Tag, related_name="invoices", blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
+    @property
+    def payments(self):
+        return self.payment_set
+
     def set_value(self, value):
         self.value += value
         self.value_open += value
