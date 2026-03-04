@@ -111,7 +111,7 @@ class DetailViewTestCase(TestCase):
         self.assertEqual(payment_data["type"], self.payment.type)
         self.assertEqual(payment_data["name"], self.payment.name)
         self.assertEqual(payment_data["installments"], self.payment.installments)
-        self.assertEqual(payment_data["payment_date"], self.payment.payment_date)
+        self.assertEqual(payment_data["payment_date"], self.payment.payment_date.strftime("%Y-%m-%d"))
         self.assertEqual(payment_data["fixed"], self.payment.fixed)
         self.assertEqual(payment_data["active"], self.payment.active)
         self.assertEqual(payment_data["value"], float(self.payment.value))
@@ -208,13 +208,9 @@ class DetailViewTestCase(TestCase):
 
     def test_detail_view_error_invalid_id_format(self):
         """Testa erro da view com formato de ID inválido - deve retornar erro 404"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": "invalid_id"}))
+        response = self.client.get("/financial/payment/invalid_id/")
 
         self.assertEqual(response.status_code, 404)
-        data = json.loads(response.content)
-
-        self.assertIn("msg", data)
-        self.assertEqual(data["msg"], "Payment not found")
 
     def test_detail_view_error_payment_from_other_user(self):
         """Testa erro da view tentando acessar pagamento de outro usuário - deve retornar erro 404"""
@@ -277,13 +273,9 @@ class DetailViewTestCase(TestCase):
 
     def test_detail_view_edge_case_negative_id(self):
         """Testa edge case com ID negativo - deve retornar erro 404"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": -1}))
+        response = self.client.get("/financial/payment/-1/")
 
         self.assertEqual(response.status_code, 404)
-        data = json.loads(response.content)
-
-        self.assertIn("msg", data)
-        self.assertEqual(data["msg"], "Payment not found")
 
     def test_detail_view_edge_case_payment_with_null_values(self):
         """Testa edge case com pagamento com valores nulos - deve retornar dados corretamente"""

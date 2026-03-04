@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
@@ -138,12 +139,12 @@ class ImportedPayment(models.Model):
     status = models.CharField(max_length=32, default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
     status_description = models.TextField(max_length=1024, blank=True)
 
-    raw_type = models.IntegerField(choices=Payment.TYPES)
-    raw_name = models.TextField(max_length=255)
+    raw_type = models.IntegerField(choices=Payment.TYPES, default=Payment.TYPE_DEBIT)
+    raw_name = models.TextField(max_length=255, default="")
     raw_description = models.TextField(max_length=1024, blank=True)
-    raw_date = models.DateField()
-    raw_installments = models.IntegerField()
-    raw_payment_date = models.DateField()
+    raw_date = models.DateField(default=date.today)
+    raw_installments = models.IntegerField(default=1)
+    raw_payment_date = models.DateField(default=date.today)
     raw_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
     raw_tags = models.ManyToManyField(Tag, related_name="imported_payment", blank=True)
 
