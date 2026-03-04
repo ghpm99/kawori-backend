@@ -13,6 +13,7 @@ from kawori.utils import boolean, format_date, paginate
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from payment.models import Payment
+from tag.models import Tag
 
 
 def parse_type(value: str) -> int:
