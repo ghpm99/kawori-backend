@@ -9,6 +9,8 @@ from django.views.decorators.http import require_GET, require_POST
 
 from budget.models import Budget
 from budget.services import DEFAULT_BUDGETS
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from kawori.decorators import validate_user
 from payment.models import Payment
 
@@ -106,6 +108,7 @@ def get_all_budgets_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("budget.update", CATEGORY_FINANCIAL, "Budget")
 def save_budget_view(request, user):
     data = json.loads(request.body)
     for item in data.get("data", []):
@@ -119,6 +122,7 @@ def save_budget_view(request, user):
 
 @require_GET
 @validate_user("financial")
+@audit_log("budget.reset", CATEGORY_FINANCIAL, "Budget")
 def reset_budget_allocation_view(request, user):
     budget_list = Budget.objects.filter(user=user)
     for budget in budget_list:

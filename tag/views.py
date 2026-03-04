@@ -5,6 +5,8 @@ from django.views.decorators.http import require_GET, require_POST
 from django.db.models import Sum, Count, Q
 
 
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from kawori.decorators import validate_user
 from tag.models import Tag
 
@@ -65,6 +67,7 @@ def detail_tag_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("tag.create", CATEGORY_FINANCIAL, "Tag")
 def include_new_tag_view(request, user):
     data = json.loads(request.body)
 
@@ -92,6 +95,7 @@ def include_new_tag_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("tag.update", CATEGORY_FINANCIAL, "Tag")
 def save_tag_view(request, id, user):
     tag = Tag.objects.filter(id=id, user=user).first()
 

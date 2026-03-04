@@ -3,6 +3,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from lib import pusher
 from remote.models import Config, Screenshot
+from audit.decorators import audit_log
+from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
 from django.views.decorators.http import require_POST, require_GET
 from django.core.files import File
@@ -12,6 +14,7 @@ import os
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.send_command", CATEGORY_REMOTE)
 def send_command_view(request, user):
     pusher.send_command(json.loads(request.body).get("cmd"))
     return JsonResponse({"msg": "ok"})
@@ -27,6 +30,7 @@ def screen_size_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.hotkey", CATEGORY_REMOTE)
 def hotkey_view(request, user):
     data = json.loads(request.body)
     hotkey = data.get("hotkey")
@@ -36,6 +40,7 @@ def hotkey_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.key_press", CATEGORY_REMOTE)
 def key_press_view(request, user):
     data = json.loads(request.body)
     keys = data.get("keys")
@@ -45,6 +50,7 @@ def key_press_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.mouse_move", CATEGORY_REMOTE)
 def mouse_move_view(request, user):
     data = json.loads(request.body)
     x = data.get("x")
@@ -55,6 +61,7 @@ def mouse_move_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.mouse_button", CATEGORY_REMOTE)
 def mouse_button_view(request, user):
     data = json.loads(request.body)
     button = data.get("button")
@@ -64,6 +71,7 @@ def mouse_button_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.save_screenshot", CATEGORY_REMOTE)
 def save_screenshot_view(request, user):
     req_files = request.FILES
     if not req_files.get("image"):
@@ -90,6 +98,7 @@ def save_screenshot_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.mouse_scroll", CATEGORY_REMOTE)
 def mouse_scroll_view(request, user):
     data = json.loads(request.body)
     value = data.get("value")
@@ -99,6 +108,7 @@ def mouse_scroll_view(request, user):
 
 @require_POST
 @validate_user("admin")
+@audit_log("remote.mouse_move_and_button", CATEGORY_REMOTE)
 def mouse_move_and_button(request, user):
     data = json.loads(request.body)
     x = data.get("x")

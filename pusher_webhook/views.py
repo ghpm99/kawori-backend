@@ -1,15 +1,19 @@
+from audit.decorators import audit_log, audit_log_auth
+from audit.models import CATEGORY_PUSHER
 from kawori.decorators import validate_user
 from django.views.decorators.http import require_POST
 from lib import pusher
 
 
 @require_POST
+@audit_log_auth("pusher.webhook")
 def pusher_webhook(request):
     return pusher.webhook(request)
 
 
 @require_POST
 @validate_user("admin")
+@audit_log("pusher.auth", CATEGORY_PUSHER)
 def pusher_auth(request, user):
     values = request.body.decode("utf-8").split("&")
     socket_id = ""

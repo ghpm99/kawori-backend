@@ -13,6 +13,8 @@ from django.views.decorators.http import require_GET, require_POST
 from PIL import Image, ImageOps
 
 from facetexture.models import BDOClass, Character, Facetexture
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FACETEXTURE
 from kawori.decorators import validate_user
 from kawori.utils import get_image_class, get_symbol_class
 
@@ -61,6 +63,7 @@ def get_facetexture_config(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("facetexture.save", CATEGORY_FACETEXTURE, "Facetexture")
 def save_detail_view(request, user):
 
     data = json.loads(request.body)
@@ -109,6 +112,7 @@ def get_bdo_class(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("facetexture.preview", CATEGORY_FACETEXTURE, "Facetexture")
 def preview_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -167,6 +171,7 @@ def preview_background(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("facetexture.download", CATEGORY_FACETEXTURE, "Facetexture")
 def download_background(request, user):
     req_files = request.FILES
     if not req_files.get("background"):
@@ -231,6 +236,7 @@ def download_background(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.reorder", CATEGORY_FACETEXTURE, "Character")
 def reorder_character(request, user, id):
     data = json.loads(request.body)
     index_destination = data.get("index_destination")
@@ -309,6 +315,7 @@ def reorder_character(request, user, id):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.change_class", CATEGORY_FACETEXTURE, "Character")
 def change_class_character(request, user, id):
 
     data = json.loads(request.body)
@@ -341,6 +348,7 @@ def change_class_character(request, user, id):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.change_name", CATEGORY_FACETEXTURE, "Character")
 def change_character_name(request, user, id):
 
     data = json.loads(request.body)
@@ -359,6 +367,7 @@ def change_character_name(request, user, id):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.create", CATEGORY_FACETEXTURE, "Character")
 def new_character(request, user):
     MAXIMUM_FACETEXTURE_CHARACTERS = 44
     character_count = Character.objects.filter(user=user, active=True).count()
@@ -414,6 +423,7 @@ def new_character(request, user):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.toggle_icon", CATEGORY_FACETEXTURE, "Character")
 def change_show_class_icon(request, user, id):
 
     data = json.loads(request.body)
@@ -432,6 +442,7 @@ def change_show_class_icon(request, user, id):
 
 @require_POST
 @validate_user("blackdesert")
+@audit_log("character.delete", CATEGORY_FACETEXTURE, "Character")
 def delete_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 

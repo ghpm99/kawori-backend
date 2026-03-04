@@ -21,10 +21,13 @@ from authentication.utils import (
     send_password_reset_email_async,
     send_verification_email_async,
 )
+from audit.decorators import audit_log, audit_log_auth
+from audit.models import CATEGORY_AUTH
 from kawori.decorators import validate_user
 
 
 @require_POST
+@audit_log_auth("login")
 def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     req = json.loads(request.body)
     err = []
@@ -90,6 +93,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+@audit_log_auth("logout")
 def signout_view(request: HttpRequest) -> JsonResponse:
     response = JsonResponse({"msg": "Deslogou"})
 
@@ -111,6 +115,7 @@ def signout_view(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("token.verify")
 def verify_token(request: HttpRequest) -> JsonResponse:
 
     access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
@@ -138,6 +143,7 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("token.refresh")
 def refresh_token(request: HttpRequest) -> JsonResponse:
 
     refresh_token_cookie = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
@@ -168,6 +174,7 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("signup")
 def signup_view(request: HttpRequest) -> JsonResponse:
     data = json.loads(request.body)
 
@@ -231,6 +238,7 @@ _RESET_GENERIC_MSG = "Se o e-mail estiver cadastrado, você receberá as instru�
 
 
 @require_POST
+@audit_log_auth("password_reset.request")
 def request_password_reset(request: HttpRequest) -> JsonResponse:
     """
     Solicita a redefinição de senha.
@@ -269,6 +277,7 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+@audit_log_auth("password_reset.validate")
 def validate_reset_token(request: HttpRequest) -> JsonResponse:
     """
     Valida se um token de reset ainda é válido (não usado e não expirado).
@@ -303,6 +312,7 @@ def validate_reset_token(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("password_reset.confirm")
 def confirm_password_reset(request: HttpRequest) -> JsonResponse:
     """
     Confirma a redefinição de senha com o token recebido por e-mail.
@@ -360,6 +370,7 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@audit_log_auth("email.verify")
 def verify_email(request: HttpRequest) -> JsonResponse:
     """
     Verifica o email do usuário usando o token recebido por email.
@@ -406,6 +417,7 @@ def verify_email(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 @validate_user("user")
+@audit_log("email.resend_verification", CATEGORY_AUTH)
 def resend_verification_email(request: HttpRequest, user: User) -> JsonResponse:
     """
     Reenvia o email de verificação para o usuário autenticado.

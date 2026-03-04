@@ -8,6 +8,8 @@ from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
 from kawori.decorators import validate_user
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from kawori.utils import paginate
 
 
@@ -42,6 +44,7 @@ def get_all_contract_view(request, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("contract.create", CATEGORY_FINANCIAL, "Contract")
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
     contract = Contract(name=data.get("name"), user=user)
@@ -110,6 +113,7 @@ def detail_contract_invoices_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("contract.invoice.create", CATEGORY_FINANCIAL, "Invoice")
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
 
@@ -146,6 +150,7 @@ def include_new_invoice_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("contract.merge", CATEGORY_FINANCIAL, "Contract")
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
 
@@ -168,6 +173,7 @@ def merge_contract_view(request, id, user):
 
 @require_POST
 @validate_user("financial")
+@audit_log("contract.update_all_values", CATEGORY_FINANCIAL, "Contract")
 def update_all_contracts_value(request, user):
     contracts = Contract.objects.all()
     for contract in contracts:
