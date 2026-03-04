@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date as Date, timedelta
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from functools import reduce
 from typing import Dict, List, Optional, TypedDict
 
@@ -190,7 +190,7 @@ def process_csv_installments(installments_str: str) -> int:
 def process_csv_value(value_str: str) -> Decimal:
     try:
         return Decimal(value_str)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, InvalidOperation):
         return Decimal(0.0)
 
 
@@ -322,6 +322,7 @@ def _normalize_text(s: str) -> str:
     s = s.lower()
     s = re.sub(r"\s+", " ", s)
     s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\s+", " ", s)
     return s.strip()
 
 
