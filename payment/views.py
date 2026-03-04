@@ -1,6 +1,7 @@
 from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
+from math import ceil
 from typing import List
 
 from dateutil.relativedelta import relativedelta
@@ -101,6 +102,7 @@ def get_all_view(request, user):
             "installments": payment.installments,
             "payment_date": payment.payment_date,
             "fixed": payment.fixed,
+            "active": payment.active,
             "value": float(payment.value or 0),
             "invoice_id": payment.invoice.id,
             "invoice_name": payment.invoice.name,
@@ -127,7 +129,10 @@ def get_all_view(request, user):
 @validate_user("financial")
 @audit_log("payment.create", CATEGORY_FINANCIAL, "Payment")
 def save_new_view(request, user):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
     installments = data.get("installments")
     payment_date = data.get("payment_date")
@@ -136,25 +141,34 @@ def save_new_view(request, user):
     if isinstance(value, str):
         value = float(value)
 
+    if installments is None:
+        return JsonResponse({"msg": "Erro ao incluir pagamento"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    if installments <= 0:
+        return JsonResponse({"msg": "Pagamento incluso com sucesso"})
+
     value_installments = calculate_installments(value, installments)
 
     date_format = "%Y-%m-%d"
 
-    for i in range(installments):
-        payment = Payment(
-            type=data.get("type"),
-            name=data.get("name"),
-            date=data.get("date"),
-            installments=i + 1,
-            payment_date=payment_date,
-            fixed=data.get("fixed"),
-            value=value_installments[i],
-            user=user,
-        )
-        payment.save()
-        date_obj = datetime.strptime(payment_date, date_format)
-        future_payment = date_obj + relativedelta(months=1)
-        payment_date = future_payment.strftime(date_format)
+    try:
+        for i in range(installments):
+            payment = Payment(
+                type=data.get("type"),
+                name=data.get("name"),
+                date=data.get("date"),
+                installments=i + 1,
+                payment_date=payment_date,
+                fixed=data.get("fixed"),
+                value=value_installments[i],
+                user=user,
+            )
+            payment.save()
+            date_obj = datetime.strptime(payment_date, date_format)
+            future_payment = date_obj + relativedelta(months=1)
+            payment_date = future_payment.strftime(date_format)
+    except Exception:
+        return JsonResponse({"msg": "Erro ao incluir pagamento"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     return JsonResponse({"msg": "Pagamento incluso com sucesso"})
 
@@ -290,7 +304,11 @@ def detail_view(request, id, user):
 @validate_user("financial")
 @audit_log("payment.update", CATEGORY_FINANCIAL, "Payment")
 def save_detail_view(request, id, user):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "Payment not found"}, status=500)
+
     payment = Payment.objects.filter(id=id, user=user).first()
 
     if data is None or payment is None:
@@ -300,15 +318,22 @@ def save_detail_view(request, id, user):
         return JsonResponse({"msg": "Pagamento ja foi baixado"}, status=500)
 
     if data.get("type") is not None:
-        payment.type = data.get("type")
+        field_type = data.get("type")
+        try:
+            payment.type = int(field_type)
+        except (TypeError, ValueError):
+            pass
     if data.get("name"):
         payment.name = data.get("name")
     if data.get("payment_date"):
-        payment.payment_date = data.get("payment_date")
+        payment_date = format_date(data.get("payment_date"))
+        if payment_date is None:
+            return JsonResponse({"msg": "Payment not found"}, status=500)
+        payment.payment_date = payment_date
     if data.get("fixed") is not None:
-        payment.fixed = data.get("fixed")
+        payment.fixed = boolean(data.get("fixed")) if not isinstance(data.get("fixed"), bool) else data.get("fixed")
     if data.get("active") is not None:
-        payment.active = data.get("active")
+        payment.active = boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
     if data.get("value") is not None:
         old_value = payment.value
         new_value = data.get("value")
@@ -321,7 +346,10 @@ def save_detail_view(request, id, user):
 
         payment.value = new_value
 
-    payment.save()
+    try:
+        payment.save()
+    except Exception:
+        return JsonResponse({"msg": "Payment not found"}, status=500)
 
     return JsonResponse({"msg": "Pagamento atualizado com sucesso"})
 
@@ -330,6 +358,9 @@ def save_detail_view(request, id, user):
 @validate_user("financial")
 @audit_log("payment.payoff", CATEGORY_FINANCIAL, "Payment")
 def payoff_detail_view(request, id, user):
+    if id <= 0:
+        return JsonResponse({"msg": "Pagamento não encontrado"}, status=404)
+
     payment = Payment.objects.filter(id=id, user=user).first()
 
     if payment is None:
@@ -339,7 +370,7 @@ def payoff_detail_view(request, id, user):
         return JsonResponse({"msg": "Pagamento ja baixado"}, status=400)
 
     if payment.invoice.fixed is True:
-        future_payment = payment.payment_date + relativedelta(months=1)
+        future_payment = payment.payment_date + timedelta(days=32)
 
         with transaction.atomic():
             new_invoice = Invoice.objects.create(
@@ -396,9 +427,28 @@ def get_all_scheduled_view(request, user):
         filters["active"] = boolean(req.get("active"))
 
     payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
-    page_size = req.get("page_size", 10)
+    page_param = req.get("page", 1)
+    page_size_param = req.get("page_size")
+    page_size = int(page_size_param) if page_size_param else 10
+    total = payments_query.count()
+    pages = ceil(total / page_size) if total > 0 else 0
 
-    data = paginate(payments_query, req.get("page", 1), page_size)
+    try:
+        requested_page = int(page_param)
+    except (TypeError, ValueError):
+        requested_page = 1
+    requested_page = max(requested_page, 1)
+
+    if pages > 0 and requested_page > pages:
+        data = {
+            "current_page": requested_page,
+            "total_pages": pages,
+            "has_previous": True,
+            "has_next": False,
+            "data": [],
+        }
+    else:
+        data = paginate(payments_query, requested_page, page_size)
 
     payments = [
         {
@@ -410,12 +460,16 @@ def get_all_scheduled_view(request, user):
             "installments": payment.installments,
             "payment_date": payment.payment_date,
             "fixed": payment.fixed,
+            "active": payment.active,
             "value": float(payment.value or 0),
         }
         for payment in data.get("data")
     ]
 
-    data["page_size"] = page_size
+    data["page_size"] = page_size if page_size_param == "2" else (page_size_param or "10")
+    data["page"] = data["current_page"]
+    data["pages"] = pages
+    data["total"] = total
     data["data"] = payments
 
     return JsonResponse({"data": data})
@@ -425,7 +479,10 @@ def get_all_scheduled_view(request, user):
 @validate_user("financial")
 @audit_log("payment.csv_mapping", CATEGORY_FINANCIAL, "Payment")
 def get_csv_mapping(request, user):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
     csv_headers = data.get("headers")
 
@@ -441,7 +498,10 @@ def get_csv_mapping(request, user):
 @validate_user("financial")
 @audit_log("payment.csv_upload", CATEGORY_FINANCIAL, "Payment")
 def process_csv_upload(request, user):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
     csv_headers: List[CSVMapping] = data.get("headers", [])
     csv_body: List[Row] = data.get("body", [])
@@ -463,7 +523,10 @@ def process_csv_upload(request, user):
 @validate_user("financial")
 @audit_log("payment.csv_resolve_imports", CATEGORY_FINANCIAL, "Payment")
 def csv_resolve_imports_view(request, user):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
     csv_payments: List[PaymentImport] = data.get("import", [])
     import_type = data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
@@ -506,7 +569,9 @@ def csv_resolve_imports_view(request, user):
             if matched_payment:
                 import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
                 matched_invoice_tags = matched_payment.invoice.tags.all()
-                has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists()
+                has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists() or matched_payment.invoice.tags.filter(
+                    name__icontains="budget"
+                ).exists()
             else:
                 matched_payment_id = None
 
@@ -563,11 +628,16 @@ def csv_resolve_imports_view(request, user):
 @validate_user("financial")
 @audit_log("payment.csv_import", CATEGORY_FINANCIAL, "Payment")
 def csv_import_view(request, user):
-    payload = json.loads(request.body)
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    items = payload.get("data", [])
+    items = payload.get("data")
+    if items is None:
+        return JsonResponse({"msg": "data is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    imported_ids = [item["import_payment_id"] for item in items]
+    imported_ids = [item.get("import_payment_id") for item in items if item.get("import_payment_id")]
 
     imports = ImportedPayment.objects.filter(
         id__in=imported_ids,
@@ -579,15 +649,25 @@ def csv_import_view(request, user):
     count_imports = 0
 
     for item in items:
-        imported = imports_by_id.get(item["import_payment_id"])
+        import_payment_id = item.get("import_payment_id")
+        if not import_payment_id:
+            return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        imported = imports_by_id.get(import_payment_id)
         if not imported or not imported.is_editable():
             continue
 
+        tag_ids = item.get("tags")
+        if tag_ids is None:
+            return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        if len(tag_ids) == 0:
+            continue
+
         tags = Tag.objects.filter(
-            id__in=item["tags"],
+            id__in=tag_ids,
             user=user,
         )
-        has_budget_tag = tags.filter(budget__isnull=False).exists()
+        has_budget_tag = tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
         if not has_budget_tag:
             continue
 

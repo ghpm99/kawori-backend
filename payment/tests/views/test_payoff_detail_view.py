@@ -516,7 +516,7 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_edge_case_invalid_id_format(self):
         """Testa edge case com formato de ID inválido - deve retornar erro 400"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": "invalid_id"})
+            "/financial/payment/invalid_id/payoff"
         )
 
         self.assertEqual(response.status_code, 404)  # Django trata como não encontrado
@@ -532,7 +532,7 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_edge_case_negative_id(self):
         """Testa edge case com ID negativo - deve retornar erro 400"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": -1})
+            "/financial/payment/-1/payoff"
         )
 
         self.assertEqual(response.status_code, 404)
