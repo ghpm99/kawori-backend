@@ -177,7 +177,7 @@ class GetBDOClassSymbolURLTest(TestCase):
         class_image_url = "http://testserver/static/images/class_image.png"
         mock_get_bdo_class_image_url.return_value = class_image_url
 
-        response = self.client.get("/facetexture/class", data={"id": 1})
+        response = self.client.get("/facetexture/class", data={"id": self.bdo_class_warrior.id})
         response_body = json.loads(response.content)
         class_data = response_body["class"]
 
@@ -405,7 +405,7 @@ class GetBDOClassSymbolURLTest(TestCase):
                 "class": {
                     "abbreviation": "Wt",
                     "class_image": class_image_url,
-                    "id": 2,
+                    "id": self.bdo_class_witch.id,
                     "name": "Witch",
                 },
                 "id": character.id,
@@ -478,7 +478,7 @@ class GetBDOClassSymbolURLTest(TestCase):
         self.assertFalse(character.active)
 
     def test_get_symbol_class_view(self):
-        response = self.client.get(reverse("facetexture_get_symbol_class", args=[1]))
+        response = self.client.get(reverse("facetexture_get_symbol_class", args=[self.bdo_class_warrior.id]))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/png")
