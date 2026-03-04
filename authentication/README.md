@@ -337,6 +337,102 @@ ou
 ```
 - `405 Method Not Allowed` para metodos diferentes de `POST`.
 
+---
+
+### 12) GET `/auth/social/providers/`
+Objetivo: listar provedores OAuth habilitados por configuracao.
+
+Retornos:
+- `200 OK`
+```json
+{
+  "providers": [
+    {"provider": "google", "name": "Google", "scopes": ["openid", "email", "profile"]}
+  ]
+}
+```
+
+---
+
+### 13) GET `/auth/social/<provider>/authorize/`
+Objetivo: iniciar fluxo OAuth e retornar a URL de autorizacao no provedor.
+
+Query params:
+- `mode` (opcional): `login` (padrao) ou `link`.
+- `frontend_redirect_uri` (opcional): URL final no frontend para receber resultado do callback.
+
+Retornos:
+- `200 OK`
+```json
+{
+  "provider": "google",
+  "mode": "login",
+  "authorize_url": "https://accounts.google.com/..."
+}
+```
+- `401 Unauthorized` quando `mode=link` sem usuario autenticado.
+- `404 Not Found` quando provedor nao suportado ou nao configurado.
+
+---
+
+### 14) GET `/auth/social/<provider>/callback/`
+Objetivo: concluir OAuth (troca `code`, identifica usuario, cria/vincula conta social e faz login quando aplicavel).
+
+Query params esperados:
+- `code`
+- `state`
+
+Comportamento:
+- Usuario nao autenticado:
+1. se ja houver vinculo `provider + provider_user_id`, autentica nessa conta;
+2. senao, se email social existir no sistema, vincula e autentica;
+3. senao, cria novo usuario, vincula e autentica.
+- Usuario autenticado em `mode=link`: vincula a conta social ao usuario atual, mesmo com email diferente.
+
+Retornos:
+- `200 OK` JSON (sem `frontend_redirect_uri`) ou `302` redirecionando para frontend.
+- `409 Conflict` em conflito de vinculo (conta social ja vinculada a outro usuario).
+- `400 Bad Request` para estado OAuth invalido/expirado, perfil sem ID ou falha de troca de token.
+
+---
+
+### 15) GET `/auth/social/accounts/`
+Objetivo: listar contas sociais vinculadas ao usuario autenticado.
+
+Retornos:
+- `200 OK`
+```json
+{
+  "accounts": [
+    {
+      "provider": "google",
+      "email": "user@example.com",
+      "is_email_verified": true,
+      "full_name": "User Name",
+      "avatar_url": "https://...",
+      "linked_at": "2026-03-04T00:00:00+00:00",
+      "last_login_at": "2026-03-04T00:30:00+00:00"
+    }
+  ]
+}
+```
+
+---
+
+### 16) POST `/auth/social/accounts/<provider>/unlink/`
+Objetivo: desvincular conta social do usuario autenticado.
+
+Regras:
+- nao permite remover a unica forma de acesso se o usuario nao tiver senha utilizavel.
+
+Retornos:
+- `200 OK`
+```json
+{"msg": "Conta social desvinculada."}
+```
+- `400 Bad Request` quando a conta social e a unica forma de login.
+- `404 Not Found` quando nao existir vinculo para o provedor.
+
 ## Fluxos
 
 ### Fluxo de login
@@ -375,3 +471,9 @@ ou
 - Nao existe endpoint de "alterar senha autenticado" (senha atual -> nova senha) neste app; o fluxo implementado e de redefinicao por token de email.
 - Algumas mensagens de erro de token (`<detalhe do simplejwt>`) variam conforme o tipo de falha (expirado, formato invalido, etc.).
 - Em `signup` e `token`, JSON malformado nao e tratado explicitamente na view.
+- Para habilitar login social e preciso configurar no ambiente:
+`SOCIAL_GOOGLE_CLIENT_ID`, `SOCIAL_GOOGLE_CLIENT_SECRET`,
+`SOCIAL_DISCORD_CLIENT_ID`, `SOCIAL_DISCORD_CLIENT_SECRET`,
+`SOCIAL_GITHUB_CLIENT_ID`, `SOCIAL_GITHUB_CLIENT_SECRET`,
+`SOCIAL_FACEBOOK_CLIENT_ID`, `SOCIAL_FACEBOOK_CLIENT_SECRET`,
+`SOCIAL_MICROSOFT_CLIENT_ID`, `SOCIAL_MICROSOFT_CLIENT_SECRET`.
