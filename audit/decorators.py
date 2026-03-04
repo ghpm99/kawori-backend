@@ -3,6 +3,7 @@ from functools import wraps
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.http import RawPostDataException
 from rest_framework_simplejwt.tokens import AccessToken
 
 from audit.models import (
@@ -63,7 +64,20 @@ def sanitize_query_params(request):
 
 
 def sanitize_request_detail(request):
-    detail = sanitize_body(request.body)
+    content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+
+    if content_type.startswith("multipart/form-data"):
+        detail = {}
+        for key in request.POST.keys():
+            values = request.POST.getlist(key)
+            value = values[0] if len(values) == 1 else values
+            detail[key] = _sanitize_value(key, value)
+    else:
+        try:
+            detail = sanitize_body(request.body)
+        except RawPostDataException:
+            detail = {}
+
     query_params = sanitize_query_params(request)
 
     if query_params:

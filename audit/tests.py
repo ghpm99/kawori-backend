@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import JsonResponse
 from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
@@ -470,6 +471,17 @@ class AuditDecoratorsRegressionTestCase(TestCase):
         detail = sanitize_request_detail(req_non_dict)
         self.assertEqual(detail["body"], ["item"])
         self.assertEqual(detail["query_params"]["q"], "x")
+
+    def test_sanitize_request_detail_handles_multipart_after_stream_read(self):
+        uploaded_file = SimpleUploadedFile("bg.png", b"png", content_type="image/png")
+        request = self.rf.post("/x?token=abc", {"icon_style": "P", "password": "secret", "background": uploaded_file})
+
+        _ = request.POST
+        detail = sanitize_request_detail(request)
+
+        self.assertEqual(detail["icon_style"], "P")
+        self.assertEqual(detail["password"], "***")
+        self.assertEqual(detail["query_params"]["token"], "***")
 
     def test_get_user_from_access_token_missing_user_id_and_invalid_token(self):
         valid_token = str(AccessToken.for_user(self.user))
