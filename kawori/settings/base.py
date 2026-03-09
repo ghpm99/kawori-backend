@@ -117,8 +117,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(weeks=4),
     "ALGORITHM": "HS256",
 }
-ACCESS_TOKEN_NAME = "access_token"
-REFRESH_TOKEN_NAME = "refresh_token"
+ACCESS_TOKEN_NAME = "access_token"  # nosec B105
+REFRESH_TOKEN_NAME = "refresh_token"  # nosec B105
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
@@ -150,7 +150,7 @@ STATIC_URL = "/static/"
 
 ENV_PUSHER_APP_ID = ""
 ENV_PUSHER_KEY = ""
-ENV_PUSHER_SECRET = ""
+ENV_PUSHER_SECRET = ""  # nosec B105
 ENV_PUSHER_CLUSTER = ""
 
 # ========== Google Cloud Storage ==========

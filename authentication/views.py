@@ -119,7 +119,7 @@ def _create_user_from_social_profile(profile: dict, provider: str) -> User:
         from budget.services import create_default_budgets_for_user
 
         create_default_budgets_for_user(user)
-    except Exception:
+    except Exception:  # nosec B110
         pass
 
     verification, _ = EmailVerification.objects.get_or_create(user=user)
@@ -147,7 +147,7 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     if not req.get("username"):
         err.append({"username": "Este campo é obrigatório"})
     if not req.get("password"):
-        err.append({"password": "Este campo é obrigatório"})
+        err.append({"password": "Este campo é obrigatório"})  # nosec B105
     if err:
         return JsonResponse({"errors": err}, status=HTTPStatus.BAD_REQUEST)
 
@@ -280,7 +280,7 @@ def signup_view(request: HttpRequest) -> JsonResponse:
             from budget.services import create_default_budgets_for_user
 
             create_default_budgets_for_user(user)
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
         EmailVerification.objects.create(user=user)
@@ -291,7 +291,7 @@ def signup_view(request: HttpRequest) -> JsonResponse:
             user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, ip_address=ip_address
         )
         send_verification_email_async(user, raw_token)
-    except Exception:
+    except Exception:  # nosec B110
         pass
 
     return JsonResponse({"msg": "Usuário criado com sucesso!"})

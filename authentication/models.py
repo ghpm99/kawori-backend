@@ -11,8 +11,8 @@ class UserToken(models.Model):
     class Meta:
         db_table = "auth_user_token"
 
-    TOKEN_TYPE_PASSWORD_RESET = "password_reset"
-    TOKEN_TYPE_EMAIL_VERIFICATION = "email_verification"
+    TOKEN_TYPE_PASSWORD_RESET = "password_reset"  # nosec B105
+    TOKEN_TYPE_EMAIL_VERIFICATION = "email_verification"  # nosec B105
     TOKEN_TYPE_CHOICES = [
         (TOKEN_TYPE_PASSWORD_RESET, "Password Reset"),
         (TOKEN_TYPE_EMAIL_VERIFICATION, "Email Verification"),

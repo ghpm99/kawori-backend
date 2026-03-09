@@ -55,7 +55,7 @@ class Command(BaseCommand):
 
         json = {"data": payments}
 
-        requests.post(url, json=json)
+        requests.post(url, json=json, timeout=30)
 
     def run_command(self):
         # locale.setlocale(locale.LC_MONETARY, 'pt_BR.utf8')

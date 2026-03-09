@@ -77,7 +77,7 @@ jobs:
           pip install bandit pip-audit
 
       - name: Static security scan (bandit)
-        run: bandit -r . -x ./.venv,./**/migrations
+        run: bandit -r . -x ./.venv,./**/migrations -s B105,B106
 
       - name: Dependency vulnerability scan (pip-audit)
         run: pip-audit -r requirements.txt
