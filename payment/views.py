@@ -192,8 +192,7 @@ def get_payments_month(request, user):
         invoices_query = invoices_query.filter(payment_date__lte=date_to)
 
     invoices = (
-        invoices_query
-        .annotate(payment_month=TruncMonth("payment_date"))
+        invoices_query.annotate(payment_month=TruncMonth("payment_date"))
         .values("payment_month")
         .annotate(
             total_value_credit=Sum(
@@ -318,7 +317,9 @@ def save_detail_view(request, id, user):
         if data.get("fixed") is not None:
             payment.fixed = boolean(data.get("fixed")) if not isinstance(data.get("fixed"), bool) else data.get("fixed")
         if data.get("active") is not None:
-            payment.active = boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
+            payment.active = (
+                boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
+            )
         if data.get("value") is not None:
             old_value = payment.value
             new_value = data.get("value")
@@ -555,9 +556,10 @@ def csv_resolve_imports_view(request, user):
                 if matched_payment:
                     import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
                     matched_invoice_tags = matched_payment.invoice.tags.all()
-                    has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists() or matched_payment.invoice.tags.filter(
-                        name__icontains="budget"
-                    ).exists()
+                    has_budget_tag = (
+                        matched_payment.invoice.tags.filter(budget__isnull=False).exists()
+                        or matched_payment.invoice.tags.filter(name__icontains="budget").exists()
+                    )
                 else:
                     matched_payment_id = None
 
@@ -654,7 +656,9 @@ def csv_import_view(request, user):
                 id__in=tag_ids,
                 user=user,
             )
-            has_budget_tag = tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
+            has_budget_tag = (
+                tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
+            )
             if not has_budget_tag:
                 continue
 
