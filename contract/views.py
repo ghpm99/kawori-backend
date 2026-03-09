@@ -1,5 +1,6 @@
 import json
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -122,34 +123,36 @@ def include_new_invoice_view(request, id, user):
     if contract is None:
         return JsonResponse({"msg": "Contract not found"}, status=404)
 
-    invoice = Invoice(
-        status=data.get("status"),
-        type=data.get("type"),
-        name=data.get("name"),
-        date=data.get("date"),
-        installments=data.get("installments"),
-        payment_date=data.get("payment_date"),
-        fixed=data.get("fixed"),
-        active=data.get("active"),
-        value=data.get("value"),
-        value_open=data.get("value"),
-        contract=contract,
-        user=user,
-    )
-    invoice.save()
     if data.get("tags"):
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
-            invoice.delete()
             return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
-        invoice.tags.set(tags)
 
-    generate_payments(invoice)
+    with transaction.atomic():
+        invoice = Invoice(
+            status=data.get("status"),
+            type=data.get("type"),
+            name=data.get("name"),
+            date=data.get("date"),
+            installments=data.get("installments"),
+            payment_date=data.get("payment_date"),
+            fixed=data.get("fixed"),
+            active=data.get("active"),
+            value=data.get("value"),
+            value_open=data.get("value"),
+            contract=contract,
+            user=user,
+        )
+        invoice.save()
+        if data.get("tags"):
+            invoice.tags.set(tags)
 
-    contract.value_open = float(contract.value_open or 0) + float(invoice.value)
-    contract.value = float(contract.value or 0) + float(invoice.value)
-    contract.save()
+        generate_payments(invoice)
+
+        contract.value_open = float(contract.value_open or 0) + float(invoice.value)
+        contract.value = float(contract.value or 0) + float(invoice.value)
+        contract.save()
 
     return JsonResponse({"msg": "Nota inclusa com sucesso"})
 
@@ -165,16 +168,17 @@ def merge_contract_view(request, id, user):
         return JsonResponse({"msg": "Contract not found"}, status=404)
     contracts = data.get("contracts") or []
 
-    for contract_id in contracts:
-        if contract_id == contract.id:
-            continue
-        invoices = Invoice.objects.filter(contract=contract_id, user=user, active=True).all()
-        for invoice in invoices:
-            invoice.contract = contract
-            invoice.save()
-        Contract.objects.filter(id=contract_id, user=user).delete()
+    with transaction.atomic():
+        for contract_id in contracts:
+            if contract_id == contract.id:
+                continue
+            invoices = Invoice.objects.filter(contract=contract_id, user=user, active=True).all()
+            for invoice in invoices:
+                invoice.contract = contract
+                invoice.save()
+            Contract.objects.filter(id=contract_id, user=user).delete()
 
-    update_contract_value(contract)
+        update_contract_value(contract)
 
     return JsonResponse({"msg": "Contratos mesclados com sucesso!"})
 
@@ -183,7 +187,8 @@ def merge_contract_view(request, id, user):
 @validate_user("financial")
 @audit_log("contract.update_all_values", CATEGORY_FINANCIAL, "Contract")
 def update_all_contracts_value(request, user):
-    contracts = Contract.objects.filter(user=user)
-    for contract in contracts:
-        update_contract_value(contract)
+    with transaction.atomic():
+        contracts = Contract.objects.filter(user=user)
+        for contract in contracts:
+            update_contract_value(contract)
     return JsonResponse({"msg": "ok"})

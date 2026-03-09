@@ -152,21 +152,22 @@ def save_new_view(request, user):
     date_format = "%Y-%m-%d"
 
     try:
-        for i in range(installments):
-            payment = Payment(
-                type=data.get("type"),
-                name=data.get("name"),
-                date=data.get("date"),
-                installments=i + 1,
-                payment_date=payment_date,
-                fixed=data.get("fixed"),
-                value=value_installments[i],
-                user=user,
-            )
-            payment.save()
-            date_obj = datetime.strptime(payment_date, date_format)
-            future_payment = date_obj + relativedelta(months=1)
-            payment_date = future_payment.strftime(date_format)
+        with transaction.atomic():
+            for i in range(installments):
+                payment = Payment(
+                    type=data.get("type"),
+                    name=data.get("name"),
+                    date=data.get("date"),
+                    installments=i + 1,
+                    payment_date=payment_date,
+                    fixed=data.get("fixed"),
+                    value=value_installments[i],
+                    user=user,
+                )
+                payment.save()
+                date_obj = datetime.strptime(payment_date, date_format)
+                future_payment = date_obj + relativedelta(months=1)
+                payment_date = future_payment.strftime(date_format)
     except Exception:
         return JsonResponse({"msg": "Erro ao incluir pagamento"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -317,39 +318,42 @@ def save_detail_view(request, id, user):
     if payment.status == Payment.STATUS_DONE:
         return JsonResponse({"msg": "Pagamento ja foi baixado"}, status=500)
 
-    if data.get("type") is not None:
-        field_type = data.get("type")
-        try:
-            payment.type = int(field_type)
-        except (TypeError, ValueError):
-            pass
-    if data.get("name"):
-        payment.name = data.get("name")
     if data.get("payment_date"):
         payment_date = format_date(data.get("payment_date"))
         if payment_date is None:
             return JsonResponse({"msg": "Payment not found"}, status=500)
-        payment.payment_date = payment_date
-    if data.get("fixed") is not None:
-        payment.fixed = boolean(data.get("fixed")) if not isinstance(data.get("fixed"), bool) else data.get("fixed")
-    if data.get("active") is not None:
-        payment.active = boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
-    if data.get("value") is not None:
-        old_value = payment.value
-        new_value = data.get("value")
-        if isinstance(new_value, str):
-            new_value = float(new_value)
 
-        invoice_value = float(payment.invoice.value_open - old_value) + new_value
-        payment.invoice.value_open = invoice_value
-        payment.invoice.save()
+    with transaction.atomic():
+        if data.get("type") is not None:
+            field_type = data.get("type")
+            try:
+                payment.type = int(field_type)
+            except (TypeError, ValueError):
+                pass
+        if data.get("name"):
+            payment.name = data.get("name")
+        if data.get("payment_date"):
+            payment.payment_date = payment_date
+        if data.get("fixed") is not None:
+            payment.fixed = boolean(data.get("fixed")) if not isinstance(data.get("fixed"), bool) else data.get("fixed")
+        if data.get("active") is not None:
+            payment.active = boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
+        if data.get("value") is not None:
+            old_value = payment.value
+            new_value = data.get("value")
+            if isinstance(new_value, str):
+                new_value = float(new_value)
 
-        payment.value = new_value
+            invoice_value = float(payment.invoice.value_open - old_value) + new_value
+            payment.invoice.value_open = invoice_value
+            payment.invoice.save()
 
-    try:
-        payment.save()
-    except Exception:
-        return JsonResponse({"msg": "Payment not found"}, status=500)
+            payment.value = new_value
+
+        try:
+            payment.save()
+        except Exception:
+            return JsonResponse({"msg": "Payment not found"}, status=500)
 
     return JsonResponse({"msg": "Pagamento atualizado com sucesso"})
 
@@ -369,10 +373,10 @@ def payoff_detail_view(request, id, user):
     if payment.status == 1:
         return JsonResponse({"msg": "Pagamento ja baixado"}, status=400)
 
-    if payment.invoice.fixed is True:
-        future_payment = payment.payment_date + timedelta(days=32)
+    with transaction.atomic():
+        if payment.invoice.fixed is True:
+            future_payment = payment.payment_date + timedelta(days=32)
 
-        with transaction.atomic():
             new_invoice = Invoice.objects.create(
                 type=payment.invoice.type,
                 name=payment.invoice.name,
@@ -389,10 +393,10 @@ def payoff_detail_view(request, id, user):
             new_invoice.tags.set(tags)
             generate_payments(new_invoice)
 
-    payment.status = Payment.STATUS_DONE
-    payment.save()
+        payment.status = Payment.STATUS_DONE
+        payment.save()
 
-    payment.invoice.close_value(payment.value)
+        payment.invoice.close_value(payment.value)
 
     return JsonResponse({"msg": "Pagamento baixado"})
 
@@ -536,90 +540,91 @@ def csv_resolve_imports_view(request, user):
     if import_type not in dict(ImportedPayment.IMPORT_SOURCES):
         return JsonResponse({"msg": "Tipo de importação invalido"}, status=HTTPStatus.BAD_REQUEST)
 
-    for transaction_data in csv_payments:
-        mapped_payment = transaction_data.get("mapped_payment")
-        if not mapped_payment:
-            continue
+    with transaction.atomic():
+        for transaction_data in csv_payments:
+            mapped_payment = transaction_data.get("mapped_payment")
+            if not mapped_payment:
+                continue
 
-        reference = mapped_payment.get("reference")
+            reference = mapped_payment.get("reference")
 
-        matched_payment_id = transaction_data.get("matched_payment_id")
+            matched_payment_id = transaction_data.get("matched_payment_id")
 
-        existing = ImportedPayment.objects.filter(
-            reference=reference,
-            user=user,
-        ).first()
+            existing = ImportedPayment.objects.filter(
+                reference=reference,
+                user=user,
+            ).first()
 
-        if existing and not existing.is_editable():
-            continue
+            if existing and not existing.is_editable():
+                continue
 
-        matched_invoice_tags = []
-        has_budget_tag = False
+            matched_invoice_tags = []
+            has_budget_tag = False
 
-        import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
+            import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
 
-        if matched_payment_id:
-            matched_payment = (
-                Payment.objects.filter(id=matched_payment_id, user=user)
-                .select_related("invoice")
-                .prefetch_related("invoice__tags")
-                .first()
+            if matched_payment_id:
+                matched_payment = (
+                    Payment.objects.filter(id=matched_payment_id, user=user)
+                    .select_related("invoice")
+                    .prefetch_related("invoice__tags")
+                    .first()
+                )
+
+                if matched_payment:
+                    import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
+                    matched_invoice_tags = matched_payment.invoice.tags.all()
+                    has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists() or matched_payment.invoice.tags.filter(
+                        name__icontains="budget"
+                    ).exists()
+                else:
+                    matched_payment_id = None
+
+            imported_payment, created = ImportedPayment.objects.update_or_create(
+                reference=reference,
+                user=user,
+                defaults={
+                    "merge_group": transaction_data.get("merge_group"),
+                    "matched_payment_id": matched_payment_id,
+                    "import_strategy": import_strategy,
+                    "import_source": import_type,
+                    "raw_type": mapped_payment.get("type", Payment.TYPE_DEBIT),
+                    "raw_name": mapped_payment.get("name") or "",
+                    "raw_description": mapped_payment.get("description") or "",
+                    "raw_date": mapped_payment.get("date") or datetime.now().date(),
+                    "raw_installments": mapped_payment.get("installments") or 1,
+                    "raw_payment_date": mapped_payment.get("payment_date")
+                    or mapped_payment.get("date")
+                    or datetime.now().date(),
+                    "raw_value": mapped_payment.get("value") or 0,
+                },
             )
 
-            if matched_payment:
-                import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
-                matched_invoice_tags = matched_payment.invoice.tags.all()
-                has_budget_tag = matched_payment.invoice.tags.filter(budget__isnull=False).exists() or matched_payment.invoice.tags.filter(
-                    name__icontains="budget"
-                ).exists()
-            else:
-                matched_payment_id = None
+            if import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE:
+                imported_payment.raw_tags.set(matched_invoice_tags)
 
-        imported_payment, created = ImportedPayment.objects.update_or_create(
-            reference=reference,
-            user=user,
-            defaults={
-                "merge_group": transaction_data.get("merge_group"),
-                "matched_payment_id": matched_payment_id,
-                "import_strategy": import_strategy,
-                "import_source": import_type,
-                "raw_type": mapped_payment.get("type", Payment.TYPE_DEBIT),
-                "raw_name": mapped_payment.get("name") or "",
-                "raw_description": mapped_payment.get("description") or "",
-                "raw_date": mapped_payment.get("date") or datetime.now().date(),
-                "raw_installments": mapped_payment.get("installments") or 1,
-                "raw_payment_date": mapped_payment.get("payment_date")
-                or mapped_payment.get("date")
-                or datetime.now().date(),
-                "raw_value": mapped_payment.get("value") or 0,
-            },
-        )
-
-        if import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE:
-            imported_payment.raw_tags.set(matched_invoice_tags)
-
-        created_imported_payment.append(
-            {
-                "import_payment_id": imported_payment.id,
-                "reference": imported_payment.reference,
-                "action": imported_payment.import_strategy,
-                "payment_id": matched_payment_id,
-                "name": imported_payment.raw_name,
-                "value": float(imported_payment.raw_value or 0),
-                "date": imported_payment.raw_date,
-                "payment_date": imported_payment.raw_payment_date,
-                "tags": [
-                    {
-                        "id": tag.id,
-                        "name": tag.name,
-                        "color": tag.color,
-                        "is_budget": hasattr(tag, "budget"),
-                    }
-                    for tag in matched_invoice_tags
-                ],
-                "has_budget_tag": has_budget_tag,
-            }
-        )
+            created_imported_payment.append(
+                {
+                    "import_payment_id": imported_payment.id,
+                    "reference": imported_payment.reference,
+                    "action": imported_payment.import_strategy,
+                    "payment_id": matched_payment_id,
+                    "name": imported_payment.raw_name,
+                    "value": float(imported_payment.raw_value or 0),
+                    "date": imported_payment.raw_date,
+                    "payment_date": imported_payment.raw_payment_date,
+                    "tags": [
+                        {
+                            "id": tag.id,
+                            "name": tag.name,
+                            "color": tag.color,
+                            "is_budget": hasattr(tag, "budget"),
+                        }
+                        for tag in matched_invoice_tags
+                    ],
+                    "has_budget_tag": has_budget_tag,
+                }
+            )
 
     return JsonResponse({"data": created_imported_payment})
 
@@ -648,32 +653,33 @@ def csv_import_view(request, user):
 
     count_imports = 0
 
-    for item in items:
-        import_payment_id = item.get("import_payment_id")
-        if not import_payment_id:
-            return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+    with transaction.atomic():
+        for item in items:
+            import_payment_id = item.get("import_payment_id")
+            if not import_payment_id:
+                return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-        imported = imports_by_id.get(import_payment_id)
-        if not imported or not imported.is_editable():
-            continue
+            imported = imports_by_id.get(import_payment_id)
+            if not imported or not imported.is_editable():
+                continue
 
-        tag_ids = item.get("tags")
-        if tag_ids is None:
-            return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-        if len(tag_ids) == 0:
-            continue
+            tag_ids = item.get("tags")
+            if tag_ids is None:
+                return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            if len(tag_ids) == 0:
+                continue
 
-        tags = Tag.objects.filter(
-            id__in=tag_ids,
-            user=user,
-        )
-        has_budget_tag = tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
-        if not has_budget_tag:
-            continue
+            tags = Tag.objects.filter(
+                id__in=tag_ids,
+                user=user,
+            )
+            has_budget_tag = tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
+            if not has_budget_tag:
+                continue
 
-        imported.raw_tags.set(tags)
-        imported.status = ImportedPayment.IMPORT_STATUS_QUEUED
-        imported.save(update_fields=["status"])
-        count_imports += 1
+            imported.raw_tags.set(tags)
+            imported.status = ImportedPayment.IMPORT_STATUS_QUEUED
+            imported.save(update_fields=["status"])
+            count_imports += 1
 
     return JsonResponse({"msg": "Importação iniciada", "total": count_imports})

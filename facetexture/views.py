@@ -6,7 +6,7 @@ from wsgiref.util import FileWrapper
 from zipfile import ZipFile
 
 from django.conf import settings
-from django.db import connection
+from django.db import connection, transaction
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
@@ -249,57 +249,58 @@ def reorder_character(request, user, id):
     if character is None:
         return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
 
-    query = """
-        UPDATE
-            facetexture_character
-        SET
-            "order" = %(order)s
-        WHERE
-            1 = 1
-            AND id = %(id)s
-            AND user_id = %(user)s
-    """
+    with transaction.atomic():
+        query = """
+            UPDATE
+                facetexture_character
+            SET
+                "order" = %(order)s
+            WHERE
+                1 = 1
+                AND id = %(id)s
+                AND user_id = %(user)s
+        """
 
-    with connection.cursor() as cursor:
-        cursor.execute(query, {"order": index_destination, "id": id, "user": user.id})
+        with connection.cursor() as cursor:
+            cursor.execute(query, {"order": index_destination, "id": id, "user": user.id})
 
-    query = """
-        UPDATE
-            facetexture_character
-        SET
-            "order" = (
-                CASE
-                    WHEN %(new_order)s > %(current_order)s THEN ("order" - 1)
-                    WHEN %(new_order)s < %(current_order)s THEN ("order" + 1)
+        query = """
+            UPDATE
+                facetexture_character
+            SET
+                "order" = (
+                    CASE
+                        WHEN %(new_order)s > %(current_order)s THEN ("order" - 1)
+                        WHEN %(new_order)s < %(current_order)s THEN ("order" + 1)
+                    END
+                )
+            WHERE
+                1 = 1
+                AND CASE
+                    WHEN %(new_order)s > %(current_order)s THEN (
+                        "order" <= %(new_order)s
+                        AND "order" > %(current_order)s
+                    )
+                    WHEN %(new_order)s < %(current_order)s THEN (
+                        "order" >= %(new_order)s
+                        AND "order" < %(current_order)s
+                    )
                 END
-            )
-        WHERE
-            1 = 1
-            AND CASE
-                WHEN %(new_order)s > %(current_order)s THEN (
-                    "order" <= %(new_order)s
-                    AND "order" > %(current_order)s
-                )
-                WHEN %(new_order)s < %(current_order)s THEN (
-                    "order" >= %(new_order)s
-                    AND "order" < %(current_order)s
-                )
-            END
-            AND id <> %(id)s
-            AND active = true
-            AND user_id = %(user)s
-    """
+                AND id <> %(id)s
+                AND active = true
+                AND user_id = %(user)s
+        """
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            query,
-            {
-                "current_order": character.order,
-                "new_order": index_destination,
-                "id": id,
-                "user": user.id,
-            },
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                {
+                    "current_order": character.order,
+                    "new_order": index_destination,
+                    "id": id,
+                    "user": user.id,
+                },
+            )
 
     characters = Character.objects.filter(user=user, active=True).all().order_by("order")
 

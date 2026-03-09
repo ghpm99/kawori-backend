@@ -2,6 +2,7 @@ from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -211,8 +212,10 @@ def save_tag_invoice_view(request, id, user):
     tags = Tag.objects.filter(id__in=data, user=user)
     if tags.count() != len(set(data)):
         return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
-    invoice.tags.set(tags)
-    invoice.save()
+
+    with transaction.atomic():
+        invoice.tags.set(tags)
+        invoice.save()
 
     return JsonResponse({"msg": "Etiquetas atualizadas com sucesso"})
 
@@ -248,29 +251,31 @@ def include_new_invoice_view(request, user):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    invoice = Invoice.objects.create(
-        status=Invoice.STATUS_OPEN,
-        type=invoice_type,
-        name=name,
-        date=date,
-        installments=installments,
-        payment_date=payment_date,
-        fixed=fixed,
-        active=True,
-        value=value,
-        value_open=value,
-        user=user,
-    )
-
     if data.get("tags"):
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
-            invoice.delete()
             return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
-        invoice.tags.set(tags)
 
-    generate_payments(invoice)
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            status=Invoice.STATUS_OPEN,
+            type=invoice_type,
+            name=name,
+            date=date,
+            installments=installments,
+            payment_date=payment_date,
+            fixed=fixed,
+            active=True,
+            value=value,
+            value_open=value,
+            user=user,
+        )
+
+        if data.get("tags"):
+            invoice.tags.set(tags)
+
+        generate_payments(invoice)
 
     return JsonResponse({"msg": "Nota inclusa com sucesso"})
 
@@ -285,22 +290,25 @@ def save_detail_view(request, id, user):
     if data is None or invoice is None:
         return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
 
-    if data.get("name") is not None:
-        invoice.name = data.get("name")
-
-    if data.get("date") is not None:
-        invoice.date = data.get("date")
-
-    if data.get("active") is not None:
-        invoice.active = data.get("active")
-
     if data.get("tags") is not None:
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
             return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
-        invoice.tags.set(tags)
 
-    invoice.save()
+    with transaction.atomic():
+        if data.get("name") is not None:
+            invoice.name = data.get("name")
+
+        if data.get("date") is not None:
+            invoice.date = data.get("date")
+
+        if data.get("active") is not None:
+            invoice.active = data.get("active")
+
+        if data.get("tags") is not None:
+            invoice.tags.set(tags)
+
+        invoice.save()
 
     return JsonResponse({"msg": "Nota atualizada com sucesso"})
