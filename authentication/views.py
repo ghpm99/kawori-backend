@@ -363,9 +363,7 @@ def validate_reset_token(request: HttpRequest) -> JsonResponse:
     token_hash = UserToken.hash_token(raw_token)
 
     try:
-        token_obj = UserToken.objects.get(
-            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
-        )
+        token_obj = UserToken.objects.get(token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
     except UserToken.DoesNotExist:
         return JsonResponse(
             {"valid": False, "msg": "Token inválido ou expirado."},
@@ -592,17 +590,23 @@ def social_callback(request: HttpRequest, provider: str):
         return _redirect_or_json(state_obj, {"status": "error", "msg": exc.message}, status_code=exc.status_code)
     except Exception:
         state_obj.consume()
-        return _redirect_or_json(state_obj, {"status": "error", "msg": "Falha ao concluir login social."}, status_code=400)
+        return _redirect_or_json(
+            state_obj, {"status": "error", "msg": "Falha ao concluir login social."}, status_code=400
+        )
 
     provider_user_id = (profile.get("provider_user_id") or "").strip()
     if not provider_user_id:
         state_obj.consume()
-        return _redirect_or_json(state_obj, {"status": "error", "msg": "Perfil social sem identificador único."}, status_code=400)
+        return _redirect_or_json(
+            state_obj, {"status": "error", "msg": "Perfil social sem identificador único."}, status_code=400
+        )
 
     with transaction.atomic():
-        social_account = SocialAccount.objects.select_related("user").filter(
-            provider=provider, provider_user_id=provider_user_id
-        ).first()
+        social_account = (
+            SocialAccount.objects.select_related("user")
+            .filter(provider=provider, provider_user_id=provider_user_id)
+            .first()
+        )
 
         email = (profile.get("email") or "").strip().lower()
         is_new_user = False

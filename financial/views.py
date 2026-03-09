@@ -403,7 +403,9 @@ def report_payment_view(request, user):
             {period_sql}
         ORDER BY
             fp.payments_date
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
 
     filters = {"user_id": user.id}
     if params["begin"] and params["end"]:
@@ -441,7 +443,9 @@ def report_payment_view(request, user):
             AND active=true
             AND fixed=true
             {period_sql};
-    """.format(period_sql=fixed_period_sql)
+    """.format(
+        period_sql=fixed_period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(query_fixed_debit, filters)
@@ -459,7 +463,9 @@ def report_payment_view(request, user):
             AND active=true
             AND fixed=true
             {period_sql};
-    """.format(period_sql=fixed_period_sql)
+    """.format(
+        period_sql=fixed_period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(query_fixed_credit, filters)
@@ -799,7 +805,9 @@ def report_count_payment_view(request, user):
             AND user_id=%(user_id)s
             AND active=true
             {period_sql};
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(count_payment, query_params)
@@ -830,7 +838,9 @@ def report_amount_payment_view(request, user):
             AND fp.user_id=%(user_id)s
             AND fp.active=true
             {period_sql};
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(count_payment, query_params)
@@ -862,7 +872,9 @@ def report_amount_payment_open_view(request, user):
             AND fp.status=0
             AND fp.active=true
             {period_sql};
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(count_payment, query_params)
@@ -894,7 +906,9 @@ def report_amount_payment_closed_view(request, user):
             AND fp.status=1
             AND fp.active=true
             {period_sql};
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(count_payment, query_params)
@@ -940,7 +954,9 @@ def report_amount_invoice_by_tag_view(request, user):
             ft.id
         ORDER BY
             sum(fp.value) DESC;
-    """.format(period_sql=period_sql)
+    """.format(
+        period_sql=period_sql
+    )
     with connection.cursor() as cursor:
         cursor.execute(amount_invoice, query_params)
         amount_invoice = cursor.fetchall()
@@ -989,9 +1005,7 @@ def report_forecast_amount_value(request, user):
 
     if params["begin"] and params["end"]:
         months_in_period = (
-            (params["end"].year - params["begin"].year) * 12
-            + params["end"].month - params["begin"].month
-            + 1
+            (params["end"].year - params["begin"].year) * 12 + params["end"].month - params["begin"].month + 1
         )
     else:
         months_in_period = total_months
