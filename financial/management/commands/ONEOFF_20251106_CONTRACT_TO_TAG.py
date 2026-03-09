@@ -56,7 +56,7 @@ class Command(BaseCommand):
             tag, created = Tag.objects.get_or_create(
                 name=contract.name,
                 user=contract.user,
-                defaults={"color": self.colors[random.randint(0, self.colors.__len__())]},
+                defaults={"color": self.colors[random.randint(0, self.colors.__len__())]},  # nosec B311
             )
 
             if created:

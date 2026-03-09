@@ -54,31 +54,31 @@ SOCIAL_PROVIDER_DEFINITIONS = {
     "google": {
         "display_name": "Google",
         "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
-        "token_url": "https://oauth2.googleapis.com/token",
+        "token_url": "https://oauth2.googleapis.com/token",  # nosec B105
         "scopes": ["openid", "email", "profile"],
     },
     "discord": {
         "display_name": "Discord",
         "auth_url": "https://discord.com/oauth2/authorize",
-        "token_url": "https://discord.com/api/oauth2/token",
+        "token_url": "https://discord.com/api/oauth2/token",  # nosec B105
         "scopes": ["identify", "email"],
     },
     "github": {
         "display_name": "GitHub",
         "auth_url": "https://github.com/login/oauth/authorize",
-        "token_url": "https://github.com/login/oauth/access_token",
+        "token_url": "https://github.com/login/oauth/access_token",  # nosec B105
         "scopes": ["read:user", "user:email"],
     },
     "facebook": {
         "display_name": "Facebook",
         "auth_url": "https://www.facebook.com/v20.0/dialog/oauth",
-        "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",
+        "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",  # nosec B105
         "scopes": ["email", "public_profile"],
     },
     "microsoft": {
         "display_name": "Microsoft",
         "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-        "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",  # nosec B105
         "scopes": ["openid", "profile", "email", "User.Read"],
     },
 }
