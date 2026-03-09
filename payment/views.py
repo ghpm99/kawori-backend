@@ -5,7 +5,9 @@ from math import ceil
 from typing import List
 
 from dateutil.relativedelta import relativedelta
-from django.db import connection, transaction
+from django.db import transaction
+from django.db.models import Case, Count, DecimalField, Sum, Value, When
+from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -190,72 +192,58 @@ def get_payments_month(request, user):
     if begin > end:
         return JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
 
-    filters = {
-        "begin": begin,
-        "end": end,
-    }
-
-    invoices_query = """
-        SELECT
-            DATE_TRUNC('month', fp.payment_date)::date AS payment_month,
-            SUM(
-                CASE
-                    fp.type
-                    WHEN 0 THEN fp.value
-                    ELSE 0
-                END
-            ) AS total_value_credit,
-            SUM(
-                CASE
-                    fp.type
-                    WHEN 1 THEN fp.value
-                    ELSE 0
-                END
-            ) AS total_value_debit,
-            SUM(
-                CASE
-                    fp.status
-                    WHEN 0 THEN fp.value
-                    ELSE 0
-                END
-            ) AS total_value_open,
-            SUM(
-                CASE
-                    fp.status
-                    WHEN 1 THEN fp.value
-                    ELSE 0
-                END
-            ) AS total_value_closed,
-            COUNT(*) AS total_payments
-        FROM
-            financial_invoice fi
-            INNER JOIN financial_payment fp ON (fi.id = fp.invoice_id)
-        WHERE
-            (
-                0 = 0
-                AND fi.active = true
-                AND fi.user_id = %(user_id)s
-                AND fp.payment_date BETWEEN %(begin)s AND %(end)s
-                AND fp.active = true
-            )
-        GROUP BY
-            DATE_TRUNC('month', fp.payment_date)::date
-        ORDER BY
-            DATE_TRUNC('month', fp.payment_date)::date ASC;
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(invoices_query, {**filters, "user_id": user.id})
-        invoices = cursor.fetchall()
+    invoices = (
+        Payment.objects.filter(
+            invoice__active=True,
+            invoice__user=user,
+            payment_date__gte=begin,
+            payment_date__lte=end,
+            active=True,
+        )
+        .annotate(payment_month=TruncMonth("payment_date"))
+        .values("payment_month")
+        .annotate(
+            total_value_credit=Sum(
+                Case(
+                    When(type=0, then="value"),
+                    default=Value(0),
+                    output_field=DecimalField(),
+                )
+            ),
+            total_value_debit=Sum(
+                Case(
+                    When(type=1, then="value"),
+                    default=Value(0),
+                    output_field=DecimalField(),
+                )
+            ),
+            total_value_open=Sum(
+                Case(
+                    When(status=Payment.STATUS_OPEN, then="value"),
+                    default=Value(0),
+                    output_field=DecimalField(),
+                )
+            ),
+            total_value_closed=Sum(
+                Case(
+                    When(status=Payment.STATUS_DONE, then="value"),
+                    default=Value(0),
+                    output_field=DecimalField(),
+                )
+            ),
+            total_payments=Count("id"),
+        )
+        .order_by("payment_month")
+    )
 
     payments = []
-    for index, invoice in enumerate(invoices, start=1):
-        month_date = invoice[0]
-        total_value_credit = float(invoice[1] or 0)
-        total_value_debit = float(invoice[2] or 0)
-        total_value_open = float(invoice[3] or 0)
-        total_value_closed = float(invoice[4] or 0)
-        total_payments = invoice[5]
+    for index, row in enumerate(invoices, start=1):
+        month_date = row["payment_month"].date() if hasattr(row["payment_month"], "date") else row["payment_month"]
+        total_value_credit = float(row["total_value_credit"] or 0)
+        total_value_debit = float(row["total_value_debit"] or 0)
+        total_value_open = float(row["total_value_open"] or 0)
+        total_value_closed = float(row["total_value_closed"] or 0)
+        total_payments = row["total_payments"]
 
         payments.append(
             {

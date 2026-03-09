@@ -274,12 +274,9 @@ def payoff_detail_view(request, id, user):
     if payment.status == 1:
         return JsonResponse({"msg": "Pagamento ja baixado"}, status=400)
 
-    date_format = "%Y-%m-%d"
-
     with transaction.atomic():
         if payment.invoice.fixed is True:
-            future_payment = payment.payment_date + relativedelta(months=1)
-            payment_date = future_payment.strftime(date_format)
+            payment_date = payment.payment_date + relativedelta(months=1)
             new_invoice = Invoice(
                 type=payment.type,
                 name=payment.name,

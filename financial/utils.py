@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from dateutil.relativedelta import relativedelta
 
 from contract.models import Contract
@@ -5,18 +7,30 @@ from invoice.models import Invoice
 from payment.models import Payment
 
 
+def ensure_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    raise TypeError(f"Cannot convert {type(value).__name__} to date")
+
+
 def generate_payments(invoice: Invoice, description="", reference=""):
     installments = invoice.installments
-    payment_date = invoice.payment_date
+    payment_date = ensure_date(invoice.payment_date)
+    invoice_date = ensure_date(invoice.date)
 
     value_installments = calculate_installments(float(invoice.value), installments)
 
+    payments = []
     for i in range(installments):
-        payment = Payment(
+        payments.append(Payment(
             type=invoice.type,
             name=f"{invoice.name} #{i + 1}",
             description=description,
-            date=invoice.date,
+            date=invoice_date,
             installments=i + 1,
             payment_date=payment_date,
             fixed=invoice.fixed,
@@ -24,11 +38,10 @@ def generate_payments(invoice: Invoice, description="", reference=""):
             invoice=invoice,
             reference=reference,
             user=invoice.user,
-        )
-        payment.save()
+        ))
+        payment_date = payment_date + relativedelta(months=1)
 
-        future_payment = payment_date + relativedelta(months=1)
-        payment_date = future_payment
+    Payment.objects.bulk_create(payments)
 
 
 def calculate_installments(value, installments):
