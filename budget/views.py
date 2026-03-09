@@ -3,6 +3,7 @@ import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Sum, Max
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
@@ -111,11 +112,12 @@ def get_all_budgets_view(request, user):
 @audit_log("budget.update", CATEGORY_FINANCIAL, "Budget")
 def save_budget_view(request, user):
     data = json.loads(request.body)
-    for item in data.get("data", []):
-        budget = Budget.objects.filter(id=item.get("id"), user=user).first()
-        if budget:
-            budget.allocation_percentage = item.get("allocation_percentage", budget.allocation_percentage)
-            budget.save()
+    with transaction.atomic():
+        for item in data.get("data", []):
+            budget = Budget.objects.filter(id=item.get("id"), user=user).first()
+            if budget:
+                budget.allocation_percentage = item.get("allocation_percentage", budget.allocation_percentage)
+                budget.save()
 
     return JsonResponse({"msg": "Orçamento atualizado com sucesso"})
 
@@ -124,12 +126,13 @@ def save_budget_view(request, user):
 @validate_user("financial")
 @audit_log("budget.reset", CATEGORY_FINANCIAL, "Budget")
 def reset_budget_allocation_view(request, user):
-    budget_list = Budget.objects.filter(user=user)
-    for budget in budget_list:
-        for default_budget in DEFAULT_BUDGETS:
-            if budget.tag.name.lower() == default_budget["name"].lower():
-                budget.allocation_percentage = default_budget["allocation_percentage"]
-                budget.save()
-                break
+    with transaction.atomic():
+        budget_list = Budget.objects.filter(user=user)
+        for budget in budget_list:
+            for default_budget in DEFAULT_BUDGETS:
+                if budget.tag.name.lower() == default_budget["name"].lower():
+                    budget.allocation_percentage = default_budget["allocation_percentage"]
+                    budget.save()
+                    break
 
     return JsonResponse({"msg": "Orçamentos resetados com sucesso"})

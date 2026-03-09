@@ -268,21 +268,22 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     if email_exists:
         return JsonResponse({"msg": "E-mail já cadastrado"}, status=HTTPStatus.BAD_REQUEST)
 
-    user = User.objects.create_user(username=username, password=password, email=email)
-    user.first_name = name
-    user.last_name = last_name
-    user.save()
+    with transaction.atomic():
+        user = User.objects.create_user(username=username, password=password, email=email)
+        user.first_name = name
+        user.last_name = last_name
+        user.save()
 
-    register_groups(user)
+        register_groups(user)
 
-    try:
-        from budget.services import create_default_budgets_for_user
+        try:
+            from budget.services import create_default_budgets_for_user
 
-        create_default_budgets_for_user(user)
-    except Exception:
-        pass
+            create_default_budgets_for_user(user)
+        except Exception:
+            pass
 
-    EmailVerification.objects.create(user=user)
+        EmailVerification.objects.create(user=user)
 
     try:
         ip_address = get_client_ip(request)
@@ -426,11 +427,12 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
     except ValidationError as e:
         return JsonResponse({"msg": list(e.messages)}, status=HTTPStatus.BAD_REQUEST)
 
-    user.set_password(new_password)
-    user.save(update_fields=["password"])
+    with transaction.atomic():
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
 
-    ip_address = get_client_ip(request)
-    token_obj.consume(ip_address)
+        ip_address = get_client_ip(request)
+        token_obj.consume(ip_address)
 
     return JsonResponse({"msg": "Senha redefinida com sucesso."})
 
@@ -473,13 +475,14 @@ def verify_email(request: HttpRequest) -> JsonResponse:
 
     user = token_obj.user
 
-    verification, _ = EmailVerification.objects.get_or_create(user=user)
-    verification.is_verified = True
-    verification.verified_at = timezone.now()
-    verification.save(update_fields=["is_verified", "verified_at"])
+    with transaction.atomic():
+        verification, _ = EmailVerification.objects.get_or_create(user=user)
+        verification.is_verified = True
+        verification.verified_at = timezone.now()
+        verification.save(update_fields=["is_verified", "verified_at"])
 
-    ip_address = get_client_ip(request)
-    token_obj.consume(ip_address)
+        ip_address = get_client_ip(request)
+        token_obj.consume(ip_address)
 
     return JsonResponse({"msg": "Email verificado com sucesso."})
 
