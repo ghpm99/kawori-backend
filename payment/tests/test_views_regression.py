@@ -361,7 +361,7 @@ class PaymentViewsRegressionTestCase(TestCase):
             payment_date=date.today(),
             installments=3,
             fixed=True,
-            active=False,
+            active=True,
             value=Decimal("15.00"),
             status=Payment.STATUS_DONE,
             user=self.user,
@@ -374,6 +374,25 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(payload["id"], payment.id)
         self.assertEqual(payload["name"], "Detail payment")
         self.assertEqual(payload["invoice_name"], "Detail invoice")
+
+    def test_detail_view_inactive_payment_returns_404(self):
+        invoice = self._create_invoice(name="Detail invoice inactive")
+        payment = Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Inactive payment",
+            date=date.today(),
+            payment_date=date.today(),
+            installments=1,
+            fixed=False,
+            active=False,
+            value=Decimal("15.00"),
+            status=Payment.STATUS_DONE,
+            user=self.user,
+            invoice=invoice,
+        )
+
+        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment.id}))
+        self.assertEqual(response.status_code, 404)
 
     def test_save_detail_view_handles_not_found_and_done_payment(self):
         not_found_response = self.client.post(
