@@ -266,7 +266,7 @@ def get_payments_month(request, user):
 @require_GET
 @validate_user("financial")
 def detail_view(request, id, user):
-    data = Payment.objects.filter(id=id, user=user).first()
+    data = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if data is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
@@ -298,7 +298,7 @@ def save_detail_view(request, id, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "Payment not found"}, status=500)
 
-    payment = Payment.objects.filter(id=id, user=user).first()
+    payment = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if data is None or payment is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
@@ -353,7 +353,7 @@ def payoff_detail_view(request, id, user):
     if id <= 0:
         return JsonResponse({"msg": "Pagamento não encontrado"}, status=404)
 
-    payment = Payment.objects.filter(id=id, user=user).first()
+    payment = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if payment is None:
         return JsonResponse({"msg": "Pagamento não encontrado"}, status=400)

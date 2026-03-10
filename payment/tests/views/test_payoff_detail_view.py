@@ -425,9 +425,8 @@ class PayoffDetailViewTestCase(TestCase):
         payment_large.refresh_from_db()
         self.assertEqual(payment_large.status, Payment.STATUS_DONE)
 
-    def test_payoff_detail_view_edge_case_inactive_payment(self):
-        """Testa edge case baixando pagamento inativo - deve funcionar normalmente"""
-        # Criar pagamento inativo
+    def test_payoff_detail_view_inactive_payment_returns_400(self):
+        """Testa que pagamento inativo não pode ser baixado"""
         payment_inactive = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Pagamento Inativo",
@@ -446,15 +445,11 @@ class PayoffDetailViewTestCase(TestCase):
             reverse("financial_payoff_detail_view", kwargs={"id": payment_inactive.id})
         )
 
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
+        self.assertEqual(response.status_code, 400)
 
-        self.assertIn("msg", data)
-        self.assertEqual(data["msg"], "Pagamento baixado")
-
-        # Verificar se o pagamento foi atualizado
+        # Verificar que o pagamento não foi alterado
         payment_inactive.refresh_from_db()
-        self.assertEqual(payment_inactive.status, Payment.STATUS_DONE)
+        self.assertEqual(payment_inactive.status, Payment.STATUS_OPEN)
 
     def test_payoff_detail_view_edge_case_fixed_invoice_with_multiple_installments(self):
         """Testa edge case baixando pagamento de invoice fixa com múltiplas parcelas"""

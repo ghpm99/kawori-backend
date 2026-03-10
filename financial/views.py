@@ -196,7 +196,7 @@ def save_new_view(request, user):
 @require_GET
 @validate_user("financial")
 def detail_view(request, id, user):
-    data = Payment.objects.filter(id=id, user=user).first()
+    data = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if data is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
@@ -225,7 +225,7 @@ def detail_view(request, id, user):
 @validate_user("financial")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
-    payment = Payment.objects.filter(id=id, user=user).first()
+    payment = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if data is None or payment is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
@@ -266,7 +266,7 @@ def save_detail_view(request, id, user):
 @require_POST
 @validate_user("financial")
 def payoff_detail_view(request, id, user):
-    payment = Payment.objects.filter(id=id, user=user).first()
+    payment = Payment.objects.filter(id=id, user=user, active=True).first()
 
     if payment is None:
         return JsonResponse({"msg": "Pagamento não encontrado"}, status=400)
@@ -632,7 +632,7 @@ def include_new_invoice_view(request, id, user):
 @require_GET
 @validate_user("financial")
 def detail_invoice_view(request, id, user):
-    invoice = Invoice.objects.filter(id=id, user=user).first()
+    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
 
     if invoice is None:
         return JsonResponse({"msg": "Invoice not found"}, status=404)

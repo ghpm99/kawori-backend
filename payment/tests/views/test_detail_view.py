@@ -171,9 +171,8 @@ class DetailViewTestCase(TestCase):
         payment_data = data["data"]
         self.assertTrue(payment_data["fixed"])
 
-    def test_detail_view_success_inactive_payment(self):
-        """Testa sucesso da view com pagamento inativo - deve retornar dados corretos"""
-        # Criar pagamento inativo
+    def test_detail_view_inactive_payment_returns_404(self):
+        """Testa que pagamento inativo não é acessível pela view de detalhe"""
         inactive_payment = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Pagamento Inativo Detalhe",
@@ -190,11 +189,7 @@ class DetailViewTestCase(TestCase):
 
         response = self.client.get(reverse("financial_detail_view", kwargs={"id": inactive_payment.id}))
 
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-
-        payment_data = data["data"]
-        self.assertFalse(payment_data["active"])
+        self.assertEqual(response.status_code, 404)
 
     def test_detail_view_error_payment_not_found(self):
         """Testa erro da view com ID inexistente - deve retornar erro 404"""

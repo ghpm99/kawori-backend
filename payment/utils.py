@@ -311,6 +311,7 @@ def find_payment_by_reference(user, reference: str) -> Optional[Payment]:
     payment = Payment.objects.filter(
         user_id=user.id,
         reference=reference,
+        active=True,
     ).first()
 
     return payment

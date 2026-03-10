@@ -94,7 +94,7 @@ def get_all_invoice_view(request, user):
 @validate_user("financial")
 def detail_invoice_view(request, id, user):
 
-    invoice = Invoice.objects.filter(id=id, user=user).first()
+    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
 
     if invoice is None:
         return JsonResponse({"msg": "Invoice not found"}, status=404)
@@ -205,7 +205,7 @@ def save_tag_invoice_view(request, id, user):
     if data is None:
         return JsonResponse({"msg": "Etiquetas não encontradas"}, status=404)
 
-    invoice = Invoice.objects.filter(id=id, user=user).first()
+    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
     if invoice is None:
         return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
 
@@ -285,7 +285,7 @@ def include_new_invoice_view(request, user):
 @audit_log("invoice.update", CATEGORY_FINANCIAL, "Invoice")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
-    invoice = Invoice.objects.filter(id=id, user=user).first()
+    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
 
     if data is None or invoice is None:
         return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
