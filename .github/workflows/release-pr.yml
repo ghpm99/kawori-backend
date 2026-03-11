@@ -50,16 +50,12 @@ jobs:
           git checkout -B "${{ steps.prepare.outputs.branch_name }}"
           git add kawori/version.py CHANGELOG.md
           if git diff --cached --quiet; then
-            if git ls-remote --exit-code --heads origin "${{ steps.prepare.outputs.branch_name }}" >/dev/null 2>&1; then
-              echo "branch_available=true" >> "$GITHUB_OUTPUT"
-              echo "Release branch already exists and has no new file changes."
-            else
-              echo "Release branch is missing and there are no release file changes to push."
-              exit 1
-            fi
+            git push --force-with-lease origin "HEAD:${{ steps.prepare.outputs.branch_name }}"
+            echo "branch_available=true" >> "$GITHUB_OUTPUT"
+            echo "Release branch synced to the current HEAD without additional file changes."
           else
             git commit -m "${{ steps.prepare.outputs.pr_title }}"
-            git push --force-with-lease origin "${{ steps.prepare.outputs.branch_name }}"
+            git push --force-with-lease origin "HEAD:${{ steps.prepare.outputs.branch_name }}"
             echo "branch_available=true" >> "$GITHUB_OUTPUT"
           fi
 
