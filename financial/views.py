@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-import numpy
+
 from dateutil.relativedelta import relativedelta
 from django.db import connection, transaction
 from django.db.models import Q, Sum
@@ -958,36 +958,45 @@ def report_forecast_amount_value(request, user):
         return error_response
 
     query_params = {"user_id": user.id}
-    period_sql = ""
-    if params["begin"] and params["end"]:
-        period_sql = """
-            AND fp.payments_date BETWEEN %(begin)s
-            AND %(end)s
-        """
-        query_params.update({"begin": params["begin"], "end": params["end"]})
 
-    query_forecast = """
+    query_monthly_avg = """
         SELECT
-            fp.debit
-        FROM
-            financial_paymentsummary fp
-        WHERE
-            1 = 1
-            AND fp.user_id = %(user_id)s
-            {period_sql}
-    """.format(period_sql=period_sql)
+            AVG(monthly_total) AS avg_monthly,
+            COUNT(*) AS total_months
+        FROM (
+            SELECT
+                date_trunc('month', fp.payment_date) AS month,
+                SUM(fp.value) AS monthly_total
+            FROM
+                financial_payment fp
+            WHERE 1=1
+                AND fp.user_id = %(user_id)s
+                AND fp.active = true
+            GROUP BY
+                date_trunc('month', fp.payment_date)
+        ) monthly_totals;
+    """
 
     with connection.cursor() as cursor:
-        cursor.execute(query_forecast, query_params)
-        debit_values = cursor.fetchall()
+        cursor.execute(query_monthly_avg, query_params)
+        result = cursor.fetchone()
 
-    values = [float(value[0]) for value in debit_values]
+    avg_monthly = float(result[0] or 0)
+    total_months = int(result[1] or 0)
 
-    if values.__len__() == 0:
+    if avg_monthly == 0:
         return JsonResponse({"data": 0})
-    debit_percentil = numpy.percentile(values, 90)
 
-    forecast_value = debit_percentil * 6
+    if params["begin"] and params["end"]:
+        months_in_period = (
+            (params["end"].year - params["begin"].year) * 12
+            + params["end"].month - params["begin"].month
+            + 1
+        )
+    else:
+        months_in_period = total_months
+
+    forecast_value = round(avg_monthly * months_in_period, 2)
 
     return JsonResponse({"data": forecast_value})
 
@@ -1010,14 +1019,15 @@ def get_total_payment_from_date(date_begin, date_end, user_id, type):
         cursor.execute(sum_payment_value, {"begin": date_begin, "end": date_end, "type": type, "user_id": user_id})
         total_payment_current = float(cursor.fetchone()[0])
 
-    date_end = date_begin - timedelta(days=1)
-    date_begin = date_end.replace(day=1)
+    period_days = (date_end - date_begin).days + 1
+    prev_end = date_begin - timedelta(days=1)
+    prev_begin = prev_end - timedelta(days=period_days - 1)
 
     with connection.cursor() as cursor:
-        cursor.execute(sum_payment_value, {"begin": date_begin, "end": date_end, "type": type, "user_id": user_id})
-        total_payment_last_month = float(cursor.fetchone()[0])
+        cursor.execute(sum_payment_value, {"begin": prev_begin, "end": prev_end, "type": type, "user_id": user_id})
+        total_payment_last_period = float(cursor.fetchone()[0])
 
-    return (total_payment_current, total_payment_last_month)
+    return (total_payment_current, total_payment_last_period)
 
 
 def get_total_payment(user_id, type):
