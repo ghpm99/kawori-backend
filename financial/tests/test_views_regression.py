@@ -214,19 +214,31 @@ class FinancialViewsRegressionTestCase(TestCase):
         )
 
     def test_report_forecast_amount_value_view_empty_and_non_empty(self):
-        empty_ctx, _ = self._mock_cursor(fetchall_side_effect=[[]])
+        empty_ctx, empty_cursor = self._mock_cursor(fetchall_side_effect=[[]])
         with patch("financial.views.connection.cursor", return_value=empty_ctx):
             empty_response = self._call(views.report_forecast_amount_value)
 
         self.assertEqual(empty_response.status_code, 200)
         self.assertEqual(json.loads(empty_response.content)["data"], 0)
+        empty_query, empty_params = empty_cursor.execute.call_args.args
+        self.assertNotIn('BETWEEN %(begin)s', empty_query)
+        self.assertEqual(empty_params, {"user_id": self.user.id})
 
-        values_ctx, _ = self._mock_cursor(fetchall_side_effect=[[(10,), (20,), (40,), (100,)]])
+        values_ctx, values_cursor = self._mock_cursor(fetchall_side_effect=[[(10,), (20,), (40,), (100,)]])
         with patch("financial.views.connection.cursor", return_value=values_ctx):
-            response = self._call(views.report_forecast_amount_value)
+            response = self._call(
+                views.report_forecast_amount_value,
+                data={"date_from": "2026-07-01", "date_to": "2026-07-31"},
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertGreater(json.loads(response.content)["data"], 0)
+        query, params = values_cursor.execute.call_args.args
+        self.assertIn('BETWEEN %(begin)s', query)
+        self.assertEqual(
+            params,
+            {"user_id": self.user.id, "begin": datetime(2026, 7, 1), "end": datetime(2026, 7, 31)},
+        )
 
     def test_report_payment_view_builds_summary_payload(self):
         payments_rows = [("2026-01-01", 10, 5, 5, 5, 15), ("2026-02-01", 20, 10, 10, 10, 25)]
