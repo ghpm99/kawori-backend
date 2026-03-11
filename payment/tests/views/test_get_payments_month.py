@@ -45,6 +45,7 @@ class GetPaymentsMonthTestCase(TestCase):
     def test_get_payments_month_returns_grouped_data_with_expected_fields(self):
         invoice = self._create_invoice()
         month_start = date.today().replace(day=1)
+        previous_month = month_start - timedelta(days=1)
         Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Debit",
@@ -71,13 +72,26 @@ class GetPaymentsMonthTestCase(TestCase):
             user=self.user,
             invoice=invoice,
         )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Debit previous month",
+            date=previous_month,
+            payment_date=previous_month,
+            installments=1,
+            fixed=False,
+            active=True,
+            value=Decimal("5.00"),
+            status=Payment.STATUS_OPEN,
+            user=self.user,
+            invoice=invoice,
+        )
 
         response = self.client.get(reverse("financial_get_payments_month"))
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
-        self.assertEqual(len(payload), 1)
-        row = payload[0]
+        self.assertEqual(len(payload), 2)
+        row = payload[1]
 
         expected_fields = [
             "id",

@@ -179,27 +179,20 @@ def save_new_view(request, user):
 @require_GET
 @validate_user("financial")
 def get_payments_month(request, user):
-    date_referrer = datetime.now().date()
-    date_start = date_referrer.replace(day=1)
-    date_end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
-
     date_from = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
     date_to = format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
 
-    begin = date_from or date_start
-    end = date_to or date_end
-
-    if begin > end:
+    if date_from and date_to and date_from > date_to:
         return JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
 
+    invoices_query = Payment.objects.filter(invoice__active=True, invoice__user=user, active=True)
+    if date_from:
+        invoices_query = invoices_query.filter(payment_date__gte=date_from)
+    if date_to:
+        invoices_query = invoices_query.filter(payment_date__lte=date_to)
+
     invoices = (
-        Payment.objects.filter(
-            invoice__active=True,
-            invoice__user=user,
-            payment_date__gte=begin,
-            payment_date__lte=end,
-            active=True,
-        )
+        invoices_query
         .annotate(payment_month=TruncMonth("payment_date"))
         .values("payment_month")
         .annotate(
