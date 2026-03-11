@@ -241,26 +241,58 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(previous, 50.0)
         self.assertEqual(cursor.execute.call_count, 2)
 
+    def test_get_total_payment_reads_full_history_total(self):
+        ctx, cursor = self._mock_cursor(fetchone_side_effect=[(320,)])
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            total = views.get_total_payment(self.user.id, Payment.TYPE_CREDIT)
+
+        self.assertEqual(total, 320.0)
+        self.assertEqual(cursor.execute.call_count, 1)
+
     def test_get_metrics_view_uses_payment_totals(self):
         with patch("financial.views.get_total_payment_from_date", side_effect=[(1000.0, 500.0), (600.0, 400.0)]):
-            response = self._call(views.get_metrics_view)
+            response = self._call(
+                views.get_metrics_view,
+                data={"date_from": "2026-03-01", "date_to": "2026-03-31"},
+            )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data["revenues"]["value"], 1000.0)
         self.assertEqual(data["expenses"]["value"], 600.0)
         self.assertEqual(data["profit"]["value"], 400.0)
-        self.assertEqual(data["growth"]["value"], 4.0)
+        self.assertEqual(data["revenues"]["metric_value"], 100.0)
+        self.assertEqual(data["expenses"]["metric_value"], 50.0)
+        self.assertEqual(data["profit"]["metric_value"], 300.0)
+        self.assertEqual(data["growth"]["value"], 300.0)
 
     def test_get_metrics_view_handles_zero_last_month(self):
         with patch("financial.views.get_total_payment_from_date", side_effect=[(100.0, 0.0), (10.0, 0.0)]):
-            response = self._call(views.get_metrics_view)
+            response = self._call(
+                views.get_metrics_view,
+                data={"date_from": "2026-03-01", "date_to": "2026-03-31"},
+            )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data["revenues"]["metric_value"], 0)
         self.assertEqual(data["expenses"]["metric_value"], 0)
         self.assertEqual(data["growth"]["value"], 0)
+
+    def test_get_metrics_view_uses_full_history_when_period_is_missing(self):
+        with patch("financial.views.get_total_payment", side_effect=[300.0, 120.0]) as mocked_total:
+            response = self._call(views.get_metrics_view)
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["revenues"]["value"], 300.0)
+        self.assertEqual(data["expenses"]["value"], 120.0)
+        self.assertEqual(data["profit"]["value"], 180.0)
+        self.assertEqual(data["revenues"]["metric_value"], 0)
+        self.assertEqual(data["expenses"]["metric_value"], 0)
+        self.assertEqual(data["profit"]["metric_value"], 0)
+        self.assertEqual(data["growth"]["value"], 0)
+        self.assertEqual(mocked_total.call_count, 2)
 
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(name="C1", user=self.user, value=10, value_open=8, value_closed=2)
