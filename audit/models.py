@@ -62,3 +62,34 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"[{self.created_at}] {self.action} by {self.username} ({self.result})"
+
+
+SCRIPT_STATUS_SUCCESS = "success"
+SCRIPT_STATUS_FAILURE = "failure"
+SCRIPT_STATUS_SKIPPED = "skipped"
+
+SCRIPT_STATUS_CHOICES = [
+    (SCRIPT_STATUS_SUCCESS, "Success"),
+    (SCRIPT_STATUS_FAILURE, "Failure"),
+    (SCRIPT_STATUS_SKIPPED, "Skipped"),
+]
+
+
+class ReleaseScriptExecution(models.Model):
+    release_version = models.CharField(max_length=20)
+    script_name = models.CharField(max_length=255)
+    status = models.CharField(max_length=10, choices=SCRIPT_STATUS_CHOICES)
+    output = models.TextField(blank=True, default="")
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "release_script_execution"
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["release_version", "script_name"]),
+            models.Index(fields=["status", "-started_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.release_version}:{self.script_name} ({self.status})"

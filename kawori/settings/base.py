@@ -147,6 +147,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
 
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 STATIC_URL = "/static/"
+RELEASE_SCRIPT_REGISTRY_PATH = BASE_DIR / "scripts.xml"
 
 ENV_PUSHER_APP_ID = ""
 ENV_PUSHER_KEY = ""
