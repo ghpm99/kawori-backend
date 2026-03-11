@@ -86,6 +86,36 @@ class FinancialViewsRegressionTestCase(TestCase):
             {"user_id": self.user.id, "begin": datetime(2026, 2, 1), "end": datetime(2026, 2, 28)},
         )
 
+    def test_report_amount_payment_view_sums_all_active_payments_without_default_period(self):
+        ctx, cursor = self._mock_cursor(fetchone_side_effect=[(180.5,)])
+
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(views.report_amount_payment_view)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content)["data"], 180.5)
+        query, params = cursor.execute.call_args.args
+        self.assertNotIn('type=1', query)
+        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(params, {"user_id": self.user.id})
+
+    def test_report_amount_payment_view_applies_date_range_when_provided(self):
+        ctx, cursor = self._mock_cursor(fetchone_side_effect=[(90.0,)])
+
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(
+                views.report_amount_payment_view,
+                data={"date_from": "2026-03-01", "date_to": "2026-03-31"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        query, params = cursor.execute.call_args.args
+        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(
+            params,
+            {"user_id": self.user.id, "begin": datetime(2026, 3, 1), "end": datetime(2026, 3, 31)},
+        )
+
     def test_report_amount_invoice_by_tag_view(self):
         tags_rows = [(1, "Tag A", "#111111", 50), (2, "Tag B", "#222222", 25.5)]
         ctx, _ = self._mock_cursor(fetchall_side_effect=[tags_rows])

@@ -811,14 +811,15 @@ def report_count_payment_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_amount_payment_view(request, user):
-    date_referrer = datetime.now().date()
-
-    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
-    begin = date_referrer.replace(day=1)
-
-    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    params, error_response = parse_optional_period_filters(request)
     if error_response:
         return error_response
+
+    period_sql = ""
+    query_params = {"user_id": user.id}
+    if params["begin"] and params["end"]:
+        period_sql = 'AND fp."payment_date" BETWEEN %(begin)s AND %(end)s'
+        query_params.update({"begin": params["begin"], "end": params["end"]})
 
     count_payment = """
         SELECT
@@ -827,13 +828,12 @@ def report_amount_payment_view(request, user):
             financial_payment fp
         WHERE 1=1
             AND fp.user_id=%(user_id)s
-            AND fp.type=1
             AND fp.active=true
-            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
-    """
+            {period_sql};
+    """.format(period_sql=period_sql)
 
     with connection.cursor() as cursor:
-        cursor.execute(count_payment, {**params, "user_id": user.id})
+        cursor.execute(count_payment, query_params)
         amount_payment_total = cursor.fetchone()
 
     return JsonResponse({"data": float(amount_payment_total[0])})
