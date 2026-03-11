@@ -178,7 +178,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
     def test_report_amount_invoice_by_tag_view(self):
         tags_rows = [(1, "Tag A", "#111111", 50), (2, "Tag B", "#222222", 25.5)]
-        ctx, _ = self._mock_cursor(fetchall_side_effect=[tags_rows])
+        ctx, cursor = self._mock_cursor(fetchall_side_effect=[tags_rows])
         with patch("financial.views.connection.cursor", return_value=ctx):
             response = self._call(views.report_amount_invoice_by_tag_view)
 
@@ -187,6 +187,31 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(len(payload), 2)
         self.assertEqual(payload[0]["name"], "Tag A")
         self.assertEqual(payload[1]["amount"], 25.5)
+        query, params = cursor.execute.call_args.args
+        self.assertIn("fp.type=%(payment_type)s", query)
+        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(params, {"user_id": self.user.id, "payment_type": Payment.TYPE_DEBIT})
+
+    def test_report_amount_invoice_by_tag_view_applies_date_range_when_provided(self):
+        ctx, cursor = self._mock_cursor(fetchall_side_effect=[[(1, "Moradia", "#1677ff", 2300)]])
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(
+                views.report_amount_invoice_by_tag_view,
+                data={"date_from": "2026-06-01", "date_to": "2026-06-30"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        query, params = cursor.execute.call_args.args
+        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(
+            params,
+            {
+                "user_id": self.user.id,
+                "payment_type": Payment.TYPE_DEBIT,
+                "begin": datetime(2026, 6, 1),
+                "end": datetime(2026, 6, 30),
+            },
+        )
 
     def test_report_forecast_amount_value_view_empty_and_non_empty(self):
         empty_ctx, _ = self._mock_cursor(fetchall_side_effect=[[]])
