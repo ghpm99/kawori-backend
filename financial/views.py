@@ -1062,6 +1062,24 @@ def get_total_payment(user_id, type):
         return float(cursor.fetchone()[0])
 
 
+def get_total_payment(user_id, type):
+
+    sum_payment_value = """
+        SELECT
+            COALESCE(SUM(value), 0) as total_payment
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=%(type)s
+            AND fp.active=true;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sum_payment_value, {"type": type, "user_id": user_id})
+        return float(cursor.fetchone()[0])
+
+
 @require_GET
 @validate_user("financial")
 def get_metrics_view(request, user):
