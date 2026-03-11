@@ -906,16 +906,15 @@ def report_amount_payment_closed_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_amount_invoice_by_tag_view(request, user):
-    date_referrer = datetime.now().date()
-
-    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
-    begin = date_referrer.replace(day=1)
-
-    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    params, error_response = parse_optional_period_filters(request)
     if error_response:
         return error_response
 
-    params["user_id"] = user.id
+    query_params = {"user_id": user.id, "payment_type": Payment.TYPE_DEBIT}
+    period_sql = ""
+    if params["begin"] and params["end"]:
+        period_sql = 'AND fp."payment_date" BETWEEN %(begin)s AND %(end)s'
+        query_params.update({"begin": params["begin"], "end": params["end"]})
 
     amount_invoice = """
         SELECT
@@ -933,16 +932,17 @@ def report_amount_invoice_by_tag_view(request, user):
             fp.invoice_id = fi.id
         WHERE
             ft.user_id=%(user_id)s
-            AND fp."payment_date" BETWEEN %(begin)s AND %(end)s
+            AND fp.type=%(payment_type)s
+            {period_sql}
             AND fi.active=true
             AND fp.active=true
         GROUP BY
             ft.id
         ORDER BY
             sum(fp.value) DESC;
-    """
+    """.format(period_sql=period_sql)
     with connection.cursor() as cursor:
-        cursor.execute(amount_invoice, params)
+        cursor.execute(amount_invoice, query_params)
         amount_invoice = cursor.fetchall()
 
     tags = [{"id": data[0], "name": data[1], "color": data[2], "amount": float(data[3])} for data in amount_invoice]
