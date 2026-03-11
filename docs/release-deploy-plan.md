@@ -75,6 +75,12 @@ Implemented components:
 - `.github/workflows/publish.yml`: publishes the tag and GitHub Release after merge to `main`
 - `scripts/extract_release_notes.py`: extracts the matching changelog section for the release body
 
+Operational guarantees in the current automation:
+
+- the next version is compared against tags already merged into `main`, not arbitrary tags from unrelated branch history
+- the release branch is only force-pushed when release files actually changed in the workflow run
+- PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
+
 ## CI and workflow split
 
 Recommended workflow separation:

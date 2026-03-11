@@ -44,24 +44,38 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Commit and push release branch
+        id: release_branch
         if: steps.prepare.outputs.release_needed == 'true'
         run: |
           git checkout -B "${{ steps.prepare.outputs.branch_name }}"
           git add kawori/version.py CHANGELOG.md
-          git commit -m "${{ steps.prepare.outputs.pr_title }}" || echo "No release file changes to commit."
-          git push --force-with-lease origin "${{ steps.prepare.outputs.branch_name }}"
+          if git diff --cached --quiet; then
+            if git ls-remote --exit-code --heads origin "${{ steps.prepare.outputs.branch_name }}" >/dev/null 2>&1; then
+              echo "branch_available=true" >> "$GITHUB_OUTPUT"
+              echo "Release branch already exists and has no new file changes."
+            else
+              echo "Release branch is missing and there are no release file changes to push."
+              exit 1
+            fi
+          else
+            git commit -m "${{ steps.prepare.outputs.pr_title }}"
+            git push --force-with-lease origin "${{ steps.prepare.outputs.branch_name }}"
+            echo "branch_available=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create or update pull request
-        if: steps.prepare.outputs.release_needed == 'true'
+        if: steps.prepare.outputs.release_needed == 'true' && steps.release_branch.outputs.branch_available == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR_TITLE: ${{ steps.prepare.outputs.pr_title }}
           PR_BODY_FILE: ${{ steps.prepare.outputs.pr_body_file }}
           PR_BRANCH: ${{ steps.prepare.outputs.branch_name }}
         run: |
-          existing_pr="$(gh pr list --base main --head "$PR_BRANCH" --state open --json number --jq '.[0].number')"
+          branch_owner="${GITHUB_REPOSITORY%%/*}"
+          existing_pr="$(gh pr list --repo "$GH_REPO" --base main --head "$branch_owner:$PR_BRANCH" --state open --json number --jq '.[0].number')"
           if [ -n "$existing_pr" ]; then
-            gh pr edit "$existing_pr" --title "$PR_TITLE" --body-file "$PR_BODY_FILE"
+            gh pr edit "$existing_pr" --repo "$GH_REPO" --title "$PR_TITLE" --body-file "$PR_BODY_FILE"
           else
-            gh pr create --base main --head "$PR_BRANCH" --title "$PR_TITLE" --body-file "$PR_BODY_FILE"
+            gh pr create --repo "$GH_REPO" --base main --head "$PR_BRANCH" --title "$PR_TITLE" --body-file "$PR_BODY_FILE"
           fi

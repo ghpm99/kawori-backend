@@ -26,3 +26,11 @@ class LoadCommitsTests(TestCase):
         self.assertEqual(commits[0].sha, "abc123")
         self.assertEqual(commits[0].subject, "fix(payment): keep parser stable")
         self.assertEqual(commits[0].body, "")
+
+
+class LoadLatestTagVersionTests(TestCase):
+    def test_load_latest_tag_version_uses_only_tags_merged_into_base_ref(self) -> None:
+        with patch.object(prepare_release, "git", return_value="v1.4.0\nv1.5.0\nnot-a-version"):
+            version = prepare_release.load_latest_tag_version("origin/main")
+
+        self.assertEqual(str(version), "1.5.0")
