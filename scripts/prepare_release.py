@@ -107,10 +107,15 @@ def load_commits(base_ref: str, head_ref: str) -> list[CommitInfo]:
     commits: list[CommitInfo] = []
 
     for entry in raw_log.split("\x1e"):
-        entry = entry.strip()
+        entry = entry.strip("\n\r\t ")
         if not entry:
             continue
-        sha, subject, body = [part.strip() for part in entry.split("\x1f")]
+        parts = entry.split("\x1f", 2)
+        if len(parts) == 2:
+            parts.append("")
+        if len(parts) != 3:
+            raise ValueError(f"Unexpected git log entry format: {entry!r}")
+        sha, subject, body = [part.strip() for part in parts]
         if subject.startswith("Merge "):
             continue
         commit_type, scope, breaking = parse_conventional_commit(subject, body)
