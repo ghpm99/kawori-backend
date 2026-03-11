@@ -51,10 +51,40 @@ class FinancialViewsRegressionTestCase(TestCase):
             closed_res = self._call(views.report_amount_payment_closed_view)
 
         self.assertEqual(count_res.status_code, 200)
-        self.assertEqual(json.loads(count_res.content)["data"], 3.0)
+        self.assertEqual(json.loads(count_res.content)["data"], 3)
         self.assertEqual(json.loads(amount_res.content)["data"], 120.5)
         self.assertEqual(json.loads(open_res.content)["data"], 20.0)
         self.assertEqual(json.loads(closed_res.content)["data"], 10.0)
+
+    def test_report_count_payment_view_counts_all_active_payments_without_default_period(self):
+        ctx, cursor = self._mock_cursor(fetchone_side_effect=[(7,)])
+
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(views.report_count_payment_view)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content)["data"], 7)
+        query, params = cursor.execute.call_args.args
+        self.assertNotIn('type=1', query)
+        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(params, {"user_id": self.user.id})
+
+    def test_report_count_payment_view_applies_date_range_when_provided(self):
+        ctx, cursor = self._mock_cursor(fetchone_side_effect=[(4,)])
+
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(
+                views.report_count_payment_view,
+                data={"date_from": "2026-02-01", "date_to": "2026-02-28"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        query, params = cursor.execute.call_args.args
+        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertEqual(
+            params,
+            {"user_id": self.user.id, "begin": datetime(2026, 2, 1), "end": datetime(2026, 2, 28)},
+        )
 
     def test_report_amount_invoice_by_tag_view(self):
         tags_rows = [(1, "Tag A", "#111111", 50), (2, "Tag B", "#222222", 25.5)]
