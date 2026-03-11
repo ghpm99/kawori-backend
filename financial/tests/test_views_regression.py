@@ -1,6 +1,6 @@
 import json
 import inspect
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -85,7 +85,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
     def test_report_payment_view_builds_summary_payload(self):
         payments_rows = [("2026-01-01", 10, 5, 5, 5, 15), ("2026-02-01", 20, 10, 10, 10, 25)]
-        ctx, _ = self._mock_cursor(fetchall_side_effect=[payments_rows], fetchone_side_effect=[(33,), (12,)])
+        ctx, cursor = self._mock_cursor(fetchall_side_effect=[payments_rows], fetchone_side_effect=[(33,), (12,)])
         with patch("financial.views.connection.cursor", return_value=ctx):
             response = self._call(views.report_payment_view)
 
@@ -94,6 +94,23 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(len(data["payments"]), 2)
         self.assertEqual(data["fixed_debit"], 33.0)
         self.assertEqual(data["fixed_credit"], 12.0)
+        self.assertEqual(cursor.execute.call_args_list[0].args[1], {"user_id": self.user.id})
+        self.assertEqual(cursor.execute.call_args_list[1].args[1], {"user_id": self.user.id})
+        self.assertEqual(cursor.execute.call_args_list[2].args[1], {"user_id": self.user.id})
+
+    def test_report_payment_view_applies_period_to_summary_and_fixed_totals(self):
+        payments_rows = [("2026-01-01", 10, 5, 5, 5, 15)]
+        ctx, cursor = self._mock_cursor(fetchall_side_effect=[payments_rows], fetchone_side_effect=[(11,), (7,)])
+        filters = {"date_from": "2026-01-01", "date_to": "2026-01-31"}
+
+        with patch("financial.views.connection.cursor", return_value=ctx):
+            response = self._call(views.report_payment_view, data=filters)
+
+        self.assertEqual(response.status_code, 200)
+        expected_params = {"user_id": self.user.id, "begin": datetime(2026, 1, 1), "end": datetime(2026, 1, 31)}
+        self.assertEqual(cursor.execute.call_args_list[0].args[1], expected_params)
+        self.assertEqual(cursor.execute.call_args_list[1].args[1], expected_params)
+        self.assertEqual(cursor.execute.call_args_list[2].args[1], expected_params)
 
     def test_get_total_payment_from_date_reads_current_and_last_month(self):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(200,), (50,)])
