@@ -363,17 +363,29 @@ def payment_status_to_label(status):
     return "closed" if status == Payment.STATUS_DONE else "open"
 
 
+def parse_optional_period_filters(request):
+    date_from = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
+    date_to = format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
+
+    if date_from and date_to and date_from > date_to:
+        return None, JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
+
+    return {"begin": date_from, "end": date_to}, None
+
+
 @require_GET
 @validate_user("financial")
 def report_payment_view(request, user):
-    date_referrer = datetime.now().date()
-
-    end = date_referrer + relativedelta(months=12, day=1)
-    begin = date_referrer.replace(day=1) - relativedelta(months=1)
-
-    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    params, error_response = parse_optional_period_filters(request)
     if error_response:
         return error_response
+
+    period_sql = ""
+    if params["begin"] and params["end"]:
+        period_sql = """
+            AND fp.payments_date BETWEEN %(begin)s
+            AND %(end)s
+        """
 
     query_payments = """
         SELECT
@@ -387,14 +399,15 @@ def report_payment_view(request, user):
             financial_paymentsummary fp
         WHERE
             1 = 1
-            AND fp.payments_date BETWEEN %(begin)s
-            AND %(end)s
             AND fp.user_id = %(user_id)s
+            {period_sql}
         ORDER BY
             fp.payments_date
-    """
+    """.format(period_sql=period_sql)
 
-    filters = {"user_id": user.id, "begin": params["begin"], "end": params["end"]}
+    filters = {"user_id": user.id}
+    if params["begin"] and params["end"]:
+        filters.update({"begin": params["begin"], "end": params["end"]})
 
     with connection.cursor() as cursor:
         cursor.execute(query_payments, filters)
@@ -412,7 +425,9 @@ def report_payment_view(request, user):
         for data in payments
     ]
 
-    filters = {"user_id": user.id}
+    fixed_period_sql = ""
+    if params["begin"] and params["end"]:
+        fixed_period_sql = 'AND "payment_date" BETWEEN %(begin)s AND %(end)s'
 
     query_fixed_debit = """
         SELECT
@@ -424,8 +439,9 @@ def report_payment_view(request, user):
             AND type=1
             AND status=0
             AND active=true
-            AND fixed=true;
-    """
+            AND fixed=true
+            {period_sql};
+    """.format(period_sql=fixed_period_sql)
 
     with connection.cursor() as cursor:
         cursor.execute(query_fixed_debit, filters)
@@ -441,8 +457,9 @@ def report_payment_view(request, user):
             AND type=0
             AND status=0
             AND active=true
-            AND fixed=true;
-    """
+            AND fixed=true
+            {period_sql};
+    """.format(period_sql=fixed_period_sql)
 
     with connection.cursor() as cursor:
         cursor.execute(query_fixed_credit, filters)
