@@ -58,28 +58,22 @@ This file becomes the single source of truth for:
 - `BREAKING CHANGE` or `!` -> major bump
 - `docs`, `test`, `refactor`, `build`, and `chore` do not bump unless configured otherwise
 
-## Recommended tooling
+## Implemented tooling
 
-Preferred first implementation:
+This repository implements release preparation with repository-local scripts plus GitHub Actions instead of `release-please`.
 
-- `release-please`
+Reason:
 
-Why:
+- the required workflow is `develop -> automatic PR to main -> merge publishes release`
+- generic release tools work best when they prepare releases on the target branch itself
+- a local script keeps the SemVer rules explicit and easy to inspect
 
-- creates an explicit release PR
-- keeps the release decision visible
-- reduces accidental bumps
-- is easier to learn and inspect than a fully implicit release flow
+Implemented components:
 
-Alternative for a later stage:
-
-- `python-semantic-release`
-
-Why not first:
-
-- it is more automatic
-- it hides more of the release preparation step
-- it is better after commit discipline is already stable
+- `scripts/prepare_release.py`: computes the next version from Conventional Commits, updates `kawori/version.py`, and refreshes `CHANGELOG.md`
+- `.github/workflows/release-pr.yml`: prepares or updates the release PR from `develop` to `main`
+- `.github/workflows/publish.yml`: publishes the tag and GitHub Release after merge to `main`
+- `scripts/extract_release_notes.py`: extracts the matching changelog section for the release body
 
 ## CI and workflow split
 
@@ -90,15 +84,16 @@ Recommended workflow separation:
    - lint
    - security
    - tests
-2. `release.yml`
+2. `release-pr.yml`
    - runs on `develop`
    - creates or updates the release PR
 3. `publish.yml`
    - runs on merge to `main`
    - creates tag and GitHub Release if needed
-4. `deploy.yml`
-   - runs on release publish or tag push
-   - deploys to the VM or triggers the remote deploy script
+4. VM deploy script
+   - runs manually on the server
+   - updates checkout to the selected tag
+   - installs dependencies, migrates, runs one-offs, and optionally restarts the service
 
 ## Deploy strategy
 
@@ -111,12 +106,12 @@ Recommended implementation path:
 
 This keeps server access manual while removing repetitive release work.
 
-### Phase 2: full deploy
+### Current stopping point
 
-- GitHub Actions connects to the VM through SSH
-- it runs the same deploy script remotely
+- GitHub Actions does not connect to the VM automatically
+- the server is updated by running `scripts/deploy_release.sh`
 
-This preserves one deploy path and avoids duplicated logic.
+This is the intentional Phase 3 boundary.
 
 ## VM deploy script responsibilities
 
@@ -133,6 +128,12 @@ The deploy script should:
 9. restart the application service
 10. persist the deployed version and operation log
 
+Implemented file:
+
+```text
+scripts/deploy_release.sh
+```
+
 ## One-off execution contract
 
 One-offs are part of the release contract.
@@ -144,6 +145,12 @@ python manage.py run_release_scripts --target-version vX.Y.Z
 ```
 
 That command should read `scripts.xml`, determine pending items for the target version, execute them safely, and record completion.
+
+Implemented pieces:
+
+- `audit/release_scripts.py`
+- `audit.management.commands.run_release_scripts`
+- `audit.ReleaseScriptExecution`
 
 ## Implementation phases
 
@@ -165,6 +172,10 @@ That command should read `scripts.xml`, determine pending items for the target v
 - create deploy script for the VM
 - create one-off executor command in Django
 - register executed one-offs in persistent storage
+
+Status:
+
+- completed in repository code
 
 ### Phase 4
 
