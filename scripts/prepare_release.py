@@ -78,8 +78,8 @@ def load_current_version(version_file: Path) -> SemanticVersion:
     return SemanticVersion.parse(match.group(1))
 
 
-def load_latest_tag_version() -> SemanticVersion | None:
-    tags = git("tag", "--list").splitlines()
+def load_latest_tag_version(base_ref: str) -> SemanticVersion | None:
+    tags = git("tag", "--merged", base_ref, "--list").splitlines()
     versions: list[SemanticVersion] = []
     for tag in tags:
         try:
@@ -232,7 +232,7 @@ def main() -> int:
         return 0
 
     current_version = load_current_version(version_file)
-    latest_tag_version = load_latest_tag_version()
+    latest_tag_version = load_latest_tag_version(args.base_ref)
     if latest_tag_version and latest_tag_version > current_version:
         current_version = latest_tag_version
 
