@@ -1019,44 +1019,63 @@ def get_total_payment_from_date(date_begin, date_end, user_id, type):
     return (total_payment_current, total_payment_last_month)
 
 
+def get_total_payment(user_id, type):
+
+    sum_payment_value = """
+        SELECT
+            COALESCE(SUM(value), 0) as total_payment
+        FROM
+            financial_payment fp
+        WHERE 1=1
+            AND fp.user_id=%(user_id)s
+            AND fp.type=%(type)s
+            AND fp.active=true;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sum_payment_value, {"type": type, "user_id": user_id})
+        return float(cursor.fetchone()[0])
+
+
 @require_GET
 @validate_user("financial")
 def get_metrics_view(request, user):
-    date_referrer = datetime.now().date()
-
-    begin = date_referrer.replace(day=1)
-    end = (date_referrer + relativedelta(months=1, day=1)) - timedelta(days=1)
-
-    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    params, error_response = parse_optional_period_filters(request)
     if error_response:
         return error_response
 
-    begin = params["begin"]
-    end = params["end"]
+    def percent_change(current, previous):
+        if previous == 0:
+            return 0
+        return round(((current - previous) / abs(previous)) * 100, 2)
 
-    revenues_current, revenues_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_CREDIT)
-    expenses_current, expenses_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_DEBIT)
-
-    def metric_value(current, last_month):
-        value = current / abs(last_month) if last_month != 0 else 0
-        return round(value, 2)
+    if params["begin"] and params["end"]:
+        begin = params["begin"]
+        end = params["end"]
+        revenues_current, revenues_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_CREDIT)
+        expenses_current, expenses_last_month = get_total_payment_from_date(begin, end, user.id, Payment.TYPE_DEBIT)
+    else:
+        revenues_current = get_total_payment(user.id, Payment.TYPE_CREDIT)
+        expenses_current = get_total_payment(user.id, Payment.TYPE_DEBIT)
+        revenues_last_month = 0
+        expenses_last_month = 0
 
     revenue_data = {
         "value": revenues_current,
-        "metric_value": metric_value(revenues_current, revenues_last_month),
+        "metric_value": percent_change(revenues_current, revenues_last_month),
     }
 
     expenses_data = {
         "value": expenses_current,
-        "metric_value": metric_value(expenses_current, expenses_last_month),
+        "metric_value": percent_change(expenses_current, expenses_last_month),
     }
 
     profit_current = revenues_current - expenses_current
     profit_last_month = revenues_last_month - expenses_last_month
 
-    profit_data = {"value": profit_current, "metric_value": metric_value(profit_current, profit_last_month)}
+    profit_data = {"value": profit_current, "metric_value": percent_change(profit_current, profit_last_month)}
 
-    growth_data = {"value": profit_current / profit_last_month if profit_last_month != 0 else 0}
+    growth_data = {"value": percent_change(profit_current, profit_last_month)}
 
     data = {"revenues": revenue_data, "expenses": expenses_data, "profit": profit_data, "growth": growth_data}
 
