@@ -78,7 +78,7 @@ Implemented components:
 Operational guarantees in the current automation:
 
 - the next version is compared against tags already merged into `main`, not arbitrary tags from unrelated branch history
-- the release branch is only force-pushed when release files actually changed in the workflow run
+- the release branch is always force-pushed to the current prepared `develop` HEAD when a release is needed, avoiding stale release PR branches
 - PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
 
 ## CI and workflow split
