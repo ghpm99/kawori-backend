@@ -17,7 +17,9 @@ from tag.models import Tag
 class FinancialViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="financial-reg", email="financial-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="financial-reg", email="financial-reg@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -65,8 +67,8 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content)["data"], 7)
         query, params = cursor.execute.call_args.args
-        self.assertNotIn('type=1', query)
-        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertNotIn("type=1", query)
+        self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(params, {"user_id": self.user.id})
 
     def test_report_count_payment_view_applies_date_range_when_provided(self):
@@ -80,7 +82,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         query, params = cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
             {"user_id": self.user.id, "begin": datetime(2026, 2, 1), "end": datetime(2026, 2, 28)},
@@ -95,8 +97,8 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content)["data"], 180.5)
         query, params = cursor.execute.call_args.args
-        self.assertNotIn('type=1', query)
-        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertNotIn("type=1", query)
+        self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(params, {"user_id": self.user.id})
 
     def test_report_amount_payment_view_applies_date_range_when_provided(self):
@@ -110,7 +112,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         query, params = cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
             {"user_id": self.user.id, "begin": datetime(2026, 3, 1), "end": datetime(2026, 3, 31)},
@@ -125,8 +127,8 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content)["data"], 35.0)
         query, params = cursor.execute.call_args.args
-        self.assertNotIn('type=1', query)
-        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertNotIn("type=1", query)
+        self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(params, {"user_id": self.user.id})
 
     def test_report_amount_payment_open_view_applies_date_range_when_provided(self):
@@ -140,7 +142,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         query, params = cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
             {"user_id": self.user.id, "begin": datetime(2026, 4, 1), "end": datetime(2026, 4, 30)},
@@ -155,8 +157,8 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content)["data"], 78.0)
         query, params = cursor.execute.call_args.args
-        self.assertNotIn('type=1', query)
-        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertNotIn("type=1", query)
+        self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(params, {"user_id": self.user.id})
 
     def test_report_amount_payment_closed_view_applies_date_range_when_provided(self):
@@ -170,7 +172,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         query, params = cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
             {"user_id": self.user.id, "begin": datetime(2026, 5, 1), "end": datetime(2026, 5, 31)},
@@ -189,7 +191,7 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(payload[1]["amount"], 25.5)
         query, params = cursor.execute.call_args.args
         self.assertIn("fp.type=%(payment_type)s", query)
-        self.assertNotIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(params, {"user_id": self.user.id, "payment_type": Payment.TYPE_DEBIT})
 
     def test_report_amount_invoice_by_tag_view_applies_date_range_when_provided(self):
@@ -202,7 +204,7 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         query, params = cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s AND %(end)s', query)
+        self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
             {
@@ -221,7 +223,7 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(empty_response.status_code, 200)
         self.assertEqual(json.loads(empty_response.content)["data"], 0)
         empty_query, empty_params = empty_cursor.execute.call_args.args
-        self.assertNotIn('BETWEEN %(begin)s', empty_query)
+        self.assertNotIn("BETWEEN %(begin)s", empty_query)
         self.assertEqual(empty_params, {"user_id": self.user.id})
 
         values_ctx, values_cursor = self._mock_cursor(fetchall_side_effect=[[(10,), (20,), (40,), (100,)]])
@@ -234,7 +236,7 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertGreater(json.loads(response.content)["data"], 0)
         query, params = values_cursor.execute.call_args.args
-        self.assertIn('BETWEEN %(begin)s', query)
+        self.assertIn("BETWEEN %(begin)s", query)
         self.assertEqual(
             params,
             {"user_id": self.user.id, "begin": datetime(2026, 7, 1), "end": datetime(2026, 7, 31)},
@@ -821,6 +823,8 @@ class FinancialViewsRegressionTestCase(TestCase):
             user=self.user,
         )
         with patch("financial.views.generate_payments") as mocked_generate:
-            fixed_response = inspect.unwrap(views.payoff_detail_view)(self.rf.post("/"), id=fixed_payment.id, user=self.user)
+            fixed_response = inspect.unwrap(views.payoff_detail_view)(
+                self.rf.post("/"), id=fixed_payment.id, user=self.user
+            )
         self.assertEqual(fixed_response.status_code, 200)
         mocked_generate.assert_called_once()
