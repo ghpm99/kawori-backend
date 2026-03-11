@@ -1,13 +1,16 @@
+import io
 import json
 import logging
 import inspect
+import tempfile
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, User
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import JsonResponse
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -28,7 +31,9 @@ from audit.models import (
     RESULT_FAILURE,
     RESULT_SUCCESS,
     AuditLog,
+    ReleaseScriptExecution,
 )
+from audit.release_scripts import SemanticVersion, get_pending_release_scripts, load_release_scripts
 
 
 class AuditLogModelTestCase(TestCase):
@@ -608,3 +613,60 @@ class AuditAdminRegressionTestCase(TestCase):
         self.assertFalse(admin_instance.has_add_permission(request))
         self.assertFalse(admin_instance.has_change_permission(request))
         self.assertFalse(admin_instance.has_delete_permission(request))
+
+
+class ReleaseScriptRegistryTestCase(TestCase):
+    def test_semantic_version_parses_prefixed_and_unprefixed_values(self):
+        self.assertEqual(str(SemanticVersion.parse("v2.1.3")), "2.1.3")
+        self.assertEqual(str(SemanticVersion.parse("2.1.3")), "2.1.3")
+
+    def test_load_release_scripts_sorts_by_version(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
+            registry.write('<script version="2.0.0">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
+            registry.write('<script version="1.9.9">ONEOFF_TEST_FAILING_SCRIPT</script>\n')
+
+        scripts = load_release_scripts(registry.name)
+
+        self.assertEqual([script.command_name for script in scripts], ["ONEOFF_TEST_FAILING_SCRIPT", "ONEOFF_TEST_RELEASE_SCRIPT"])
+
+    def test_get_pending_release_scripts_skips_executed_and_operational_entries(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
+            registry.write('<script version="2.0.1">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
+            registry.write('<script version="2.0.1">cron_recalculate_invoices</script>\n')
+
+        pending_scripts = get_pending_release_scripts(
+            target_version="v2.0.1",
+            executed_commands={("2.0.1", "ONEOFF_TEST_RELEASE_SCRIPT")},
+            registry_path=registry.name,
+        )
+
+        self.assertEqual(pending_scripts, [])
+
+
+class RunReleaseScriptsCommandTestCase(TestCase):
+    def test_app_version_command_returns_current_version(self):
+        out = io.StringIO()
+        call_command("app_version", stdout=out)
+        self.assertIn("2.0.2", out.getvalue())
+
+    def test_run_release_scripts_executes_pending_registered_script(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
+            registry.write('<script version="2.0.3">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
+
+        with override_settings(RELEASE_SCRIPT_REGISTRY_PATH=registry.name):
+            call_command("run_release_scripts", target_version="v2.0.3")
+
+        execution = ReleaseScriptExecution.objects.get(script_name="ONEOFF_TEST_RELEASE_SCRIPT")
+        self.assertEqual(execution.release_version, "2.0.3")
+        self.assertEqual(execution.status, "success")
+
+    def test_run_release_scripts_records_failure(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
+            registry.write('<script version="2.0.3">ONEOFF_TEST_FAILING_SCRIPT</script>\n')
+
+        with override_settings(RELEASE_SCRIPT_REGISTRY_PATH=registry.name):
+            with self.assertRaisesMessage(Exception, "intentional failure"):
+                call_command("run_release_scripts", target_version="v2.0.3")
+
+        execution = ReleaseScriptExecution.objects.get(script_name="ONEOFF_TEST_FAILING_SCRIPT")
+        self.assertEqual(execution.status, "failure")
