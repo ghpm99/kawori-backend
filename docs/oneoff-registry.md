@@ -64,6 +64,7 @@ When introducing a new one-off:
 ## Execution policy
 
 The deploy flow must execute only pending one-offs for the target version.
+By default, only entries whose command name starts with `ONEOFF_` are executed automatically by the release runner. Operational jobs such as cron commands stay excluded unless explicitly requested.
 
 Every one-off should be:
 
@@ -71,6 +72,16 @@ Every one-off should be:
 - explicit about prerequisites
 - logged before and after execution
 - recorded as executed in persistent storage
+
+Implemented command:
+
+```text
+python manage.py run_release_scripts --target-version vX.Y.Z
+```
+
+Supporting persistence:
+
+- `audit.ReleaseScriptExecution`
 
 ## Registered entries
 

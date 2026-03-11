@@ -37,11 +37,11 @@ build(ci): add release preparation workflow
 
 - `feat`: new behavior, usually a minor bump
 - `fix`: bug fix, usually a patch bump
-- `refactor`: internal restructuring with no intended behavior change
-- `test`: automated tests only
-- `docs`: documentation only
-- `build`: pipeline, dependency, packaging, or infrastructure changes
-- `chore`: housekeeping that should not affect release notes
+- `refactor`: internal restructuring, release as patch
+- `test`: automated tests only, release as patch
+- `docs`: documentation only, release as patch
+- `build`: pipeline, dependency, packaging, or infrastructure changes, release as patch
+- `chore`: housekeeping, release as patch when it reaches `develop`
 
 ## Breaking changes
 
@@ -58,6 +58,16 @@ BREAKING CHANGE: report clients must read total_open instead of value_open
 ```
 
 Breaking changes trigger a major version bump and must be deliberate.
+
+## Version bump policy
+
+Current automation uses these rules:
+
+- `BREAKING CHANGE` or `!` -> major
+- `feat` -> minor
+- `fix`, `refactor`, `test`, `docs`, `build`, and `chore` -> patch
+
+This repository intentionally releases every merged change that reaches `main`, even when the change is operational or documentation-oriented. That keeps deployed state, tags, changelog, and repository history aligned.
 
 ## Branch and release policy
 
