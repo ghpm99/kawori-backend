@@ -953,16 +953,18 @@ def report_amount_invoice_by_tag_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_forecast_amount_value(request, user):
-    date_referrer = datetime.now().date()
-
-    end = date_referrer + relativedelta(months=12, day=1)
-    begin = date_referrer.replace(day=1) - relativedelta(months=12)
-
-    params, error_response = parse_period_filters(request, default_begin=begin, default_end=end)
+    params, error_response = parse_optional_period_filters(request)
     if error_response:
         return error_response
 
-    params["user_id"] = user.id
+    query_params = {"user_id": user.id}
+    period_sql = ""
+    if params["begin"] and params["end"]:
+        period_sql = """
+            AND fp.payments_date BETWEEN %(begin)s
+            AND %(end)s
+        """
+        query_params.update({"begin": params["begin"], "end": params["end"]})
 
     query_forecast = """
         SELECT
@@ -971,13 +973,12 @@ def report_forecast_amount_value(request, user):
             financial_paymentsummary fp
         WHERE
             1 = 1
-            AND fp.payments_date BETWEEN %(begin)s
-            AND %(end)s
             AND fp.user_id = %(user_id)s
-    """
+            {period_sql}
+    """.format(period_sql=period_sql)
 
     with connection.cursor() as cursor:
-        cursor.execute(query_forecast, params)
+        cursor.execute(query_forecast, query_params)
         debit_values = cursor.fetchall()
 
     values = [float(value[0]) for value in debit_values]
