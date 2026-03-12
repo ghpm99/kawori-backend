@@ -90,3 +90,5 @@ Tests use Django's `TestCase` with `setUpTestData` (not `setUp`) for data creati
 
 ### lib/ directory
 Contains integrations: `lib/google/` (Google Cloud Storage), `lib/pusher/` (Pusher real-time events).
+
+IMPORTANT: Read and follow all instructions in AGENTS.md before starting any task.
