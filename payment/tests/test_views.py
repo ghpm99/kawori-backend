@@ -14,6 +14,7 @@ from .views.test_get_csv_mapping import GetCSVMappingViewTestCase
 from .views.test_process_csv_upload import ProcessCSVUploadViewTestCase
 from .views.test_csv_resolve_imports_view import CSVResolveImportsViewTestCase
 from .views.test_csv_import_view import CSVImportViewTestCase
+from .views.test_statement_view import StatementViewTestCase
 
 __all__ = [
     'GetAllViewTestCase',
@@ -26,5 +27,6 @@ __all__ = [
     'GetCSVMappingViewTestCase',
     'ProcessCSVUploadViewTestCase',
     'CSVResolveImportsViewTestCase',
-    'CSVImportViewTestCase'
+    'CSVImportViewTestCase',
+    'StatementViewTestCase',
 ]
