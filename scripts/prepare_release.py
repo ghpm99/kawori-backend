@@ -186,7 +186,10 @@ def update_changelog(changelog_file: Path, version: SemanticVersion, commits: li
     if pattern.search(existing):
         updated = pattern.sub(new_section.rstrip() + "\n\n", existing, count=1)
     else:
-        if existing.endswith("\n"):
+        first_entry = re.search(r"^## v", existing, flags=re.MULTILINE)
+        if first_entry:
+            updated = existing[: first_entry.start()] + new_section + "\n" + existing[first_entry.start() :]
+        elif existing.endswith("\n"):
             updated = existing + new_section + "\n"
         else:
             updated = existing + "\n\n" + new_section + "\n"

@@ -77,9 +77,11 @@ Implemented components:
 
 Operational guarantees in the current automation:
 
+- the release branch is created from `origin/main` and `develop` is merged into it, ensuring version files and changelog never conflict with `main`
 - the next version is compared against tags already merged into `main`, not arbitrary tags from unrelated branch history
-- the release branch is always force-pushed to the current prepared `develop` HEAD when a release is needed, avoiding stale release PR branches
+- the release branch is always force-pushed when a release is needed, avoiding stale release PR branches
 - PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
+- new changelog entries are inserted at the top (newest first) rather than appended
 
 ## CI and workflow split
 
