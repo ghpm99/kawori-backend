@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.0.0 - 2026-03-12
+
+### Breaking Changes
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
+### Maintenance
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
 ## v2.1.0 - 2026-03-11
 
 ### Features
