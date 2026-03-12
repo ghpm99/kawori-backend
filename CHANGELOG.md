@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.2.0 - 2026-03-12
+
+### Features
+- feat: add statement view and update payment urls (f15c329)
+
+### Fixes
+- fix: stabilize release automation sync (e67e42f)
+
+### Maintenance
+- chore(release): prepare v2.1.0 (a703e3a)
+
 ## v2.1.0 - 2026-03-11
 
 ### Features
