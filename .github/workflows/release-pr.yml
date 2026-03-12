@@ -29,6 +29,17 @@ jobs:
           git fetch origin main
           git fetch origin --tags
 
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release branch from main and merge develop
+        run: |
+          DEVELOP_SHA="$(git rev-parse HEAD)"
+          git checkout -B release/develop-to-main origin/main
+          git merge "$DEVELOP_SHA" --no-edit -m "merge develop into release branch"
+
       - name: Prepare release files
         id: prepare
         run: python scripts/prepare_release.py --base-ref origin/main --head-ref HEAD --pr-body-file "$RUNNER_TEMP/release-pr-body.md"
@@ -37,27 +48,19 @@ jobs:
         if: steps.prepare.outputs.release_needed != 'true'
         run: echo "No releasable changes found."
 
-      - name: Configure git identity
-        if: steps.prepare.outputs.release_needed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
       - name: Commit and push release branch
         id: release_branch
         if: steps.prepare.outputs.release_needed == 'true'
         run: |
-          git checkout -B "${{ steps.prepare.outputs.branch_name }}"
           git add kawori/version.py CHANGELOG.md
           if git diff --cached --quiet; then
-            git push --force-with-lease origin "HEAD:${{ steps.prepare.outputs.branch_name }}"
             echo "branch_available=true" >> "$GITHUB_OUTPUT"
-            echo "Release branch synced to the current HEAD without additional file changes."
+            echo "Release branch synced without additional file changes."
           else
             git commit -m "${{ steps.prepare.outputs.pr_title }}"
-            git push --force-with-lease origin "HEAD:${{ steps.prepare.outputs.branch_name }}"
             echo "branch_available=true" >> "$GITHUB_OUTPUT"
           fi
+          git push --force-with-lease origin "HEAD:${{ steps.prepare.outputs.branch_name }}"
 
       - name: Create or update pull request
         if: steps.prepare.outputs.release_needed == 'true' && steps.release_branch.outputs.branch_available == 'true'

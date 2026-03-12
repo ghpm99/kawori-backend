@@ -1,16 +1,10 @@
 # Changelog
 
-## v2.0.2 - 2026-03-11
-
-### Maintenance
-- Historical baseline before automated release preparation was introduced.
 ## v2.1.0 - 2026-03-11
 
 ### Features
 - feat: implements transactional integrity for all operations (c2d924e)
 - feat(audit): track and execute registered release scripts (36f0857)
-- feat: implements transactional integrity for all operations (3c0472e)
-- feat(audit): track and execute registered release scripts (f038e63)
 
 ### Fixes
 - fix: testes (48bedf5)
@@ -30,18 +24,13 @@
 - fix(release): handle commits without body in prepare script (0715392)
 - fix(release): harden release pr automation (1494d55)
 - fix(release): keep release pr branch in sync (955fcc7)
-- fix: testes (d4ce4d1)
-- fix(financial): align report count endpoint contract (4ae258b)
-- fix(financial): align report metrics endpoint contract (9c4abe1)
-- fix(release): handle commits without body in prepare script (94b3d63)
-- fix(release): harden release pr automation (f80f7f1)
-- fix(release): keep release pr branch in sync (7f1cd83)
 
 ### Maintenance
 - docs(release): define automation and one-off workflow rules (366280d)
 - build(release): automate versioning and publication (23677bd)
 - docs(release): align workflow documentation with automation (66cebf7)
-- docs(release): define automation and one-off workflow rules (d6a163c)
-- build(release): automate versioning and publication (0b1a333)
-- docs(release): align workflow documentation with automation (6d21664)
 
+## v2.0.2 - 2026-03-11
+
+### Maintenance
+- Historical baseline before automated release preparation was introduced.
