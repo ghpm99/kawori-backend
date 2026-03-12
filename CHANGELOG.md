@@ -45,3 +45,11 @@
 - build(release): automate versioning and publication (0b1a333)
 - docs(release): align workflow documentation with automation (6d21664)
 
+## v2.2.0 - 2026-03-12
+
+### Features
+- feat: add statement view and update payment urls (f15c329)
+
+### Maintenance
+- chore(release): prepare v2.1.0 (a703e3a)
+
