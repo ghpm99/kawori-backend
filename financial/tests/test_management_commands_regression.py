@@ -312,14 +312,14 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         self._create_payment(invoice=invoice, user=user, status=Payment.STATUS_OPEN, active=True, value=Decimal("30.00"))
 
         with patch("financial.management.commands.cron_payment_email.render_to_string", return_value="<html/>"), patch(
-            "financial.management.commands.cron_payment_email.SMTP"
-        ) as mocked_smtp:
-            smtp_instance = mocked_smtp.return_value.__enter__.return_value
+            "financial.management.commands.cron_payment_email.EmailMessage"
+        ) as mocked_email_cls:
+            mocked_email_instance = mocked_email_cls.return_value
             result = command.send_email_to_user(user, date(2026, 1, 3))
         self.assertTrue(result)
-        self.assertTrue(smtp_instance.send_message.called)
+        self.assertTrue(mocked_email_instance.send.called)
 
-        with patch("financial.management.commands.cron_payment_email.SMTP", side_effect=Exception("smtp-down")), patch(
+        with patch("financial.management.commands.cron_payment_email.EmailMessage", side_effect=Exception("smtp-down")), patch(
             "financial.management.commands.cron_payment_email.render_to_string", return_value="<html/>"
         ):
             self.assertFalse(command.send_email_to_user(user, date(2026, 1, 3)))

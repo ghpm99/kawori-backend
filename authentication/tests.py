@@ -1242,51 +1242,20 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
         self.assertEqual(auth_utils.split_name("John Doe"), ("John", "Doe"))
         self.assertIsNotNone(auth_utils.parse_iso_datetime("2026-03-03T10:00:00Z"))
 
-    def test_send_password_reset_email_sync_success_and_exception(self):
-        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP"
-        ) as mocked_smtp:
-            smtp_instance = mocked_smtp.return_value.__enter__.return_value
-            auth_utils._send_password_reset_email(self.user, "raw-token")
-        self.assertTrue(smtp_instance.send_message.called)
+    def test_send_password_reset_email_async_enqueues(self):
+        from mailer.models import EmailQueue
 
-        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
-        ), patch("builtins.print") as mocked_print:
-            auth_utils._send_password_reset_email(self.user, "raw-token")
-        self.assertTrue(mocked_print.called)
+        auth_utils.send_password_reset_email_async(self.user, "raw-token")
+        email = EmailQueue.objects.get(user=self.user, email_type=EmailQueue.TYPE_PASSWORD_RESET)
+        self.assertEqual(email.status, EmailQueue.STATUS_PENDING)
+        self.assertEqual(email.to_email, self.user.email)
+        self.assertEqual(email.priority, EmailQueue.PRIORITY_HIGH)
 
-    def test_send_verification_email_sync_success_and_exception(self):
-        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP"
-        ) as mocked_smtp:
-            smtp_instance = mocked_smtp.return_value.__enter__.return_value
-            auth_utils._send_verification_email(self.user, "verify-token")
-        self.assertTrue(smtp_instance.send_message.called)
+    def test_send_verification_email_async_enqueues(self):
+        from mailer.models import EmailQueue
 
-        with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
-        ), patch("builtins.print") as mocked_print:
-            auth_utils._send_verification_email(self.user, "verify-token")
-        self.assertTrue(mocked_print.called)
-
-    def test_send_email_async_helpers_start_thread(self):
-        thread_mock = MagicMock()
-        with patch("authentication.utils.threading.Thread", return_value=thread_mock) as mocked_thread:
-            auth_utils.send_password_reset_email_async(self.user, "token-1")
-            mocked_thread.assert_called_with(
-                target=auth_utils._send_password_reset_email,
-                args=(self.user, "token-1"),
-                daemon=True,
-            )
-        self.assertTrue(thread_mock.start.called)
-
-        thread_mock = MagicMock()
-        with patch("authentication.utils.threading.Thread", return_value=thread_mock) as mocked_thread:
-            auth_utils.send_verification_email_async(self.user, "token-2")
-            mocked_thread.assert_called_with(
-                target=auth_utils._send_verification_email,
-                args=(self.user, "token-2"),
-                daemon=True,
-            )
-        self.assertTrue(thread_mock.start.called)
+        auth_utils.send_verification_email_async(self.user, "verify-token")
+        email = EmailQueue.objects.get(user=self.user, email_type=EmailQueue.TYPE_EMAIL_VERIFICATION)
+        self.assertEqual(email.status, EmailQueue.STATUS_PENDING)
+        self.assertEqual(email.to_email, self.user.email)
+        self.assertEqual(email.priority, EmailQueue.PRIORITY_HIGH)

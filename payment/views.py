@@ -485,9 +485,7 @@ def statement_view(request, user):
     base_filter = Q(user=user, status=Payment.STATUS_DONE)
 
     # Opening balance: sum of all credits - debits with payment_date < date_from
-    prior_payments = Payment.objects.filter(
-        base_filter, payment_date__lt=date_from_parsed
-    )
+    prior_payments = Payment.objects.filter(base_filter, payment_date__lt=date_from_parsed)
     prior_agg = prior_payments.aggregate(
         credits=Sum(
             Case(
@@ -506,7 +504,7 @@ def statement_view(request, user):
     )
     opening_balance = float((prior_agg["credits"] or 0) - (prior_agg["debits"] or 0))
 
-    # Transactions in the period
+    # Transactions in the period (ASC for correct running_balance, reversed later for display)
     period_payments = (
         Payment.objects.filter(
             base_filter,
@@ -536,10 +534,7 @@ def statement_view(request, user):
         tags = []
         if payment.invoice:
             invoice_name = payment.invoice.name
-            tags = [
-                {"id": tag.id, "name": tag.name, "color": tag.color}
-                for tag in payment.invoice.tags.all()
-            ]
+            tags = [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in payment.invoice.tags.all()]
 
         transactions.append(
             {
@@ -556,6 +551,7 @@ def statement_view(request, user):
             }
         )
 
+    transactions.reverse()
     closing_balance = running_balance
 
     return JsonResponse(

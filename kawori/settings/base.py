@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "analytics",
     "budget",
     "audit",
+    "mailer",
 ]
 
 MIDDLEWARE = [
@@ -178,6 +179,9 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Email para receber notificações
 NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', EMAIL_HOST_USER)
+
+# ========== MAILER ==========
+MAILER_GLOBAL_ENABLED = True
 
 # ========== SOCIAL AUTH ==========
 SOCIAL_AUTH_STATE_EXPIRATION_MINUTES = int(os.environ.get("SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", "10"))

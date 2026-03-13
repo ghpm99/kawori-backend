@@ -1,14 +1,11 @@
 import time
 from datetime import datetime, timedelta
-from smtplib import SMTP
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.template.loader import render_to_string
 
+from mailer.utils import enqueue_payment_notification
 from payment.models import Payment
 
 
@@ -27,11 +24,9 @@ class Command(BaseCommand):
             return False
 
         payments = []
-        total_value = 0
 
         for payment in user_payments:
             payment_value = float(payment.value)
-            total_value += payment_value
 
             payments.append(
                 {
@@ -44,35 +39,9 @@ class Command(BaseCommand):
                 }
             )
 
-        html_content = render_to_string(
-            "payment_email_template.html",
-            {
-                "payments": payments,
-                "total_value": total_value,
-                "final_date": final_date.strftime("%d/%m/%Y"),
-            },
-        )
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}'
-        msg["From"] = settings.EMAIL_HOST_USER
-        msg["To"] = user.email
-
-        html_part = MIMEText(html_content, "html")
-        msg.attach(html_part)
-
-        try:
-            with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-                server.send_message(msg)
-            print(f"Email sent successfully to {user.email} (user: {user.username})")
-            return True
-        except Exception as e:
-            print(f"Error sending email to {user.email} (user: {user.username}): {str(e)}")
-            return False
+        enqueue_payment_notification(user, payments, final_date)
+        print(f"Email enqueued for {user.email} (user: {user.username})")
+        return True
 
     def run_command(self):
         date_referrer = datetime.now().date()
@@ -93,8 +62,7 @@ class Command(BaseCommand):
 
         print(f"Found {users_with_payments.count()} user(s) with pending payments")
 
-        sent_count = 0
-        error_count = 0
+        enqueued_count = 0
 
         for user in users_with_payments:
             if not user.email:
@@ -102,11 +70,9 @@ class Command(BaseCommand):
                 continue
 
             if self.send_email_to_user(user, final_date):
-                sent_count += 1
-            else:
-                error_count += 1
+                enqueued_count += 1
 
-        print(f"Emails sent: {sent_count}, errors: {error_count}")
+        print(f"Emails enqueued: {enqueued_count}")
 
     def handle(self, *args, **options):
         begin = time.time()

@@ -39,8 +39,6 @@ Use:
 Use `!` or a `BREAKING CHANGE:` footer for backward-incompatible changes.
 
 Operational rules:
-- Every code change must exist in a commit.
-- Keep one logical change per commit. Do not batch unrelated work in the same commit.
 - Conventional Commits are required because release automation will depend on commit history to infer semantic version bumps.
 - For PRs, include concise summary, impacted apps or endpoints, migration notes, test evidence, and linked issue or task when available.
 
