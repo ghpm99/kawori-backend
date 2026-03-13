@@ -195,7 +195,7 @@ class StatementViewTestCase(TestCase):
         self.assertEqual(len(transactions), 2)
 
     def test_statement_transaction_order_and_running_balance(self):
-        """Testa que transacoes estao ordenadas por payment_date ASC, id ASC e running_balance esta correto"""
+        """Testa que transacoes estao ordenadas por payment_date DESC, id DESC e running_balance esta correto"""
         response = self.client.get(
             reverse("financial_statement"),
             {"date_from": "2026-01-01", "date_to": "2026-01-31"},
@@ -204,19 +204,19 @@ class StatementViewTestCase(TestCase):
         data = json.loads(response.content)["data"]
         transactions = data["transactions"]
 
-        # First: credit on 2026-01-05 (Salario 8000)
-        self.assertEqual(transactions[0]["name"], "Salario")
-        self.assertEqual(transactions[0]["type"], Payment.TYPE_CREDIT)
-        self.assertEqual(transactions[0]["value"], 8000.00)
-        # running: 3000 + 8000 = 11000
-        self.assertEqual(transactions[0]["running_balance"], 11000.00)
-
-        # Second: debit on 2026-01-10 (Aluguel 2500)
-        self.assertEqual(transactions[1]["name"], "Aluguel")
-        self.assertEqual(transactions[1]["type"], Payment.TYPE_DEBIT)
-        self.assertEqual(transactions[1]["value"], 2500.00)
+        # First (most recent): debit on 2026-01-10 (Aluguel 2500)
+        self.assertEqual(transactions[0]["name"], "Aluguel")
+        self.assertEqual(transactions[0]["type"], Payment.TYPE_DEBIT)
+        self.assertEqual(transactions[0]["value"], 2500.00)
         # running: 11000 - 2500 = 8500
-        self.assertEqual(transactions[1]["running_balance"], 8500.00)
+        self.assertEqual(transactions[0]["running_balance"], 8500.00)
+
+        # Second (older): credit on 2026-01-05 (Salario 8000)
+        self.assertEqual(transactions[1]["name"], "Salario")
+        self.assertEqual(transactions[1]["type"], Payment.TYPE_CREDIT)
+        self.assertEqual(transactions[1]["value"], 8000.00)
+        # running: 3000 + 8000 = 11000
+        self.assertEqual(transactions[1]["running_balance"], 11000.00)
 
     def test_statement_transaction_fields(self):
         """Testa que cada transacao tem todos os campos esperados"""
@@ -243,8 +243,8 @@ class StatementViewTestCase(TestCase):
         )
 
         data = json.loads(response.content)["data"]
-        # The debit (Aluguel) is from invoice1 which has tag1 (Moradia)
-        debit_tx = data["transactions"][1]
+        # The debit (Aluguel) is from invoice1 which has tag1 (Moradia) — now first (most recent)
+        debit_tx = data["transactions"][0]
         self.assertEqual(debit_tx["invoice_name"], "Fatura Janeiro")
         self.assertEqual(len(debit_tx["tags"]), 1)
         self.assertEqual(debit_tx["tags"][0]["name"], "Moradia")

@@ -128,14 +128,16 @@ class SanitizeBodyTestCase(TestCase):
         self.assertEqual(result["password"], "***")
 
     def test_sanitizes_multiple_sensitive_fields(self):
-        body = json.dumps({
-            "token": "abc",
-            "access_token": "xyz",
-            "refresh_token": "123",
-            "secret": "s",
-            "new_password": "np",
-            "safe_field": "ok",
-        }).encode()
+        body = json.dumps(
+            {
+                "token": "abc",
+                "access_token": "xyz",
+                "refresh_token": "123",
+                "secret": "s",
+                "new_password": "np",
+                "safe_field": "ok",
+            }
+        ).encode()
         result = sanitize_body(body)
         self.assertEqual(result["token"], "***")
         self.assertEqual(result["access_token"], "***")
@@ -193,7 +195,8 @@ class AuditLogAuthDecoratorTestCase(TestCase):
         self.assertEqual(log.result, RESULT_FAILURE)
         self.assertEqual(log.username, "test_login")
 
-    def test_signup_creates_audit_log(self):
+    @patch("authentication.views.send_verification_email_async")
+    def test_signup_creates_audit_log(self, _mock_email):
         self.client.post(
             "/auth/signup",
             content_type="application/json",
@@ -447,7 +450,9 @@ class AuditViewsTestCase(TestCase):
 class AuditDecoratorsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="audit-decorator", email="audit-decorator@test.com", password="123")
+        cls.user = User.objects.create_user(
+            username="audit-decorator", email="audit-decorator@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -534,7 +539,9 @@ class AuditDecoratorsRegressionTestCase(TestCase):
 class AuditViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="audit-view-admin", email="audit-view-admin@test.com", password="123")
+        cls.user = User.objects.create_user(
+            username="audit-view-admin", email="audit-view-admin@test.com", password="123"
+        )
         now = timezone.now()
         AuditLog.objects.create(
             action="a1",
@@ -627,7 +634,9 @@ class ReleaseScriptRegistryTestCase(TestCase):
 
         scripts = load_release_scripts(registry.name)
 
-        self.assertEqual([script.command_name for script in scripts], ["ONEOFF_TEST_FAILING_SCRIPT", "ONEOFF_TEST_RELEASE_SCRIPT"])
+        self.assertEqual(
+            [script.command_name for script in scripts], ["ONEOFF_TEST_FAILING_SCRIPT", "ONEOFF_TEST_RELEASE_SCRIPT"]
+        )
 
     def test_get_pending_release_scripts_skips_executed_and_operational_entries(self):
         with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
@@ -645,9 +654,11 @@ class ReleaseScriptRegistryTestCase(TestCase):
 
 class RunReleaseScriptsCommandTestCase(TestCase):
     def test_app_version_command_returns_current_version(self):
+        from kawori.version import __version__
+
         out = io.StringIO()
         call_command("app_version", stdout=out)
-        self.assertIn("2.0.2", out.getvalue())
+        self.assertIn(__version__, out.getvalue())
 
     def test_run_release_scripts_executes_pending_registered_script(self):
         with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:

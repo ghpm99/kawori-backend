@@ -1,11 +1,9 @@
 import time
 from datetime import datetime, timedelta
-from smtplib import SMTP
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand
 from django.template.loader import render_to_string
 
@@ -53,21 +51,15 @@ class Command(BaseCommand):
             },
         )
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}'
-        msg["From"] = settings.EMAIL_HOST_USER
-        msg["To"] = user.email
-
-        html_part = MIMEText(html_content, "html")
-        msg.attach(html_part)
-
         try:
-            with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-                server.send_message(msg)
+            email = EmailMessage(
+                subject=f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}',
+                body=html_content,
+                from_email=settings.EMAIL_HOST_USER,
+                to=[user.email],
+            )
+            email.content_subtype = "html"
+            email.send()
             print(f"Email sent successfully to {user.email} (user: {user.username})")
             return True
         except Exception as e:

@@ -1,14 +1,12 @@
 import re
 import threading
 from datetime import datetime
-from smtplib import SMTP
 from urllib.parse import urlencode
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 import requests
 from django.conf import settings
 from django.contrib.auth.models import Group, User
+from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -308,7 +306,7 @@ def build_social_redirect_url(base_url: str, params: dict) -> str:
 
 
 def _send_password_reset_email(user: User, raw_token: str) -> None:
-    """Builds and sends the password reset email via SMTP. Runs in a background thread."""
+    """Builds and sends the password reset email. Runs in a background thread."""
     from authentication.models import UserToken
 
     try:
@@ -324,18 +322,14 @@ def _send_password_reset_email(user: User, raw_token: str) -> None:
             },
         )
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Redefinição de senha - Kawori"
-        msg["From"] = settings.EMAIL_HOST_USER
-        msg["To"] = user.email
-        msg.attach(MIMEText(html_content, "html"))
-
-        with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-            server.send_message(msg)
+        email = EmailMessage(
+            subject="Redefinição de senha - Kawori",
+            body=html_content,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[user.email],
+        )
+        email.content_subtype = "html"
+        email.send()
 
     except Exception as e:
         print(f"[password_reset] Erro ao enviar email para {user.email}: {e}")
@@ -352,7 +346,7 @@ def send_password_reset_email_async(user: User, raw_token: str) -> None:
 
 
 def _send_verification_email(user: User, raw_token: str) -> None:
-    """Builds and sends the email verification email via SMTP. Runs in a background thread."""
+    """Builds and sends the email verification email. Runs in a background thread."""
     from authentication.models import UserToken
 
     try:
@@ -367,18 +361,14 @@ def _send_verification_email(user: User, raw_token: str) -> None:
             },
         )
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Bem-vindo ao Kawori - Verifique seu email"
-        msg["From"] = settings.EMAIL_HOST_USER
-        msg["To"] = user.email
-        msg.attach(MIMEText(html_content, "html"))
-
-        with SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-            server.send_message(msg)
+        email = EmailMessage(
+            subject="Bem-vindo ao Kawori - Verifique seu email",
+            body=html_content,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[user.email],
+        )
+        email.content_subtype = "html"
+        email.send()
 
     except Exception as e:
         print(f"[email_verification] Erro ao enviar email para {user.email}: {e}")
