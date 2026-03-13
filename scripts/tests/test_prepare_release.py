@@ -27,6 +27,21 @@ class LoadCommitsTests(TestCase):
         self.assertEqual(commits[0].subject, "fix(payment): keep parser stable")
         self.assertEqual(commits[0].body, "")
 
+    def test_load_commits_ignores_release_and_sync_automation_commits(self) -> None:
+        raw_log = (
+            "aaa111\x1fbuild(release): prepare v1.6.0\x1f\x1e"
+            "bbb222\x1fbuild(sync): merge main into develop\x1f\x1e"
+            "ccc333\x1fchore(release): prepare v1.5.0\x1f\x1e"
+            "ddd444\x1ffeat(payment): add Pix reconciliation endpoint\x1f\x1e"
+        )
+
+        with patch.object(prepare_release, "git", return_value=raw_log):
+            commits = prepare_release.load_commits("origin/main", "HEAD")
+
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0].sha, "ddd444")
+        self.assertEqual(commits[0].subject, "feat(payment): add Pix reconciliation endpoint")
+
 
 class LoadLatestTagVersionTests(TestCase):
     def test_load_latest_tag_version_uses_only_tags_merged_into_base_ref(self) -> None:

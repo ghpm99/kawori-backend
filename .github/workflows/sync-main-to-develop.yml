@@ -1,0 +1,99 @@
+name: Sync Main To Develop
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-main-to-develop:
+    runs-on: ubuntu-latest
+    env:
+      SYNC_BRANCH: sync/main-to-develop
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch main and develop
+        run: |
+          git fetch origin main
+          git fetch origin develop
+
+      - name: Sync main into develop
+        id: sync
+        run: |
+          git checkout -B develop-sync origin/develop
+
+          if git merge origin/main --no-ff --no-commit; then
+            if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+              echo "mode=direct" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            git commit -m "build(sync): merge main into develop"
+
+            if git push origin HEAD:develop; then
+              echo "mode=direct" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Direct push to develop failed. Falling back to sync pull request."
+            git push --force-with-lease origin "HEAD:$SYNC_BRANCH"
+            echo "mode=pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          conflicted_files="$(git diff --name-only --diff-filter=U || true)"
+          echo "Automatic sync hit conflicts:" >&2
+          printf '%s\n' "$conflicted_files" >&2
+          git merge --abort || true
+          git checkout -B "$SYNC_BRANCH" origin/main
+          git push --force-with-lease origin "HEAD:$SYNC_BRANCH"
+          echo "mode=pr" >> "$GITHUB_OUTPUT"
+
+      - name: Close stale sync pull request
+        if: steps.sync.outputs.mode == 'direct'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          branch_owner="${GITHUB_REPOSITORY%%/*}"
+          existing_pr="$(gh pr list --repo "$GH_REPO" --base develop --head "$branch_owner:$SYNC_BRANCH" --state open --json number --jq '.[0].number')"
+          if [ -n "$existing_pr" ]; then
+            gh pr close "$existing_pr" --repo "$GH_REPO" --comment "Closed because \`main\` was synced back into \`develop\` automatically."
+          fi
+
+      - name: Create or update sync pull request
+        if: steps.sync.outputs.mode == 'pr'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_TITLE: "build(sync): merge main into develop"
+        run: |
+          branch_owner="${GITHUB_REPOSITORY%%/*}"
+          pr_body="$(printf '%s\n' \
+            '## Sync `main` back to `develop`' \
+            '' \
+            'Automatic sync could not be applied directly after the release landed on `main`.' \
+            '' \
+            '### Checklist' \
+            '- [ ] Resolve conflicts if GitHub marks this PR as conflicted' \
+            '- [ ] Merge this PR to realign `develop` with `main`')"
+          existing_pr="$(gh pr list --repo "$GH_REPO" --base develop --head "$branch_owner:$SYNC_BRANCH" --state open --json number --jq '.[0].number')"
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --repo "$GH_REPO" --title "$PR_TITLE" --body "$pr_body"
+          else
+            gh pr create --repo "$GH_REPO" --base develop --head "$SYNC_BRANCH" --title "$PR_TITLE" --body "$pr_body"
+          fi

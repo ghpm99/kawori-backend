@@ -9,7 +9,7 @@ Automate versioning, release creation, and deployment while keeping the process 
 1. Development happens on `develop`.
 2. CI validates every push and pull request.
 3. Release automation inspects the commit history on `develop`.
-4. Automation proposes the next semantic version and opens or updates a release PR from `develop` to `main`.
+4. When releasable changes exist, automation creates or updates a release branch from `main`, merges `develop`, resets release-controlled files to the current `main` state, recalculates release metadata, and opens or updates the release PR to `main`.
 5. The release PR includes:
    - semantic version bump
    - changelog summary
@@ -20,14 +20,18 @@ Automate versioning, release creation, and deployment while keeping the process 
    - tag creation in the format `vX.Y.Z`
    - GitHub Release creation
    - deployment workflow or deploy-ready state
-8. The VM updates to the released tag and executes pending one-offs.
+8. After the release commit lands on `main`, automation syncs `main` back into `develop`.
+9. If the sync cannot be applied directly, automation opens or updates a sync PR to `develop`.
+10. The VM updates to the released tag and executes pending one-offs.
 
 ## Why this design
 
 - `develop` remains the working branch.
 - `main` remains the stable release branch.
+- Release-controlled files must be recalculated from the latest published `main`, not from a drifted state in `develop`.
 - Version bumps are derived from commit history instead of manual memory.
 - Approval still exists at the release boundary.
+- `main` must flow back into `develop` after every release so version and changelog files stay aligned.
 - Deployment can be automated without changing the release decision model.
 
 ## Version ownership
@@ -56,7 +60,8 @@ This file becomes the single source of truth for:
 - `fix` -> patch bump
 - `feat` -> minor bump
 - `BREAKING CHANGE` or `!` -> major bump
-- `docs`, `test`, `refactor`, `build`, and `chore` do not bump unless configured otherwise
+- `docs`, `test`, `refactor`, `build`, and `chore` -> patch bump
+- automation commits such as `build(release): ...`, `build(sync): ...`, and legacy `chore(release): ...` are ignored for bump calculation and changelog generation
 
 ## Implemented tooling
 
@@ -72,16 +77,21 @@ Implemented components:
 
 - `scripts/prepare_release.py`: computes the next version from Conventional Commits, updates `kawori/version.py`, and refreshes `CHANGELOG.md`
 - `.github/workflows/release-pr.yml`: prepares or updates the release PR from `develop` to `main`
-- `.github/workflows/publish.yml`: publishes the tag and GitHub Release after merge to `main`
+- `.github/workflows/publish.yml`: publishes the tag and GitHub Release after the CI workflow succeeds for the release commit on `main`
+- `.github/workflows/sync-main-to-develop.yml`: syncs `main` back into `develop` directly when possible and falls back to a sync PR when needed
 - `scripts/extract_release_notes.py`: extracts the matching changelog section for the release body
 
 Operational guarantees in the current automation:
 
-- the release branch is created from `origin/main` and `develop` is merged into it, ensuring version files and changelog never conflict with `main`
+- the release branch is created from `origin/main` and `develop` is merged into it before release metadata is recalculated
+- `kawori/version.py` and `CHANGELOG.md` are always restored from `origin/main` before the next release version and changelog are generated
+- conflicts in release-controlled files are resolved from `main`; conflicts in other files stop the workflow for manual intervention
 - the next version is compared against tags already merged into `main`, not arbitrary tags from unrelated branch history
+- automation-only commits are excluded from the next version calculation and changelog
 - the release branch is always force-pushed when a release is needed, avoiding stale release PR branches
 - PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
 - new changelog entries are inserted at the top (newest first) rather than appended
+- after publish, `main` is synced back into `develop`, with a PR fallback when the direct sync fails
 
 ## CI and workflow split
 
@@ -96,9 +106,12 @@ Recommended workflow separation:
    - runs on `develop`
    - creates or updates the release PR
 3. `publish.yml`
-   - runs on merge to `main`
+   - runs after CI succeeds for `main`
    - creates tag and GitHub Release if needed
-4. VM deploy script
+4. `sync-main-to-develop.yml`
+   - runs on push to `main`
+   - updates `develop` directly or opens a sync PR
+5. VM deploy script
    - runs manually on the server
    - updates checkout to the selected tag
    - installs dependencies, migrates, runs one-offs, and optionally restarts the service
@@ -198,4 +211,6 @@ Expected daily workflow after implementation:
 2. merge into `develop`
 3. automation prepares the release PR
 4. approve and merge the release PR into `main`
-5. release and deploy happen with little or no manual intervention
+5. CI validates the release commit on `main`, then publish automation creates the tag and GitHub Release
+6. automation syncs `main` back into `develop` directly or through a sync PR
+7. release and deploy happen with little or no manual intervention

@@ -35,7 +35,9 @@ class Command(BaseCommand):
                     "name": payment.name,
                     "payment_date": payment.payment_date.strftime("%d/%m/%Y"),
                     "value": payment_value,
-                    "payment_url": settings.BASE_URL_FRONTEND + "/admin/financial/payments/details/" + str(payment.id),
+                    "payment_url": settings.BASE_URL_FRONTEND_FINANCIAL
+                    + "/internal/financial/bills?payment_id="
+                    + str(payment.id),
                 }
             )
 

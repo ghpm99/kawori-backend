@@ -10,7 +10,8 @@
       "Bash(source:*)",
       "Bash(where python:*)",
       "Bash(.venv/Scripts/pip.exe install:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(git add:*)"
     ]
   }
 }

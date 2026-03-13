@@ -31,6 +31,8 @@ refactor(authentication): isolate token validation helper
 test(invoice): cover fixed invoice regeneration flow
 docs(release): document deploy workflow
 build(ci): add release preparation workflow
+build(release): prepare v1.6.0
+build(sync): merge main into develop
 ```
 
 ## Allowed commit types
@@ -69,12 +71,16 @@ Current automation uses these rules:
 
 This repository intentionally releases every merged change that reaches `main`, even when the change is operational or documentation-oriented. That keeps deployed state, tags, changelog, and repository history aligned.
 
+Automation-generated commits are excluded from release calculation and changelog generation when they match the reserved release or sync signatures, such as `build(release): ...`, `build(sync): ...`, and the legacy `chore(release): ...`.
+
 ## Branch and release policy
 
 - `develop` is the integration branch.
 - `main` is the stable release branch.
-- Release automation will prepare a PR from `develop` to `main`.
+- Release automation prepares a release branch from `main`, merges `develop`, restores release-controlled files from `main`, recalculates release metadata, and opens or updates the PR to `main`.
 - Merging that PR is the release approval point.
+- After the release commit reaches `main`, automation must sync `main` back into `develop`.
+- If the direct sync fails, automation must open or update a sync PR so the conflict is resolved once and `develop` is realigned with `main`.
 
 ## One-off policy
 

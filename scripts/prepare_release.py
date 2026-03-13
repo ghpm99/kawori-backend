@@ -15,6 +15,7 @@ CHANGELOG_FILE = Path("CHANGELOG.md")
 RELEASE_BRANCH = "release/develop-to-main"
 ALLOWED_TYPES = {"feat", "fix", "refactor", "docs", "test", "build", "chore"}
 PATCH_TYPES = {"fix", "refactor", "docs", "test", "build", "chore"}
+AUTOMATION_COMMIT_PATTERN = re.compile(r"^(?:build|chore)\((?:release|sync)\): ")
 
 
 @dataclass(frozen=True, order=True)
@@ -102,6 +103,10 @@ def parse_conventional_commit(subject: str, body: str) -> tuple[str | None, str 
     return commit_type, match.group("scope"), breaking_from_body or bool(match.group("breaking"))
 
 
+def is_automation_commit(subject: str) -> bool:
+    return bool(AUTOMATION_COMMIT_PATTERN.match(subject))
+
+
 def load_commits(base_ref: str, head_ref: str) -> list[CommitInfo]:
     raw_log = git("log", f"{base_ref}..{head_ref}", "--pretty=format:%H%x1f%s%x1f%b%x1e")
     commits: list[CommitInfo] = []
@@ -117,6 +122,8 @@ def load_commits(base_ref: str, head_ref: str) -> list[CommitInfo]:
             raise ValueError(f"Unexpected git log entry format: {entry!r}")
         sha, subject, body = [part.strip() for part in parts]
         if subject.startswith("Merge "):
+            continue
+        if is_automation_commit(subject):
             continue
         commit_type, scope, breaking = parse_conventional_commit(subject, body)
         if not commit_type and not breaking:
@@ -251,7 +258,7 @@ def main() -> int:
         version=str(next_version),
         tag=f"v{next_version}",
         branch_name=RELEASE_BRANCH,
-        pr_title=f"chore(release): prepare v{next_version}",
+        pr_title=f"build(release): prepare v{next_version}",
         pr_body_file=args.pr_body_file,
     )
     print(f"Prepared release v{next_version}")

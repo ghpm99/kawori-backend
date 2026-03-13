@@ -12,6 +12,8 @@ permissions:
 jobs:
   prepare-release-pr:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_BRANCH: release/develop-to-main
 
     steps:
       - name: Checkout repository
@@ -37,8 +39,31 @@ jobs:
       - name: Create release branch from main and merge develop
         run: |
           DEVELOP_SHA="$(git rev-parse HEAD)"
-          git checkout -B release/develop-to-main origin/main
-          git merge "$DEVELOP_SHA" --no-edit -m "merge develop into release branch"
+          git checkout -B "$RELEASE_BRANCH" origin/main
+
+          if git merge "$DEVELOP_SHA" --no-commit --no-ff; then
+            echo "Merged develop into release branch without conflicts."
+          else
+            conflicted_files="$(git diff --name-only --diff-filter=U || true)"
+            if [ -z "$conflicted_files" ]; then
+              echo "Merge failed without conflicted files." >&2
+              exit 1
+            fi
+
+            for file in $conflicted_files; do
+              case "$file" in
+                CHANGELOG.md|kawori/version.py) ;;
+                *)
+                  echo "Release branch merge requires manual resolution for $file" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+
+            echo "Resetting release-controlled files to origin/main before recalculation."
+          fi
+
+          git restore --source=origin/main --staged --worktree CHANGELOG.md kawori/version.py
 
       - name: Prepare release files
         id: prepare

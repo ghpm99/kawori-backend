@@ -83,6 +83,12 @@ Supporting persistence:
 
 - `audit.ReleaseScriptExecution`
 
+Release workflow note:
+
+- the automatic `main -> develop` sync does not execute one-offs
+- one-offs remain tied to deploy execution on the released tag
+- release and sync commits must not be treated as one-off triggers by themselves
+
 ## Registered entries
 
 | Version | Identifier | Type | Objective | Idempotent | Notes |
