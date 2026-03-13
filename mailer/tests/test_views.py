@@ -3,7 +3,6 @@ import json
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 from mailer.models import UserEmailPreference
 

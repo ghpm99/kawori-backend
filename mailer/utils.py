@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.utils import timezone
 
