@@ -1,13 +1,10 @@
 import re
-import threading
 from datetime import datetime
 from urllib.parse import urlencode
 
 import requests
 from django.conf import settings
 from django.contrib.auth.models import Group, User
-from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -305,80 +302,15 @@ def build_social_redirect_url(base_url: str, params: dict) -> str:
     return f"{base_url}{separator}{urlencode(params)}"
 
 
-def _send_password_reset_email(user: User, raw_token: str) -> None:
-    """Builds and sends the password reset email. Runs in a background thread."""
-    from authentication.models import UserToken
-
-    try:
-        reset_url = f"{settings.BASE_URL_FRONTEND}/reset-password?token={raw_token}"
-
-        html_content = render_to_string(
-            "password_reset_email.html",
-            {
-                "user": user,
-                "token": raw_token,
-                "reset_url": reset_url,
-                "expiry_minutes": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_PASSWORD_RESET],
-            },
-        )
-
-        email = EmailMessage(
-            subject="Redefinição de senha - Kawori",
-            body=html_content,
-            from_email=settings.EMAIL_HOST_USER,
-            to=[user.email],
-        )
-        email.content_subtype = "html"
-        email.send()
-
-    except Exception as e:
-        print(f"[password_reset] Erro ao enviar email para {user.email}: {e}")
-
-
 def send_password_reset_email_async(user: User, raw_token: str) -> None:
-    """Dispatches the password reset email in a daemon thread."""
-    thread = threading.Thread(
-        target=_send_password_reset_email,
-        args=(user, raw_token),
-        daemon=True,
-    )
-    thread.start()
+    """Enqueues the password reset email for background processing."""
+    from mailer.utils import enqueue_password_reset
 
-
-def _send_verification_email(user: User, raw_token: str) -> None:
-    """Builds and sends the email verification email. Runs in a background thread."""
-    from authentication.models import UserToken
-
-    try:
-        verify_url = f"{settings.BASE_URL_FRONTEND}/verify-email?token={raw_token}"
-
-        html_content = render_to_string(
-            "email_verification.html",
-            {
-                "user": user,
-                "verify_url": verify_url,
-                "expiry_hours": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_EMAIL_VERIFICATION] // 60,
-            },
-        )
-
-        email = EmailMessage(
-            subject="Bem-vindo ao Kawori - Verifique seu email",
-            body=html_content,
-            from_email=settings.EMAIL_HOST_USER,
-            to=[user.email],
-        )
-        email.content_subtype = "html"
-        email.send()
-
-    except Exception as e:
-        print(f"[email_verification] Erro ao enviar email para {user.email}: {e}")
+    enqueue_password_reset(user, raw_token)
 
 
 def send_verification_email_async(user: User, raw_token: str) -> None:
-    """Dispatches the verification email in a daemon thread."""
-    thread = threading.Thread(
-        target=_send_verification_email,
-        args=(user, raw_token),
-        daemon=True,
-    )
-    thread.start()
+    """Enqueues the verification email for background processing."""
+    from mailer.utils import enqueue_email_verification
+
+    enqueue_email_verification(user, raw_token)
