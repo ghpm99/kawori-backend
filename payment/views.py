@@ -485,9 +485,7 @@ def statement_view(request, user):
     base_filter = Q(user=user, status=Payment.STATUS_DONE)
 
     # Opening balance: sum of all credits - debits with payment_date < date_from
-    prior_payments = Payment.objects.filter(
-        base_filter, payment_date__lt=date_from_parsed
-    )
+    prior_payments = Payment.objects.filter(base_filter, payment_date__lt=date_from_parsed)
     prior_agg = prior_payments.aggregate(
         credits=Sum(
             Case(
@@ -515,7 +513,7 @@ def statement_view(request, user):
         )
         .select_related("invoice")
         .prefetch_related("invoice__tags")
-        .order_by("payment_date", "id")
+        .order_by("-payment_date", "id")
     )
 
     transactions = []
@@ -536,10 +534,7 @@ def statement_view(request, user):
         tags = []
         if payment.invoice:
             invoice_name = payment.invoice.name
-            tags = [
-                {"id": tag.id, "name": tag.name, "color": tag.color}
-                for tag in payment.invoice.tags.all()
-            ]
+            tags = [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in payment.invoice.tags.all()]
 
         transactions.append(
             {
