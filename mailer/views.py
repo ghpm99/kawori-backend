@@ -28,6 +28,7 @@ def email_preferences(request, user):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"msg": "JSON inválido."}, status=HTTPStatus.BAD_REQUEST)
 
+    changed_fields = []
     for field in ALLOWED_FIELDS:
         if field in data:
             value = data[field]
@@ -36,8 +37,10 @@ def email_preferences(request, user):
                     {"msg": f"Campo '{field}' deve ser booleano."}, status=HTTPStatus.BAD_REQUEST
                 )
             setattr(pref, field, value)
+            changed_fields.append(field)
 
-    pref.save()
+    if changed_fields:
+        pref.save(update_fields=changed_fields + ["updated_at"])
 
     return JsonResponse({
         "allow_all_emails": pref.allow_all_emails,

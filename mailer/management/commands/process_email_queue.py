@@ -21,6 +21,9 @@ class Command(BaseCommand):
         if not queued_email.user:
             return None
 
+        if queued_email.category == EmailQueue.CATEGORY_TRANSACTIONAL:
+            return None
+
         try:
             pref = queued_email.user.email_preference
         except UserEmailPreference.DoesNotExist:
@@ -51,18 +54,15 @@ class Command(BaseCommand):
         now = timezone.now()
         processed = 0
 
-        with transaction.atomic():
-            emails = (
-                EmailQueue.objects.select_for_update(skip_locked=True)
-                .filter(
-                    status__in=[EmailQueue.STATUS_PENDING, EmailQueue.STATUS_FAILED],
-                    scheduled_at__lte=now,
-                    retry_count__lt=models.F("max_retries"),
-                )
-                .order_by("priority", "scheduled_at")[:batch_size]
+        email_ids = list(
+            EmailQueue.objects.filter(
+                status__in=[EmailQueue.STATUS_PENDING, EmailQueue.STATUS_FAILED],
+                scheduled_at__lte=now,
+                retry_count__lt=models.F("max_retries"),
             )
-
-            email_ids = list(emails.values_list("id", flat=True))
+            .order_by("priority", "scheduled_at")
+            .values_list("id", flat=True)[:batch_size]
+        )
 
         for email_id in email_ids:
             self.process_single(email_id)

@@ -74,7 +74,7 @@ class ProcessEmailQueueTestCase(TestCase):
     @patch("mailer.management.commands.process_email_queue.Command.send_email")
     def test_skips_when_user_disabled_all(self, mock_send):
         UserEmailPreference.objects.create(user=self.user, allow_all_emails=False)
-        email = self._create_email()
+        email = self._create_email(category=EmailQueue.CATEGORY_NOTIFICATION)
         call_command("process_email_queue", "--once", stdout=StringIO())
         email.refresh_from_db()
         self.assertEqual(email.status, EmailQueue.STATUS_SKIPPED)
@@ -97,6 +97,15 @@ class ProcessEmailQueueTestCase(TestCase):
         call_command("process_email_queue", "--once", stdout=StringIO())
         email.refresh_from_db()
         self.assertEqual(email.status, EmailQueue.STATUS_SENT)
+
+    @patch("mailer.management.commands.process_email_queue.Command.send_email")
+    def test_sends_transactional_even_if_all_emails_disabled(self, mock_send):
+        UserEmailPreference.objects.create(user=self.user, allow_all_emails=False)
+        email = self._create_email(category=EmailQueue.CATEGORY_TRANSACTIONAL)
+        call_command("process_email_queue", "--once", stdout=StringIO())
+        email.refresh_from_db()
+        self.assertEqual(email.status, EmailQueue.STATUS_SENT)
+        mock_send.assert_called_once()
 
     @patch("mailer.management.commands.process_email_queue.Command.send_email")
     def test_does_not_process_future_scheduled(self, mock_send):

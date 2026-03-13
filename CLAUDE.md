@@ -4,8 +4,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Mandatory workflow rules
 
-- Every code change must exist in a commit.
-- Keep one logical change per commit.
 - Every commit that may reach `develop` or `main` must follow Conventional Commits.
 - Every change that requires a one-off script, data backfill, recalculation, or operational action must register that action in `scripts.xml` and document it in `docs/oneoff-registry.md`.
 - Treat `docs/engineering-rules.md`, `docs/release-deploy-plan.md`, and `docs/oneoff-registry.md` as the operational source of truth.
