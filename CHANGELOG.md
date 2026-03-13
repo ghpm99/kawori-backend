@@ -1,5 +1,28 @@
 # Changelog
 
+## v4.0.0 - 2026-03-13
+
+### Breaking Changes
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
+### Features
+- feat(mailer): add EmailQueue and UserEmailPreference models (3969426)
+- feat(mailer): add email enqueue utilities (3a9ab0d)
+- feat(mailer): add process_email_queue worker command with preference checks (76451fe)
+- feat(mailer): add cleanup_email_queue command (864da6d)
+- feat(mailer): add email preferences endpoint (50bcc9e)
+
+### Fixes
+- fix(payment): Update payment model field defaults and statement ordering (05c0d36)
+- fix: process_email_queue (a5a1229)
+
+### Maintenance
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+- refactor(email): Switch to Django EmailMessage for sending emails (7a62f90)
+- test(mailer): add tests for email queue system (51eb0ad)
+- refactor(auth): use email queue for password reset and verification (14d6b48)
+- refactor(financial): use email queue for payment notifications (50ed03b)
+
 ## v3.0.0 - 2026-03-12
 
 ### Breaking Changes
