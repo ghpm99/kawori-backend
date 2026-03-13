@@ -504,7 +504,7 @@ def statement_view(request, user):
     )
     opening_balance = float((prior_agg["credits"] or 0) - (prior_agg["debits"] or 0))
 
-    # Transactions in the period
+    # Transactions in the period (ASC for correct running_balance, reversed later for display)
     period_payments = (
         Payment.objects.filter(
             base_filter,
@@ -513,7 +513,7 @@ def statement_view(request, user):
         )
         .select_related("invoice")
         .prefetch_related("invoice__tags")
-        .order_by("-payment_date", "id")
+        .order_by("payment_date", "id")
     )
 
     transactions = []
@@ -551,6 +551,7 @@ def statement_view(request, user):
             }
         )
 
+    transactions.reverse()
     closing_balance = running_balance
 
     return JsonResponse(

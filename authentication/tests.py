@@ -1244,28 +1244,28 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
 
     def test_send_password_reset_email_sync_success_and_exception(self):
         with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP"
-        ) as mocked_smtp:
-            smtp_instance = mocked_smtp.return_value.__enter__.return_value
+            "authentication.utils.EmailMessage"
+        ) as mocked_email_cls:
+            mocked_email_instance = mocked_email_cls.return_value
             auth_utils._send_password_reset_email(self.user, "raw-token")
-        self.assertTrue(smtp_instance.send_message.called)
+        self.assertTrue(mocked_email_instance.send.called)
 
         with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
+            "authentication.utils.EmailMessage", side_effect=Exception("smtp-error")
         ), patch("builtins.print") as mocked_print:
             auth_utils._send_password_reset_email(self.user, "raw-token")
         self.assertTrue(mocked_print.called)
 
     def test_send_verification_email_sync_success_and_exception(self):
         with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP"
-        ) as mocked_smtp:
-            smtp_instance = mocked_smtp.return_value.__enter__.return_value
+            "authentication.utils.EmailMessage"
+        ) as mocked_email_cls:
+            mocked_email_instance = mocked_email_cls.return_value
             auth_utils._send_verification_email(self.user, "verify-token")
-        self.assertTrue(smtp_instance.send_message.called)
+        self.assertTrue(mocked_email_instance.send.called)
 
         with patch("authentication.utils.render_to_string", return_value="<html/>"), patch(
-            "authentication.utils.SMTP", side_effect=Exception("smtp-error")
+            "authentication.utils.EmailMessage", side_effect=Exception("smtp-error")
         ), patch("builtins.print") as mocked_print:
             auth_utils._send_verification_email(self.user, "verify-token")
         self.assertTrue(mocked_print.called)
