@@ -2,6 +2,7 @@ import hashlib
 import json
 import operator
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import date as Date, timedelta
 from datetime import datetime
@@ -172,7 +173,7 @@ def process_csv_date(date_str: str) -> Date | None:
     if not date_str or type(date_str) is not str:
         return None
 
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
             return datetime.strptime(date_str, fmt).date()
         except ValueError:
@@ -194,35 +195,33 @@ def process_csv_value(value_str: str) -> Decimal:
         return Decimal(0.0)
 
 
-def generate_payment_installments_by_name(name: str) -> int:
+def generate_payment_installments_by_name(name: str) -> tuple[int, int]:
     if not name:
-        return 1
+        return (1, 1)
     match = re.search(r"parcela\s*(\d+)\s*(?:/|de)\s*(\d+)", name, re.IGNORECASE)
     if match:
-        try:
-            installment = int(match.group(1))
-            return installment if installment >= 1 else 1
-        except ValueError:
-            return 1
+        current = int(match.group(1))
+        total = int(match.group(2))
+        if current >= 1 and total >= current:
+            return (current, total)
 
     # Fallback: pega qualquer ocorrência x/y isolada na string
     match = re.search(r"(\d+)\s*/\s*(\d+)", name)
     if match:
-        try:
-            installment = int(match.group(1))
-            return installment if installment >= 1 else 1
-        except ValueError:
-            return 1
+        current = int(match.group(1))
+        total = int(match.group(2))
+        if current >= 1 and total >= current:
+            return (current, total)
 
-    return 1
+    return (1, 1)
 
 
-def paymment_mapped_to_detail(
+def payment_mapped_to_detail(
     user, import_type, mapped_data: Dict[str, any], payment_date_import: datetime
 ) -> PaymentDetail:
 
     value = mapped_data.get("value", 0.0)
-    type = Payment.TYPE_CREDIT
+    payment_type = Payment.TYPE_CREDIT
     name = mapped_data.get("name", "")
     description = mapped_data.get("description", "")
     date = mapped_data.get("date", None)
@@ -230,14 +229,14 @@ def paymment_mapped_to_detail(
     installments = mapped_data.get("installments", None)
 
     if import_type == "card_payments":
-        type = Payment.TYPE_DEBIT
+        payment_type = Payment.TYPE_DEBIT
         if value < 0:
-            type = Payment.TYPE_CREDIT
+            payment_type = Payment.TYPE_CREDIT
     elif import_type == "transactions":
         if value > 0:
-            type = Payment.TYPE_CREDIT
+            payment_type = Payment.TYPE_CREDIT
         else:
-            type = Payment.TYPE_DEBIT
+            payment_type = Payment.TYPE_DEBIT
 
     if value < 0:
         value = abs(value)
@@ -249,12 +248,12 @@ def paymment_mapped_to_detail(
         payment_date = date
 
     if not installments:
-        installments = generate_payment_installments_by_name(name)
+        installments = generate_payment_installments_by_name(name)[0]
 
     return PaymentDetail(
         id=None,
         status=0,
-        type=type,
+        type=payment_type,
         name=name,
         description=description,
         reference=mapped_data.get("reference", ""),
@@ -468,7 +467,7 @@ def process_csv_row(
     user, import_type: str, header_mapping: List[CSVMapping], row: Row, payment_date: datetime
 ) -> ParsedTransaction:
     parser_transaction = ParsedTransaction(
-        id=str(datetime.now().timestamp()),
+        id=str(uuid.uuid4()),
         original_row=row,
         mapped_data=None,
         validation_errors=[],
@@ -500,7 +499,7 @@ def process_csv_row(
 
         payment_data_mapped[system_field] = process_func_col
 
-    payment_detail = paymment_mapped_to_detail(user, import_type, payment_data_mapped, payment_date)
+    payment_detail = payment_mapped_to_detail(user, import_type, payment_data_mapped, payment_date)
 
     if payment_detail.reference == "" or payment_detail.reference is None:
         payment_detail.reference = generate_payment_reference(row, user)

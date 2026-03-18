@@ -16,7 +16,7 @@ from payment.utils import (
     find_possible_payment_matches,
     generate_payment_installments_by_name,
     generate_payment_reference,
-    paymment_mapped_to_detail,
+    payment_mapped_to_detail,
     process_csv_date,
     process_csv_installments,
     process_csv_row,
@@ -121,7 +121,7 @@ class PaymentUtilsRegressionTestCase(TestCase):
     def test_parse_helpers(self):
         self.assertEqual(process_csv_date("2026-01-31"), date(2026, 1, 31))
         self.assertEqual(process_csv_date("31/01/2026"), date(2026, 1, 31))
-        self.assertEqual(process_csv_date("01/31/2026"), date(2026, 1, 31))
+        self.assertIsNone(process_csv_date("01/31/2026"))  # MM/DD/YYYY format removed (ambiguous)
         self.assertIsNone(process_csv_date("invalid"))
         self.assertIsNone(process_csv_date(None))
 
@@ -134,21 +134,15 @@ class PaymentUtilsRegressionTestCase(TestCase):
         self.assertEqual(process_csv_value(None), Decimal("0"))
 
     def test_generate_payment_installments_by_name_branches(self):
-        self.assertEqual(generate_payment_installments_by_name("Parcela 2/12"), 2)
-        self.assertEqual(generate_payment_installments_by_name("Compra 3/10"), 3)
-        self.assertEqual(generate_payment_installments_by_name("Parcela 0/10"), 1)
-        self.assertEqual(generate_payment_installments_by_name(""), 1)
-
-        fake_match = Mock()
-        fake_match.group.return_value = "x"
-        with patch("payment.utils.re.search", return_value=fake_match):
-            self.assertEqual(generate_payment_installments_by_name("parcela x/y"), 1)
-
-        with patch("payment.utils.re.search", side_effect=[None, fake_match]):
-            self.assertEqual(generate_payment_installments_by_name("x/y"), 1)
+        self.assertEqual(generate_payment_installments_by_name("Parcela 2/12"), (2, 12))
+        self.assertEqual(generate_payment_installments_by_name("Compra 3/10"), (3, 10))
+        self.assertEqual(generate_payment_installments_by_name("Parcela 0/10"), (1, 1))
+        self.assertEqual(generate_payment_installments_by_name(""), (1, 1))
+        self.assertEqual(generate_payment_installments_by_name("Parcela 3/2"), (1, 1))
+        self.assertEqual(generate_payment_installments_by_name("Sem parcela"), (1, 1))
 
     def test_payment_mapping_by_import_type(self):
-        mapped = paymment_mapped_to_detail(
+        mapped = payment_mapped_to_detail(
             self.user,
             "card_payments",
             {"value": Decimal("-10"), "name": "", "description": "fallback name", "date": date(2026, 1, 1)},
@@ -160,7 +154,7 @@ class PaymentUtilsRegressionTestCase(TestCase):
         self.assertEqual(mapped.installments, 1)
         self.assertEqual(mapped.payment_date, date(2026, 1, 15))
 
-        mapped2 = paymment_mapped_to_detail(
+        mapped2 = payment_mapped_to_detail(
             self.user,
             "transactions",
             {"value": Decimal("-5"), "name": "Compra 4/12", "date": date(2026, 1, 2)},
