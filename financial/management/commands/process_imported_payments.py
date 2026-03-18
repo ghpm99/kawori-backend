@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 import re
 import time
@@ -5,8 +6,10 @@ from financial.utils import generate_payments, update_invoice_value
 from invoice.models import Invoice
 from invoice.utils import validate_invoice_data
 from payment.models import ImportedPayment, Payment
+from payment.utils import generate_payment_installments_by_name
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from tag.models import Tag
 
@@ -15,6 +18,20 @@ class Command(BaseCommand):
     help = "Process Imported Payments"
 
     INVALID_KEYWORDS = ("iof",)
+    PROCESSING_TIMEOUT_MINUTES = 10
+
+    def recover_stuck_processing(self):
+        cutoff = timezone.now() - timedelta(minutes=self.PROCESSING_TIMEOUT_MINUTES)
+        stuck = ImportedPayment.objects.filter(
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING,
+            updated_at__lt=cutoff,
+        )
+        count = stuck.update(
+            status=ImportedPayment.IMPORT_STATUS_FAILED,
+            status_description="Timeout: processamento excedeu o tempo limite",
+        )
+        if count:
+            print(f"Recovered {count} stuck processing payments")
 
     def is_processing_running(self) -> bool:
         return ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_PROCESSING).exists()
@@ -50,25 +67,6 @@ class Command(BaseCommand):
             payment_by_merge_group_list.append(payment)
 
         return payment_by_merge_group_list
-
-    def generate_payment_installments_by_name(self, name: str) -> tuple[int, int]:
-        if not name:
-            return (1, 1)
-        match = re.search(r"parcela\s*(\d+)\s*(?:/|de)\s*(\d+)", name, re.IGNORECASE)
-        if match:
-            current = int(match.group(1))
-            total = int(match.group(2))
-            if current >= 1 and total >= current:
-                return (current, total)
-
-        match = re.search(r"(\d+)\s*/\s*(\d+)", name)
-        if match:
-            current = int(match.group(1))
-            total = int(match.group(2))
-            if current >= 1 and total >= current:
-                return (current, total)
-
-        return (1, 1)
 
     def is_auxiliary_payment(self, name: str) -> bool:
         return any(k in name.lower() for k in self.INVALID_KEYWORDS)
@@ -127,7 +125,15 @@ class Command(BaseCommand):
 
         payment.date = main_payment.raw_date
         payment.payment_date = main_payment.raw_payment_date
+
+        # Update payment value with sum of all imported payments
+        total_raw_value = sum(p.raw_value for p in payments_to_process)
+        payment.value = total_raw_value
+
         payment.save()
+
+        # Recalculate invoice totals
+        update_invoice_value(payment.invoice)
 
     def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
         payment = next(
@@ -163,10 +169,10 @@ class Command(BaseCommand):
     def create_invoice_by_imported_payment(self, payments_to_process: list[ImportedPayment]):
         main_payment = self.get_main_payment(payments_to_process)
         current_installments = max(
-            self.generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
+            generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
         )
         total_installments = max(
-            self.generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
+            generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
         installments_to_import = total_installments - current_installments + 1
         invoice_name = self.get_invoice_name(main_payment)
@@ -220,6 +226,8 @@ class Command(BaseCommand):
         return Payment.objects.filter(reference__in=references, user__in=user, active=True).exists()
 
     def run_command(self):
+        self.recover_stuck_processing()
+
         if self.is_processing_running():
             print("Já existe processo executando")
             return

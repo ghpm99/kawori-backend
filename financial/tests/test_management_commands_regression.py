@@ -404,27 +404,33 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         self.assertEqual(len(claimed), 1)
         self.assertEqual(claimed[0].id, 2)
 
-        self.assertEqual(command.generate_payment_installments_by_name("Compra 2/5"), (2, 5))
+        from payment.utils import generate_payment_installments_by_name
+        self.assertEqual(generate_payment_installments_by_name("Compra 2/5"), (2, 5))
 
         source_tags = [SimpleNamespace(id=2), SimpleNamespace(id=3)]
         target_tags = [SimpleNamespace(id=2)]
         merged = command.merge_tags(source_tags, target_tags)
         self.assertEqual([tag.id for tag in merged], [2, 3])
 
+        mock_invoice = SimpleNamespace()
         payment = SimpleNamespace(
             description="",
             reference="",
             date=None,
             payment_date=None,
+            value=Decimal("0.00"),
+            invoice=mock_invoice,
             save=MagicMock(),
         )
         main_payment = SimpleNamespace(reference="ref", raw_date=date(2026, 1, 1), raw_payment_date=date(2026, 1, 2))
+        imported_ns = SimpleNamespace(raw_value=Decimal("50.00"))
         with patch.object(command, "get_main_payment", return_value=main_payment), patch.object(
             command, "get_payment_description", return_value="desc"
-        ):
-            command.update_invoice_by_imported_payment(payment, [SimpleNamespace()])
+        ), patch("financial.management.commands.process_imported_payments.update_invoice_value"):
+            command.update_invoice_by_imported_payment(payment, [imported_ns])
         self.assertEqual(payment.reference, "ref")
         self.assertEqual(payment.description, "desc")
+        self.assertEqual(payment.value, Decimal("50.00"))
         self.assertTrue(payment.save.called)
 
         with self.assertRaisesMessage(Exception, "Pagamento merge sem pagamento selecionado"):

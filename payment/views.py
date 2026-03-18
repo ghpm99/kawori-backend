@@ -1,6 +1,8 @@
 from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
+
+from django.utils import timezone
 from math import ceil
 from typing import List
 
@@ -630,6 +632,20 @@ def csv_resolve_imports_view(request, user):
     if import_type not in dict(ImportedPayment.IMPORT_SOURCES):
         return JsonResponse({"msg": "Tipo de importação invalido"}, status=HTTPStatus.BAD_REQUEST)
 
+    def _build_tag_list(tags_qs):
+        return [
+            {
+                "id": tag.id,
+                "name": tag.name,
+                "color": tag.color,
+                "is_budget": hasattr(tag, "budget"),
+            }
+            for tag in tags_qs
+        ]
+
+    def _has_budget_tag(tags_qs):
+        return tags_qs.filter(budget__isnull=False).exists() or tags_qs.filter(name__icontains="budget").exists()
+
     with transaction.atomic():
         for transaction_data in csv_payments:
             mapped_payment = transaction_data.get("mapped_payment")
@@ -643,13 +659,31 @@ def csv_resolve_imports_view(request, user):
             existing = ImportedPayment.objects.filter(
                 reference=reference,
                 user=user,
-            ).first()
+            ).prefetch_related("raw_tags").first()
 
             if existing and not existing.is_editable():
+                if existing.status == ImportedPayment.IMPORT_STATUS_COMPLETED:
+                    existing_tags = existing.raw_tags.all()
+                    created_imported_payment.append(
+                        {
+                            "import_payment_id": existing.id,
+                            "reference": existing.reference,
+                            "action": existing.import_strategy,
+                            "payment_id": existing.matched_payment_id,
+                            "name": existing.raw_name,
+                            "value": float(existing.raw_value or 0),
+                            "date": existing.raw_date,
+                            "payment_date": existing.raw_payment_date,
+                            "merge_group": existing.merge_group,
+                            "tags": _build_tag_list(existing_tags),
+                            "has_budget_tag": _has_budget_tag(existing_tags),
+                            "completed": True,
+                        }
+                    )
                 continue
 
             matched_invoice_tags = []
-            has_budget_tag = False
+            has_budget_tag_flag = False
 
             import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
 
@@ -664,10 +698,7 @@ def csv_resolve_imports_view(request, user):
                 if matched_payment:
                     import_strategy = ImportedPayment.IMPORT_STRATEGY_MERGE
                     matched_invoice_tags = matched_payment.invoice.tags.all()
-                    has_budget_tag = (
-                        matched_payment.invoice.tags.filter(budget__isnull=False).exists()
-                        or matched_payment.invoice.tags.filter(name__icontains="budget").exists()
-                    )
+                    has_budget_tag_flag = _has_budget_tag(matched_invoice_tags)
                 else:
                     matched_payment_id = None
 
@@ -682,11 +713,11 @@ def csv_resolve_imports_view(request, user):
                     "raw_type": mapped_payment.get("type", Payment.TYPE_DEBIT),
                     "raw_name": mapped_payment.get("name") or "",
                     "raw_description": mapped_payment.get("description") or "",
-                    "raw_date": mapped_payment.get("date") or datetime.now().date(),
+                    "raw_date": mapped_payment.get("date") or timezone.now().date(),
                     "raw_installments": mapped_payment.get("installments") or 1,
                     "raw_payment_date": mapped_payment.get("payment_date")
                     or mapped_payment.get("date")
-                    or datetime.now().date(),
+                    or timezone.now().date(),
                     "raw_value": mapped_payment.get("value") or 0,
                 },
             )
@@ -704,18 +735,33 @@ def csv_resolve_imports_view(request, user):
                     "value": float(imported_payment.raw_value or 0),
                     "date": imported_payment.raw_date,
                     "payment_date": imported_payment.raw_payment_date,
-                    "tags": [
-                        {
-                            "id": tag.id,
-                            "name": tag.name,
-                            "color": tag.color,
-                            "is_budget": hasattr(tag, "budget"),
-                        }
-                        for tag in matched_invoice_tags
-                    ],
-                    "has_budget_tag": has_budget_tag,
+                    "merge_group": imported_payment.merge_group,
+                    "tags": _build_tag_list(matched_invoice_tags),
+                    "has_budget_tag": has_budget_tag_flag,
                 }
             )
+
+        # Propagate tags within merge_groups
+        merge_groups = {}
+        for item in created_imported_payment:
+            mg = item.get("merge_group")
+            if mg:
+                merge_groups.setdefault(mg, []).append(item)
+
+        for mg, items in merge_groups.items():
+            source_item = max(items, key=lambda x: len(x.get("tags", [])))
+            if not source_item.get("tags"):
+                continue
+            source_tag_ids = [t["id"] for t in source_item["tags"]]
+            for item in items:
+                if item["import_payment_id"] == source_item["import_payment_id"]:
+                    continue
+                if item.get("tags"):
+                    continue
+                imp = ImportedPayment.objects.get(id=item["import_payment_id"])
+                imp.raw_tags.set(source_tag_ids)
+                item["tags"] = source_item["tags"]
+                item["has_budget_tag"] = source_item.get("has_budget_tag", False)
 
     return JsonResponse({"data": created_imported_payment})
 
@@ -731,7 +777,7 @@ def csv_import_view(request, user):
 
     items = payload.get("data")
     if items is None:
-        return JsonResponse({"msg": "data is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        return JsonResponse({"msg": "data is required"}, status=HTTPStatus.BAD_REQUEST)
 
     imported_ids = [item.get("import_payment_id") for item in items if item.get("import_payment_id")]
 
@@ -743,21 +789,44 @@ def csv_import_view(request, user):
     imports_by_id = {imp.id: imp for imp in imports}
 
     count_imports = 0
+    skipped = []
 
     with transaction.atomic():
+        # First pass: collect tag assignments per item, propagating within merge_groups
+        item_tags = {}
+        merge_group_tags = {}
+
         for item in items:
             import_payment_id = item.get("import_payment_id")
             if not import_payment_id:
-                return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-
-            imported = imports_by_id.get(import_payment_id)
-            if not imported or not imported.is_editable():
-                continue
+                return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.BAD_REQUEST)
 
             tag_ids = item.get("tags")
             if tag_ids is None:
-                return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.BAD_REQUEST)
+
+            item_tags[import_payment_id] = tag_ids
+
+            imported = imports_by_id.get(import_payment_id)
+            if imported and imported.merge_group and len(tag_ids) > 0:
+                merge_group_tags.setdefault(imported.merge_group, tag_ids)
+
+        for item in items:
+            import_payment_id = item.get("import_payment_id")
+
+            imported = imports_by_id.get(import_payment_id)
+            if not imported or not imported.is_editable():
+                skipped.append({"import_payment_id": import_payment_id, "reason": "not_editable"})
+                continue
+
+            tag_ids = item_tags.get(import_payment_id, [])
+
+            # Propagate tags from merge_group if current item has no tags
+            if len(tag_ids) == 0 and imported.merge_group:
+                tag_ids = merge_group_tags.get(imported.merge_group, [])
+
             if len(tag_ids) == 0:
+                skipped.append({"import_payment_id": import_payment_id, "reason": "no_tags"})
                 continue
 
             tags = Tag.objects.filter(
@@ -768,6 +837,7 @@ def csv_import_view(request, user):
                 tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
             )
             if not has_budget_tag:
+                skipped.append({"import_payment_id": import_payment_id, "reason": "no_budget_tag"})
                 continue
 
             imported.raw_tags.set(tags)
@@ -775,4 +845,4 @@ def csv_import_view(request, user):
             imported.save(update_fields=["status"])
             count_imports += 1
 
-    return JsonResponse({"msg": "Importação iniciada", "total": count_imports})
+    return JsonResponse({"msg": "Importação iniciada", "total": count_imports, "skipped": skipped})

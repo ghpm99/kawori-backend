@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from budget.models import Budget
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
 from tag.models import Tag
@@ -764,3 +765,160 @@ class CSVResolveImportsViewTestCase(TestCase):
             self.assertIsInstance(item["value"], float)
             self.assertIsInstance(item["tags"], list)
             self.assertIsInstance(item["has_budget_tag"], bool)
+
+    def test_csv_resolve_imports_view_completed_reimport_returns_previous_data(self):
+        """Testa que reimportar reference COMPLETED retorna dados anteriores em vez de skipar"""
+        user = User.objects.get(username="test")
+
+        Budget.objects.get_or_create(
+            user=user,
+            tag=self.budget_tag,
+            defaults={"allocation_percentage": Decimal("10.00")}
+        )
+
+        # Criar ImportedPayment já completado com tags e merge_group
+        completed_imported = ImportedPayment.objects.create(
+            user=user,
+            reference="ref_completed",
+            import_source=ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_MERGE,
+            merge_group="completed_group",
+            matched_payment=self.existing_payment,
+            raw_type=Payment.TYPE_DEBIT,
+            raw_name="Discord",
+            raw_value=Decimal("30.00"),
+            raw_date="2026-02-15",
+            raw_payment_date="2026-02-20",
+            status=ImportedPayment.IMPORT_STATUS_COMPLETED
+        )
+        completed_imported.raw_tags.set([self.tag1, self.budget_tag])
+
+        # Reimportar com a mesma reference
+        import_data = {
+            "import": [
+                {
+                    "mapped_payment": {
+                        "type": Payment.TYPE_DEBIT,
+                        "name": "Discord",
+                        "reference": "ref_completed",
+                        "value": "30.00",
+                        "date": "2026-02-15",
+                        "payment_date": "2026-02-20"
+                    }
+                }
+            ],
+            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_resolve_imports_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        # Deve retornar dados do import anterior (não skipar silenciosamente)
+        self.assertEqual(len(data["data"]), 1)
+
+        item = data["data"][0]
+        self.assertEqual(item["import_payment_id"], completed_imported.id)
+        self.assertEqual(item["action"], ImportedPayment.IMPORT_STRATEGY_MERGE)
+        self.assertEqual(item["payment_id"], self.existing_payment.id)
+        self.assertEqual(item["merge_group"], "completed_group")
+        self.assertTrue(item["completed"])
+        self.assertTrue(item["has_budget_tag"])
+
+        # Tags devem vir populadas
+        tag_names = {t["name"] for t in item["tags"]}
+        self.assertIn("Tag CSV 1", tag_names)
+        self.assertIn("Budget CSV", tag_names)
+
+    def test_csv_resolve_imports_view_merge_group_tag_propagation(self):
+        """Testa que tags são propagadas do item principal para itens do mesmo merge_group"""
+        import_data = {
+            "import": [
+                {
+                    "mapped_payment": {
+                        "type": Payment.TYPE_DEBIT,
+                        "name": "Discord",
+                        "reference": "ref_discord_prop",
+                        "value": "30.00",
+                        "date": "2026-02-15",
+                        "payment_date": "2026-02-20"
+                    },
+                    "matched_payment_id": self.existing_payment.id,
+                    "merge_group": "discord_mg"
+                },
+                {
+                    "mapped_payment": {
+                        "type": Payment.TYPE_DEBIT,
+                        "name": "IOF Discord",
+                        "reference": "ref_iof_discord_prop",
+                        "value": "2.00",
+                        "date": "2026-02-15",
+                        "payment_date": "2026-02-20"
+                    },
+                    "merge_group": "discord_mg"  # Mesmo grupo, sem matched_payment_id
+                }
+            ],
+            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_resolve_imports_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        self.assertEqual(len(data["data"]), 2)
+
+        # Discord (principal com merge) deve ter tags
+        discord_item = next(i for i in data["data"] if i["name"] == "Discord")
+        self.assertEqual(discord_item["action"], ImportedPayment.IMPORT_STRATEGY_MERGE)
+        self.assertTrue(len(discord_item["tags"]) > 0)
+
+        # IOF Discord deve ter herdado as tags via merge_group
+        iof_item = next(i for i in data["data"] if i["name"] == "IOF Discord")
+        self.assertEqual(len(iof_item["tags"]), len(discord_item["tags"]))
+        self.assertEqual(iof_item["has_budget_tag"], discord_item["has_budget_tag"])
+
+        # Verificar no banco
+        iof_imported = ImportedPayment.objects.get(id=iof_item["import_payment_id"])
+        iof_tags = set(iof_imported.raw_tags.values_list("id", flat=True))
+        discord_imported = ImportedPayment.objects.get(id=discord_item["import_payment_id"])
+        discord_tags = set(discord_imported.raw_tags.values_list("id", flat=True))
+        self.assertEqual(iof_tags, discord_tags)
+
+    def test_csv_resolve_imports_view_response_includes_merge_group(self):
+        """Testa que a resposta inclui o campo merge_group"""
+        import_data = {
+            "import": [
+                {
+                    "mapped_payment": {
+                        "type": Payment.TYPE_DEBIT,
+                        "name": "Transação MG",
+                        "reference": "ref_mg_test"
+                    },
+                    "merge_group": "test_mg"
+                }
+            ],
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_resolve_imports_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        self.assertEqual(len(data["data"]), 1)
+        self.assertIn("merge_group", data["data"][0])
+        self.assertEqual(data["data"][0]["merge_group"], "test_mg")

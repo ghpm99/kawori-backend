@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from budget.models import Budget
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
 from tag.models import Tag
@@ -379,7 +380,7 @@ class CSVImportViewTestCase(TestCase):
         self.assertIn("Budget Import", tag_names)
 
     def test_csv_import_view_error_missing_data_field(self):
-        """Testa erro da view sem campo data - deve retornar erro 500"""
+        """Testa erro da view sem campo data - deve retornar erro 400"""
         import_data = {
             # Sem campo "data"
         }
@@ -390,7 +391,7 @@ class CSVImportViewTestCase(TestCase):
             content_type="application/json"
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
 
     def test_csv_import_view_error_empty_data_list(self):
         """Testa view com lista data vazia - deve processar zero importações"""
@@ -413,7 +414,7 @@ class CSVImportViewTestCase(TestCase):
         self.assertEqual(data["total"], 0)
 
     def test_csv_import_view_error_missing_import_payment_id(self):
-        """Testa erro da view sem import_payment_id - deve pular item"""
+        """Testa erro da view sem import_payment_id - deve retornar erro 400"""
         import_data = {
             "data": [
                 {
@@ -429,10 +430,10 @@ class CSVImportViewTestCase(TestCase):
             content_type="application/json"
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
 
     def test_csv_import_view_error_missing_tags_field(self):
-        """Testa erro da view sem campo tags - deve pular item"""
+        """Testa erro da view sem campo tags - deve retornar erro 400"""
         import_data = {
             "data": [
                 {
@@ -448,7 +449,7 @@ class CSVImportViewTestCase(TestCase):
             content_type="application/json"
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
 
     def test_csv_import_view_error_invalid_json(self):
         """Testa erro da view com JSON inválido - deve retornar erro 400"""
@@ -656,13 +657,13 @@ class CSVImportViewTestCase(TestCase):
 
         self.assertEqual(data["total"], 1)  # Processado apenas uma vez
 
-        # Verificar se apenas as tags do primeiro item foram associadas
+        # Verificar que o import foi processado (último com mesmo id sobrescreve tags)
         self.imported_payment_1.refresh_from_db()
         tags = list(self.imported_payment_1.raw_tags.all())
         self.assertEqual(len(tags), 2)
-        
+
         tag_names = [tag.name for tag in tags]
-        self.assertIn("Tag Import 1", tag_names)
+        self.assertIn("Tag Import 2", tag_names)
         self.assertIn("Budget Import", tag_names)
 
     def test_csv_import_view_response_structure(self):
@@ -726,3 +727,132 @@ class CSVImportViewTestCase(TestCase):
         self.assertIn(self.tag1.id, tag_ids)
         self.assertIn(self.tag2.id, tag_ids)
         self.assertIn(self.budget_tag.id, tag_ids)
+
+    def test_csv_import_view_returns_skipped_with_reasons(self):
+        """Testa que a resposta inclui array skipped com motivos"""
+        import_data = {
+            "data": [
+                {
+                    "import_payment_id": self.imported_payment_1.id,
+                    "tags": [self.tag1.id]  # Sem budget tag
+                },
+                {
+                    "import_payment_id": self.imported_payment_3.id,  # PROCESSING - não editável
+                    "tags": [self.tag1.id, self.budget_tag.id]
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_import_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        self.assertEqual(data["total"], 0)
+        self.assertIn("skipped", data)
+        self.assertEqual(len(data["skipped"]), 2)
+
+        reasons = {item["reason"] for item in data["skipped"]}
+        self.assertIn("no_budget_tag", reasons)
+        self.assertIn("not_editable", reasons)
+
+    def test_csv_import_view_skipped_empty_tags(self):
+        """Testa que tags vazias geram skip com reason no_tags"""
+        import_data = {
+            "data": [
+                {
+                    "import_payment_id": self.imported_payment_1.id,
+                    "tags": []
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_import_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        self.assertEqual(data["total"], 0)
+        self.assertEqual(len(data["skipped"]), 1)
+        self.assertEqual(data["skipped"][0]["reason"], "no_tags")
+
+    def test_csv_import_view_merge_group_tag_propagation(self):
+        """Testa que tags são propagadas dentro do merge_group - IOF herda tags do principal"""
+        user = User.objects.get(username="test")
+
+        # Criar budget real para a tag
+        Budget.objects.get_or_create(
+            user=user,
+            tag=self.budget_tag,
+            defaults={"allocation_percentage": Decimal("10.00")}
+        )
+
+        # Pagamento principal com merge_group
+        main_imported = ImportedPayment.objects.create(
+            user=user,
+            reference="ref_discord",
+            import_source=ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_NEW,
+            merge_group="discord_group",
+            raw_type=Payment.TYPE_DEBIT,
+            raw_name="Discord",
+            raw_value=Decimal("30.00"),
+            status=ImportedPayment.IMPORT_STATUS_PENDING
+        )
+
+        # IOF no mesmo merge_group
+        iof_imported = ImportedPayment.objects.create(
+            user=user,
+            reference="ref_iof_discord",
+            import_source=ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_NEW,
+            merge_group="discord_group",
+            raw_type=Payment.TYPE_DEBIT,
+            raw_name="IOF Discord",
+            raw_value=Decimal("2.00"),
+            status=ImportedPayment.IMPORT_STATUS_PENDING
+        )
+
+        import_data = {
+            "data": [
+                {
+                    "import_payment_id": main_imported.id,
+                    "tags": [self.budget_tag.id, self.tag1.id]  # Tags no principal
+                },
+                {
+                    "import_payment_id": iof_imported.id,
+                    "tags": []  # IOF sem tags - deve herdar do merge_group
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("financial_csv_import_view"),
+            data=json.dumps(import_data),
+            content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        # Ambos devem ser processados - IOF herda tags do principal via merge_group
+        self.assertEqual(data["total"], 2)
+
+        main_imported.refresh_from_db()
+        iof_imported.refresh_from_db()
+
+        self.assertEqual(main_imported.status, ImportedPayment.IMPORT_STATUS_QUEUED)
+        self.assertEqual(iof_imported.status, ImportedPayment.IMPORT_STATUS_QUEUED)
+
+        # Verificar que IOF recebeu as mesmas tags
+        main_tag_ids = set(main_imported.raw_tags.values_list("id", flat=True))
+        iof_tag_ids = set(iof_imported.raw_tags.values_list("id", flat=True))
+        self.assertEqual(main_tag_ids, iof_tag_ids)

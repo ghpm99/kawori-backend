@@ -1,13 +1,15 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 from django.core.management import call_command
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from django.test import TestCase
 
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
+from tag.models import Tag
 
 User = get_user_model()
 
@@ -986,3 +988,193 @@ class ProcessImportedPaymentsCommandTest(TestCase):
                 "user": self.user,
             },
         )
+
+    def test_merge_updates_payment_value_and_invoice(self):
+        """Testa que merge atualiza o valor do Payment e recalcula a Invoice"""
+        # Criar invoice e payment existentes
+        invoice = Invoice.objects.create(
+            status=Invoice.STATUS_OPEN,
+            type=Invoice.Type.DEBIT,
+            name="Discord",
+            date="2024-01-10",
+            payment_date="2024-02-10",
+            installments=1,
+            fixed=False,
+            active=True,
+            value=Decimal("0.00"),
+            value_open=Decimal("0.00"),
+            value_closed=Decimal("0.00"),
+            user=self.user,
+        )
+
+        existing_payment = Payment.objects.create(
+            status=Payment.STATUS_OPEN,
+            type=Payment.TYPE_DEBIT,
+            name="Discord #1",
+            description="",
+            reference="",
+            installments=1,
+            date="2024-01-10",
+            payment_date="2024-02-10",
+            fixed=False,
+            active=True,
+            value=Decimal("0.00"),
+            user=self.user,
+            invoice=invoice,
+        )
+
+        # Criar ImportedPayment principal (Discord)
+        ImportedPayment.objects.create(
+            reference="ref_discord",
+            merge_group="discord_mg",
+            user=self.user,
+            raw_name="Discord",
+            raw_description="Discord",
+            raw_value=Decimal("30.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-02-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_MERGE,
+            matched_payment=existing_payment,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        # Criar ImportedPayment IOF no mesmo merge_group
+        ImportedPayment.objects.create(
+            reference="ref_iof_discord",
+            merge_group="discord_mg",
+            user=self.user,
+            raw_name="IOF Discord",
+            raw_description="IOF",
+            raw_value=Decimal("2.50"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-02-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_MERGE,
+            matched_payment=existing_payment,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        # Verificar que o payment foi atualizado com o valor total (30.00 + 2.50)
+        existing_payment.refresh_from_db()
+        self.assertEqual(existing_payment.value, Decimal("32.50"))
+        self.assertEqual(existing_payment.description, "Discord R$30.00 | IOF R$2.50")
+
+        # Verificar que a invoice foi recalculada
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.value, Decimal("32.50"))
+        self.assertEqual(invoice.value_open, Decimal("32.50"))
+
+        # Verificar que ambos ImportedPayments estão COMPLETED
+        self.assertEqual(
+            ImportedPayment.objects.filter(
+                merge_group="discord_mg", status=ImportedPayment.IMPORT_STATUS_COMPLETED
+            ).count(),
+            2,
+        )
+
+    def test_merge_single_payment_updates_value(self):
+        """Testa que merge de um único pagamento (sem merge_group) atualiza o valor"""
+        invoice = Invoice.objects.create(
+            status=Invoice.STATUS_OPEN,
+            type=Invoice.Type.DEBIT,
+            name="Netflix",
+            date="2024-01-10",
+            payment_date="2024-02-10",
+            installments=1,
+            fixed=False,
+            active=True,
+            value=Decimal("0.00"),
+            value_open=Decimal("0.00"),
+            value_closed=Decimal("0.00"),
+            user=self.user,
+        )
+
+        existing_payment = Payment.objects.create(
+            status=Payment.STATUS_OPEN,
+            type=Payment.TYPE_DEBIT,
+            name="Netflix #1",
+            description="",
+            reference="",
+            installments=1,
+            date="2024-01-10",
+            payment_date="2024-02-10",
+            fixed=False,
+            active=True,
+            value=Decimal("0.00"),
+            user=self.user,
+            invoice=invoice,
+        )
+
+        ImportedPayment.objects.create(
+            reference="ref_netflix",
+            user=self.user,
+            raw_name="Netflix",
+            raw_description="Netflix",
+            raw_value=Decimal("39.90"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-02-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            import_strategy=ImportedPayment.IMPORT_STRATEGY_MERGE,
+            matched_payment=existing_payment,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        existing_payment.refresh_from_db()
+        self.assertEqual(existing_payment.value, Decimal("39.90"))
+
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.value, Decimal("39.90"))
+        self.assertEqual(invoice.value_open, Decimal("39.90"))
+
+    def test_processing_timeout_recovery(self):
+        """Testa que pagamentos travados em PROCESSING são recuperados como FAILED"""
+        stuck_payment = ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Travado",
+            raw_value=Decimal("100.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING,
+        )
+
+        # Forçar updated_at para 15 minutos atrás (acima do timeout de 10)
+        ImportedPayment.objects.filter(id=stuck_payment.id).update(
+            updated_at=timezone.now() - timedelta(minutes=15)
+        )
+
+        call_command("process_imported_payments")
+
+        stuck_payment.refresh_from_db()
+        self.assertEqual(stuck_payment.status, ImportedPayment.IMPORT_STATUS_FAILED)
+        self.assertIn("Timeout", stuck_payment.status_description)
+
+    def test_processing_timeout_does_not_affect_recent(self):
+        """Testa que pagamentos PROCESSING recentes NÃO são resetados"""
+        recent_payment = ImportedPayment.objects.create(
+            user=self.user,
+            raw_name="Recente",
+            raw_value=Decimal("100.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING,
+        )
+
+        # updated_at é auto_now, então já é recente
+
+        call_command("process_imported_payments")
+
+        recent_payment.refresh_from_db()
+        # Deve continuar PROCESSING (não foi recuperado)
+        self.assertEqual(recent_payment.status, ImportedPayment.IMPORT_STATUS_PROCESSING)
