@@ -168,7 +168,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         self.assertEqual(imported_payment.status, ImportedPayment.IMPORT_STATUS_FAILED)
 
     def test_merge_group_processing(self):
-        p1 = ImportedPayment.objects.create(
+        ImportedPayment.objects.create(
             reference="a",
             user=self.user,
             raw_name="Compra X",
@@ -181,7 +181,7 @@ class ProcessImportedPaymentsCommandTest(TestCase):
             status=ImportedPayment.IMPORT_STATUS_QUEUED,
         )
 
-        p2 = ImportedPayment.objects.create(
+        ImportedPayment.objects.create(
             reference="b",
             user=self.user,
             raw_name="Compra X",
@@ -1178,3 +1178,34 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         recent_payment.refresh_from_db()
         # Deve continuar PROCESSING (não foi recuperado)
         self.assertEqual(recent_payment.status, ImportedPayment.IMPORT_STATUS_PROCESSING)
+
+    @patch("financial.management.commands.process_imported_payments.suggest_payment_normalization")
+    def test_uses_ai_normalization_when_available(self, mocked_normalization):
+        suggested_tag = Tag.objects.create(name="Mercado", color="#123456", user=self.user)
+        mocked_normalization.return_value = {
+            "normalized_name": "Mercado Central",
+            "normalized_description": "Compra consolidada mercado.",
+            "installments_total": 1,
+            "tag_names": ["Mercado"],
+        }
+
+        ImportedPayment.objects.create(
+            reference="ref-ai-1",
+            user=self.user,
+            raw_name="Mercado Central parcela 1/1",
+            raw_description="compra mercado",
+            raw_value=Decimal("80.00"),
+            raw_date="2024-01-10",
+            raw_payment_date="2024-01-10",
+            raw_installments=1,
+            raw_type=Invoice.Type.DEBIT,
+            status=ImportedPayment.IMPORT_STATUS_QUEUED,
+        )
+
+        call_command("process_imported_payments")
+
+        invoice = Invoice.objects.get()
+        payment = Payment.objects.get()
+        self.assertEqual(invoice.name, "Mercado Central")
+        self.assertEqual(payment.description, "Compra consolidada mercado.")
+        self.assertIn(suggested_tag.id, list(invoice.tags.values_list("id", flat=True)))

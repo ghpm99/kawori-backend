@@ -2,6 +2,7 @@ from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.utils import timezone
 from math import ceil
 from typing import List
@@ -17,6 +18,7 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
+from payment.ai_assist import suggest_import_resolution
 from payment.models import ImportedPayment, Payment
 from payment.utils import (
     CSVMapping,
@@ -605,9 +607,19 @@ def process_csv_upload(request, user):
     payment_date = format_date(data.get("payment_date"))
 
     processed_payments = []
+    max_ai_suggestions = max(int(getattr(settings, "AI_IMPORT_SUGGESTION_MAX_ITEMS", 20)), 0)
+    ai_attempts_left = max_ai_suggestions
 
     for row in csv_body:
         processed_row = process_csv_row(user, import_type, csv_headers, row, payment_date)
+        has_candidates = (
+            processed_row.is_valid
+            and processed_row.matched_payment is None
+            and bool(processed_row.possibly_matched_payment_list)
+        )
+        if has_candidates and ai_attempts_left > 0:
+            ai_attempts_left -= 1
+            processed_row.ai_suggestion = suggest_import_resolution(user, processed_row, import_type)
         processed_payments.append(processed_row)
 
     processed = [pt.to_dict() for pt in processed_payments]
@@ -655,6 +667,15 @@ def csv_resolve_imports_view(request, user):
             reference = mapped_payment.get("reference")
 
             matched_payment_id = transaction_data.get("matched_payment_id")
+            ai_suggestion = transaction_data.get("ai_suggestion")
+            ai_suggestion = ai_suggestion if isinstance(ai_suggestion, dict) else {}
+            if matched_payment_id is None:
+                matched_payment_id = ai_suggestion.get("matched_payment_id")
+            if matched_payment_id is not None:
+                try:
+                    matched_payment_id = int(matched_payment_id)
+                except (TypeError, ValueError):
+                    matched_payment_id = None
 
             existing = ImportedPayment.objects.filter(
                 reference=reference,
@@ -686,6 +707,9 @@ def csv_resolve_imports_view(request, user):
             has_budget_tag_flag = False
 
             import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
+            suggested_strategy = str(ai_suggestion.get("import_strategy", "")).strip().lower()
+            if suggested_strategy in dict(ImportedPayment.IMPORT_STRATEGIES):
+                import_strategy = suggested_strategy
 
             if matched_payment_id:
                 matched_payment = (
@@ -701,12 +725,20 @@ def csv_resolve_imports_view(request, user):
                     has_budget_tag_flag = _has_budget_tag(matched_invoice_tags)
                 else:
                     matched_payment_id = None
+                    if import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE:
+                        import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
+
+            merge_group = transaction_data.get("merge_group")
+            if not merge_group:
+                merge_group = ai_suggestion.get("merge_group")
+            if merge_group is not None:
+                merge_group = str(merge_group).strip()[:255] or None
 
             imported_payment, created = ImportedPayment.objects.update_or_create(
                 reference=reference,
                 user=user,
                 defaults={
-                    "merge_group": transaction_data.get("merge_group"),
+                    "merge_group": merge_group,
                     "matched_payment_id": matched_payment_id,
                     "import_strategy": import_strategy,
                     "import_source": import_type,
@@ -738,6 +770,8 @@ def csv_resolve_imports_view(request, user):
                     "merge_group": imported_payment.merge_group,
                     "tags": _build_tag_list(matched_invoice_tags),
                     "has_budget_tag": has_budget_tag_flag,
+                    "ai_applied": bool(ai_suggestion),
+                    "ai_suggestion": ai_suggestion if ai_suggestion else None,
                 }
             )
 

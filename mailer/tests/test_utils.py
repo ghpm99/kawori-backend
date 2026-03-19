@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
+from unittest.mock import patch
 
 from mailer.models import EmailQueue
 from mailer.utils import enqueue_email, enqueue_password_reset, enqueue_email_verification, enqueue_payment_notification
@@ -46,8 +47,22 @@ class EnqueueEmailTestCase(TestCase):
 
     def test_enqueue_payment_notification(self):
         payments = [
-            {"id": 1, "type": "Boleto", "name": "Internet", "payment_date": "15/03/2026", "value": 100.0, "payment_url": "http://test/1"},
-            {"id": 2, "type": "Cartão", "name": "Luz", "payment_date": "16/03/2026", "value": 50.0, "payment_url": "http://test/2"},
+            {
+                "id": 1,
+                "type": "Boleto",
+                "name": "Internet",
+                "payment_date": "15/03/2026",
+                "value": 100.0,
+                "payment_url": "http://test/1",
+            },
+            {
+                "id": 2,
+                "type": "Cartão",
+                "name": "Luz",
+                "payment_date": "16/03/2026",
+                "value": 50.0,
+                "payment_url": "http://test/2",
+            },
         ]
         from datetime import date
         final_date = date(2026, 3, 20)
@@ -55,4 +70,20 @@ class EnqueueEmailTestCase(TestCase):
         self.assertEqual(email.email_type, EmailQueue.TYPE_PAYMENT_NOTIFICATION)
         self.assertEqual(email.category, EmailQueue.CATEGORY_NOTIFICATION)
         self.assertEqual(email.priority, EmailQueue.PRIORITY_NORMAL)
+        self.assertIn("20/03/2026", email.subject)
+
+    @patch("mailer.utils.suggest_payment_notification_copy")
+    def test_enqueue_payment_notification_uses_ai_subject_prefix(self, mocked_ai):
+        mocked_ai.return_value = {
+            "subject_prefix": "Alerta Financeiro",
+            "intro": "Você possui pagamentos próximos.",
+            "highlights": ["Internet em 15/03"],
+        }
+        payments = [{"id": 1, "type": "Boleto", "name": "Internet", "payment_date": "15/03/2026", "value": 100.0}]
+        from datetime import date
+        final_date = date(2026, 3, 20)
+
+        email = enqueue_payment_notification(self.user, payments, final_date)
+
+        self.assertTrue(email.subject.startswith("Alerta Financeiro"))
         self.assertIn("20/03/2026", email.subject)

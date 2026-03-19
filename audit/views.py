@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
+from audit.ai_assist import build_audit_ai_insights
 from audit.models import AuditLog
 from kawori.decorators import validate_user
 from kawori.utils import format_date, paginate
@@ -197,16 +198,26 @@ def get_audit_report(request, user):
         .order_by("-count", "action")[:limit]
     )
 
-    return JsonResponse(
-        {
-            "data": {
-                "filters": response_filters,
-                "summary": summary,
-                "interactions_by_day": interactions_by_day,
-                "by_action": by_action,
-                "by_category": by_category,
-                "by_user": by_user,
-                "failures_by_action": failures_by_action,
-            }
-        }
+    response_data = {
+        "filters": response_filters,
+        "summary": summary,
+        "interactions_by_day": interactions_by_day,
+        "by_action": by_action,
+        "by_category": by_category,
+        "by_user": by_user,
+        "failures_by_action": failures_by_action,
+    }
+
+    ai_insights = build_audit_ai_insights(
+        filters=response_filters,
+        summary=summary,
+        interactions_by_day=interactions_by_day,
+        by_action=by_action,
+        by_category=by_category,
+        by_user=by_user,
+        failures_by_action=failures_by_action,
     )
+    if ai_insights:
+        response_data["ai_insights"] = ai_insights
+
+    return JsonResponse({"data": response_data})

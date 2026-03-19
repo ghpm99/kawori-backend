@@ -132,6 +132,7 @@ class ParsedTransaction:
     matched_payment: Optional[Payment] = None
     match_score: Optional[float] = None
     possibly_matched_payment_list: Optional[List[PaymentMatchCandidate]] = None
+    ai_suggestion: Optional[Dict[str, object]] = None
 
     def to_dict(self) -> Dict[str, object]:
         result: Dict[str, object] = {
@@ -159,6 +160,8 @@ class ParsedTransaction:
             if self.possibly_matched_payment_list
             else None
         )
+        if self.ai_suggestion is not None:
+            result["ai_suggestion"] = self.ai_suggestion
         return result
 
 

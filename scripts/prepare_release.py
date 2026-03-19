@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 VERSION_FILE = Path("kawori/version.py")
@@ -142,6 +143,118 @@ def load_commits(base_ref: str, head_ref: str) -> list[CommitInfo]:
     return list(reversed(commits))
 
 
+def load_changed_files(base_ref: str, head_ref: str) -> list[str]:
+    raw_diff = git("diff", "--name-only", f"{base_ref}..{head_ref}")
+    return [line.strip() for line in raw_diff.splitlines() if line.strip()]
+
+
+def build_compliance_hints(commits: list[CommitInfo], changed_files: list[str]) -> dict[str, Any]:
+    touched_files = set(changed_files)
+    touched_docs = {
+        "docs/engineering-rules.md": "engineering_rules",
+        "docs/release-deploy-plan.md": "release_deploy_plan",
+        "docs/oneoff-registry.md": "oneoff_registry",
+    }
+    docs_touched = [key for key, value in touched_docs.items() if key in touched_files]
+    scripts_registry_touched = "scripts.xml" in touched_files
+
+    has_migrations = any("/migrations/" in path for path in changed_files)
+    has_oneoff_command_change = any("management/commands/ONEOFF_" in path for path in changed_files)
+    has_import_flow_change = any(
+        path.startswith("payment/") or path.startswith("financial/management/commands/process_imported_payments")
+        for path in changed_files
+    )
+    inferred_oneoff_need = has_migrations or has_oneoff_command_change or has_import_flow_change
+    oneoff_registry_complete = scripts_registry_touched and "docs/oneoff-registry.md" in touched_files
+
+    return {
+        "changed_files": changed_files[:120],
+        "releasable_commit_count": len(commits),
+        "inferred_oneoff_need": inferred_oneoff_need,
+        "scripts_registry_touched": scripts_registry_touched,
+        "oneoff_registry_complete": oneoff_registry_complete,
+        "docs_touched": docs_touched,
+    }
+
+
+def build_regression_test_hints(changed_files: list[str]) -> list[str]:
+    hints: list[str] = []
+    if any(path.startswith("payment/") for path in changed_files):
+        hints.append("python manage.py test payment")
+    if any(path.startswith("financial/") for path in changed_files):
+        hints.append("python manage.py test financial")
+    if any(path.startswith("audit/") for path in changed_files):
+        hints.append("python manage.py test audit")
+    if any(path.startswith("mailer/") for path in changed_files):
+        hints.append("python manage.py test mailer")
+    if any(path.startswith("scripts/") for path in changed_files):
+        hints.append("python -m unittest scripts.tests.test_prepare_release")
+    if not hints:
+        hints.append("python manage.py test")
+    return hints
+
+
+def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dict[str, Any]) -> dict[str, Any] | None:
+    ai_enabled = os.environ.get("AI_ASSIST_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+    has_any_key = bool(os.environ.get("OPENAI_API_KEY")) or bool(os.environ.get("ANTHROPIC_API_KEY"))
+    if not ai_enabled or not has_any_key:
+        return None
+
+    try:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "kawori.settings.development")
+        import django
+
+        django.setup()
+
+        from ai.assist import safe_execute_ai_task
+        from ai.dto import AITaskRequest, AITaskType
+    except Exception:
+        return None
+
+    payload = {
+        "commits": [{"sha": commit.sha[:7], "subject": commit.subject, "breaking": commit.breaking} for commit in commits],
+        "compliance_hints": compliance_hints,
+    }
+
+    response = safe_execute_ai_task(
+        AITaskRequest(
+            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
+            input_text=json.dumps(payload, ensure_ascii=False),
+            instructions=(
+                "Avalie compliance de release e risco de regressão. "
+                "Retorne recomendações objetivas e verificáveis."
+            ),
+            metadata={
+                "schema": {
+                    "release_compliance_notes": ["string"],
+                    "oneoff_required": "boolean",
+                    "oneoff_reason": "string",
+                    "suggested_regression_tests": ["string"],
+                }
+            },
+            temperature=0.1,
+            max_tokens=260,
+        ),
+        feature_name="release_compliance",
+    )
+    if response is None or not isinstance(response.output, dict):
+        return None
+
+    output = response.output
+    notes = output.get("release_compliance_notes")
+    suggested_tests = output.get("suggested_regression_tests")
+
+    return {
+        "release_compliance_notes": [str(item).strip() for item in notes or [] if str(item).strip()][:8],
+        "oneoff_required": bool(output.get("oneoff_required")),
+        "oneoff_reason": str(output.get("oneoff_reason", "")).strip(),
+        "suggested_regression_tests": [str(item).strip() for item in suggested_tests or [] if str(item).strip()][:10],
+        "trace_id": response.trace_id,
+        "provider": response.provider,
+        "model": response.model,
+    }
+
+
 def determine_bump(commits: Iterable[CommitInfo]) -> str | None:
     bump = None
     for commit in commits:
@@ -195,7 +308,7 @@ def update_changelog(changelog_file: Path, version: SemanticVersion, commits: li
     else:
         first_entry = re.search(r"^## v", existing, flags=re.MULTILINE)
         if first_entry:
-            updated = existing[: first_entry.start()] + new_section + "\n" + existing[first_entry.start() :]
+            updated = existing[:first_entry.start()] + new_section + "\n" + existing[first_entry.start():]
         elif existing.endswith("\n"):
             updated = existing + new_section + "\n"
         else:
@@ -204,7 +317,13 @@ def update_changelog(changelog_file: Path, version: SemanticVersion, commits: li
     changelog_file.write_text(updated, encoding="utf-8")
 
 
-def build_pr_body(version: SemanticVersion, commits: list[CommitInfo]) -> str:
+def build_pr_body(
+    version: SemanticVersion,
+    commits: list[CommitInfo],
+    compliance_hints: dict[str, Any],
+    regression_test_hints: list[str],
+    ai_release_assistance: dict[str, Any] | None = None,
+) -> str:
     lines = [
         f"## Release v{version}",
         "",
@@ -219,6 +338,35 @@ def build_pr_body(version: SemanticVersion, commits: list[CommitInfo]) -> str:
     lines.append("- [ ] Confirm migrations and one-offs are complete")
     lines.append("- [ ] Merge to publish tag and release")
     lines.append("")
+
+    lines.append("### Compliance Assistant")
+    lines.append(f"- inferred_oneoff_need: `{compliance_hints.get('inferred_oneoff_need')}`")
+    lines.append(f"- scripts.xml updated: `{compliance_hints.get('scripts_registry_touched')}`")
+    lines.append(f"- one-off registry complete: `{compliance_hints.get('oneoff_registry_complete')}`")
+    docs_touched = compliance_hints.get("docs_touched") or []
+    if docs_touched:
+        lines.append(f"- workflow docs touched: `{', '.join(docs_touched)}`")
+    else:
+        lines.append("- workflow docs touched: `none`")
+    lines.append("")
+
+    lines.append("### Regression Test Suggestions")
+    for hint in regression_test_hints:
+        lines.append(f"- `{hint}`")
+    lines.append("")
+
+    if ai_release_assistance:
+        lines.append("### AI Release Assistant")
+        for note in ai_release_assistance.get("release_compliance_notes", []):
+            lines.append(f"- {note}")
+        lines.append(f"- AI one-off required: `{ai_release_assistance.get('oneoff_required')}`")
+        if ai_release_assistance.get("oneoff_reason"):
+            lines.append(f"- AI one-off reason: {ai_release_assistance.get('oneoff_reason')}")
+        ai_test_hints = ai_release_assistance.get("suggested_regression_tests", [])
+        if ai_test_hints:
+            lines.append("- AI suggested tests:")
+            lines.extend(f"  - `{item}`" for item in ai_test_hints)
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -250,7 +398,18 @@ def main() -> int:
     update_version_file(version_file, next_version)
     update_changelog(changelog_file, next_version, commits)
 
-    pr_body = build_pr_body(next_version, commits)
+    changed_files = load_changed_files(args.base_ref, args.head_ref)
+    compliance_hints = build_compliance_hints(commits, changed_files)
+    regression_test_hints = build_regression_test_hints(changed_files)
+    ai_release_assistance = build_ai_release_assistance(commits, compliance_hints)
+
+    pr_body = build_pr_body(
+        next_version,
+        commits,
+        compliance_hints,
+        regression_test_hints,
+        ai_release_assistance=ai_release_assistance,
+    )
     Path(args.pr_body_file).write_text(pr_body, encoding="utf-8")
 
     write_github_output(

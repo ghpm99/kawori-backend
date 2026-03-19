@@ -5,6 +5,7 @@ import time
 from financial.utils import generate_payments, update_invoice_value
 from invoice.models import Invoice
 from invoice.utils import validate_invoice_data
+from payment.ai_assist import suggest_payment_normalization
 from payment.models import ImportedPayment, Payment
 from payment.utils import generate_payment_installments_by_name
 from django.core.management.base import BaseCommand
@@ -82,7 +83,14 @@ class Command(BaseCommand):
     def format_brl(self, value: Decimal) -> str:
         return f"R${value:.2f}"
 
-    def get_payment_description(self, payments_to_process: list[ImportedPayment]) -> str:
+    def get_payment_description(
+        self,
+        payments_to_process: list[ImportedPayment],
+        normalized_description: str | None = None,
+    ) -> str:
+        if normalized_description:
+            return normalized_description[:1024]
+
         return " | ".join(
             f"{payment.raw_description} {self.format_brl(payment.raw_value)}"
             for payment in payments_to_process
@@ -111,13 +119,19 @@ class Command(BaseCommand):
             payment.status = ImportedPayment.IMPORT_STATUS_COMPLETED
             payment.save()
 
-    def update_invoice_by_imported_payment(self, payment: Payment | None, payments_to_process: list[ImportedPayment]):
+    def update_invoice_by_imported_payment(
+        self,
+        payment: Payment | None,
+        payments_to_process: list[ImportedPayment],
+        normalization: dict | None = None,
+    ):
         if payment is None:
             raise Exception("Pagamento merge sem pagamento selecionado")
 
         main_payment = self.get_main_payment(payments_to_process)
+        normalized_description = None if normalization is None else normalization.get("normalized_description")
 
-        payment_description = self.get_payment_description(payments_to_process)
+        payment_description = self.get_payment_description(payments_to_process, normalized_description=normalized_description)
         payment.description = payment_description
 
         if not payment.reference:
@@ -135,12 +149,12 @@ class Command(BaseCommand):
         # Recalculate invoice totals
         update_invoice_value(payment.invoice)
 
-    def process_payment_by_merge(self, payments_to_process: list[ImportedPayment]):
+    def process_payment_by_merge(self, payments_to_process: list[ImportedPayment], normalization: dict | None = None):
         payment = next(
             (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
             None,
         )
-        self.update_invoice_by_imported_payment(payment, payments_to_process)
+        self.update_invoice_by_imported_payment(payment, payments_to_process, normalization=normalization)
 
     def normalize_invoice_name(self, name: str) -> str:
         if not name:
@@ -156,7 +170,10 @@ class Command(BaseCommand):
 
         return re.sub(r"\s{2,}", " ", name).strip()
 
-    def get_invoice_name(self, payment: ImportedPayment) -> str:
+    def get_invoice_name(self, payment: ImportedPayment, normalized_name: str | None = None) -> str:
+        if normalized_name:
+            return str(normalized_name).strip()[:255]
+
         name = self.normalize_invoice_name(payment.raw_name)
 
         if name:
@@ -166,7 +183,11 @@ class Command(BaseCommand):
 
         return payment_name_fallback[:255]
 
-    def create_invoice_by_imported_payment(self, payments_to_process: list[ImportedPayment]):
+    def create_invoice_by_imported_payment(
+        self,
+        payments_to_process: list[ImportedPayment],
+        normalization: dict | None = None,
+    ):
         main_payment = self.get_main_payment(payments_to_process)
         current_installments = max(
             generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
@@ -174,8 +195,11 @@ class Command(BaseCommand):
         total_installments = max(
             generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
         )
+        if normalization is not None and isinstance(normalization.get("installments_total"), int):
+            total_installments = max(total_installments, normalization.get("installments_total"))
         installments_to_import = total_installments - current_installments + 1
-        invoice_name = self.get_invoice_name(main_payment)
+        normalized_name = None if normalization is None else normalization.get("normalized_name")
+        invoice_name = self.get_invoice_name(main_payment, normalized_name=normalized_name)
         invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * installments_to_import
         invoice = Invoice(
             status=Invoice.STATUS_OPEN,
@@ -195,12 +219,19 @@ class Command(BaseCommand):
         for payment in payments_to_process:
             invoice_tags = self.merge_tags(list(payment.raw_tags.all()), invoice_tags)
 
+        if normalization and normalization.get("tag_names"):
+            for tag_name in normalization.get("tag_names"):
+                suggested_tag = Tag.objects.filter(user=main_payment.user, name__iexact=tag_name).first()
+                if suggested_tag:
+                    invoice_tags = self.merge_tags([suggested_tag], invoice_tags)
+
         invoice.tags.set(invoice_tags)
         return invoice
 
-    def process_payment_by_new(self, payments_to_process: list[ImportedPayment]):
-        invoice = self.create_invoice_by_imported_payment(payments_to_process)
-        payment_description = self.get_payment_description(payments_to_process)
+    def process_payment_by_new(self, payments_to_process: list[ImportedPayment], normalization: dict | None = None):
+        invoice = self.create_invoice_by_imported_payment(payments_to_process, normalization=normalization)
+        normalized_description = None if normalization is None else normalization.get("normalized_description")
+        payment_description = self.get_payment_description(payments_to_process, normalized_description=normalized_description)
         generate_payments(invoice, payment_description, payments_to_process[0].reference)
         update_invoice_value(invoice)
         validate_invoice_data(invoice)
@@ -211,13 +242,24 @@ class Command(BaseCommand):
 
         return has_merge_strategy or has_payment_matched
 
+    def get_ai_normalization(self, payments_to_process: list[ImportedPayment]) -> dict | None:
+        if not payments_to_process:
+            return None
+        try:
+            main_payment = self.get_main_payment(payments_to_process)
+        except Exception:
+            return None
+
+        return suggest_payment_normalization(main_payment, payments_to_process)
+
     def process_payment(self, payments_to_process: list[ImportedPayment]):
         with transaction.atomic():
+            normalization = self.get_ai_normalization(payments_to_process)
             has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
             if has_merge:
-                self.process_payment_by_merge(payments_to_process)
+                self.process_payment_by_merge(payments_to_process, normalization=normalization)
             else:
-                self.process_payment_by_new(payments_to_process)
+                self.process_payment_by_new(payments_to_process, normalization=normalization)
             self.finish_with_success(payments_to_process)
 
     def check_existing_payments(self, payments: list[ImportedPayment]):

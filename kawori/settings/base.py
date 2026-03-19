@@ -213,6 +213,16 @@ SOCIAL_AUTH_PROVIDERS = {
 AI_DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("AI_DEFAULT_TIMEOUT_SECONDS", "20"))
 AI_DEFAULT_MAX_RETRIES = int(os.environ.get("AI_DEFAULT_MAX_RETRIES", "1"))
 AI_ENABLE_FALLBACK = os.environ.get("AI_ENABLE_FALLBACK", "true").lower() == "true"
+AI_ASSIST_ENABLED = os.environ.get("AI_ASSIST_ENABLED", "true").lower() == "true"
+AI_IMPORT_SUGGESTION_MAX_ITEMS = int(os.environ.get("AI_IMPORT_SUGGESTION_MAX_ITEMS", "20"))
+AI_FEATURE_FLAGS = {
+    "payment_reconciliation": os.environ.get("AI_FEATURE_PAYMENT_RECONCILIATION", "true"),
+    "payment_normalization": os.environ.get("AI_FEATURE_PAYMENT_NORMALIZATION", "true"),
+    "audit_insights": os.environ.get("AI_FEATURE_AUDIT_INSIGHTS", "true"),
+    "release_compliance": os.environ.get("AI_FEATURE_RELEASE_COMPLIANCE", "true"),
+    "regression_tests": os.environ.get("AI_FEATURE_REGRESSION_TESTS", "true"),
+    "communication_notifications": os.environ.get("AI_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"),
+}
 
 AI_PROVIDERS = {
     "openai": {

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from mailer.ai_assist import suggest_payment_notification_copy
 from mailer.models import EmailQueue
 
 
@@ -78,15 +79,21 @@ def enqueue_email_verification(user, raw_token):
 
 def enqueue_payment_notification(user, payments, final_date):
     total_value = sum(float(p["value"]) for p in payments)
+    ai_copy = suggest_payment_notification_copy(user, payments, final_date, channel="email")
+    subject_prefix = "Notificação de Pagamentos"
+    if ai_copy and ai_copy.get("subject_prefix"):
+        subject_prefix = ai_copy["subject_prefix"]
 
     return enqueue_email(
         to_email=user.email,
-        subject=f'Notificação de Pagamentos - Vencimento até {final_date.strftime("%d/%m/%Y")}',
+        subject=f'{subject_prefix} - Vencimento até {final_date.strftime("%d/%m/%Y")}',
         template_name="payment_email_template.html",
         context={
             "payments": payments,
             "total_value": total_value,
             "final_date": final_date.strftime("%d/%m/%Y"),
+            "ai_intro": ai_copy.get("intro") if ai_copy else "",
+            "ai_highlights": ai_copy.get("highlights", []) if ai_copy else [],
         },
         email_type=EmailQueue.TYPE_PAYMENT_NOTIFICATION,
         category=EmailQueue.CATEGORY_NOTIFICATION,

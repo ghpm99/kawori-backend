@@ -49,3 +49,53 @@ class LoadLatestTagVersionTests(TestCase):
             version = prepare_release.load_latest_tag_version("origin/main")
 
         self.assertEqual(str(version), "1.5.0")
+
+
+class ComplianceHintsTests(TestCase):
+    def test_build_compliance_hints_flags_missing_oneoff_registry(self) -> None:
+        commits = [
+            prepare_release.CommitInfo(
+                sha="abc123",
+                subject="feat(financial): change payment import flow",
+                body="",
+                type="feat",
+                scope="financial",
+                breaking=False,
+            )
+        ]
+        changed_files = [
+            "financial/migrations/0002_auto.py",
+            "financial/management/commands/process_imported_payments.py",
+        ]
+
+        hints = prepare_release.build_compliance_hints(commits, changed_files)
+
+        self.assertTrue(hints["inferred_oneoff_need"])
+        self.assertFalse(hints["scripts_registry_touched"])
+        self.assertFalse(hints["oneoff_registry_complete"])
+
+    def test_build_pr_body_includes_compliance_and_test_sections(self) -> None:
+        version = prepare_release.SemanticVersion.parse("1.8.0")
+        commits = [
+            prepare_release.CommitInfo(
+                sha="def456",
+                subject="fix(payment): keep fallback when ai is unavailable",
+                body="",
+                type="fix",
+                scope="payment",
+                breaking=False,
+            )
+        ]
+        compliance_hints = {
+            "inferred_oneoff_need": True,
+            "scripts_registry_touched": True,
+            "oneoff_registry_complete": False,
+            "docs_touched": ["docs/engineering-rules.md"],
+        }
+        test_hints = ["python manage.py test payment"]
+
+        body = prepare_release.build_pr_body(version, commits, compliance_hints, test_hints)
+
+        self.assertIn("### Compliance Assistant", body)
+        self.assertIn("### Regression Test Suggestions", body)
+        self.assertIn("python manage.py test payment", body)

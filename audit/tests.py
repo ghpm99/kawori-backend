@@ -9,7 +9,6 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, User
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.http import JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
@@ -423,6 +422,23 @@ class AuditViewsTestCase(TestCase):
         self.assertIn("by_user", data)
         self.assertIn("failures_by_action", data)
         self.assertEqual(data["summary"]["total_events"], 4)
+
+    @patch("audit.views.build_audit_ai_insights")
+    def test_get_audit_report_includes_ai_insights_when_available(self, mocked_ai):
+        mocked_ai.return_value = {
+            "summary": "Falhas concentradas em login.",
+            "incident_clusters": ["login.failure"],
+            "probable_root_causes": ["tentativas repetidas"],
+            "recommended_actions": ["habilitar alerta"],
+        }
+        self._login_as("admin_user", "admin123")
+
+        response = self.client.get("/audit/report/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertIn("ai_insights", data)
+        self.assertEqual(data["ai_insights"]["summary"], "Falhas concentradas em login.")
 
     def test_get_audit_report_denied_for_non_admin(self):
         self._login_as("regular_user", "user123")

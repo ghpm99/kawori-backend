@@ -1,11 +1,13 @@
 import time
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import connection
 
+from mailer.ai_assist import suggest_payment_notification_copy
 from payment.models import Payment
 
 
@@ -53,9 +55,19 @@ class Command(BaseCommand):
                 }
             )
 
-        json = {"data": payments}
+        payload = {"data": payments}
+        ai_copy = suggest_payment_notification_copy(
+            SimpleNamespace(username="kawori-system"),
+            payments,
+            final_date,
+            channel="discord",
+        )
+        if ai_copy:
+            payload["message"] = ai_copy.get("intro", "")
+            payload["highlights"] = ai_copy.get("highlights", [])
+            payload["ai_trace_id"] = ai_copy.get("trace_id")
 
-        requests.post(url, json=json, timeout=30)
+        requests.post(url, json=payload, timeout=30)
 
     def run_command(self):
         # locale.setlocale(locale.LC_MONETARY, 'pt_BR.utf8')
