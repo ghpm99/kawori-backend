@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from typing import Any
+
+from ai.exceptions import AIConfigurationError
+from ai.providers import AIProviderRegistry, AnthropicMessagesProvider, OpenAIChatProvider
+
+
+def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegistry:
+    providers = {}
+
+    for provider_key, provider_conf in (provider_settings or {}).items():
+        if not isinstance(provider_conf, dict):
+            raise AIConfigurationError(f"Provider '{provider_key}' possui configuração inválida.")
+
+        engine = (provider_conf.get("engine") or "").strip().lower()
+        if engine == "openai":
+            providers[provider_key] = OpenAIChatProvider(
+                provider_key=provider_key,
+                api_key=provider_conf.get("api_key", ""),
+                base_url=provider_conf.get("base_url", "https://api.openai.com/v1"),
+            )
+            continue
+
+        if engine == "anthropic":
+            providers[provider_key] = AnthropicMessagesProvider(
+                provider_key=provider_key,
+                api_key=provider_conf.get("api_key", ""),
+                base_url=provider_conf.get("base_url", "https://api.anthropic.com/v1"),
+                api_version=provider_conf.get("api_version", "2023-06-01"),
+            )
+            continue
+
+        raise AIConfigurationError(
+            f"Engine '{engine or 'vazio'}' não suportada no provider '{provider_key}'."
+        )
+
+    if not providers:
+        raise AIConfigurationError("Nenhum provider de IA foi configurado.")
+
+    return AIProviderRegistry(providers)

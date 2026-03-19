@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "budget",
     "audit",
     "mailer",
+    "ai",
 ]
 
 MIDDLEWARE = [
@@ -205,5 +206,89 @@ SOCIAL_AUTH_PROVIDERS = {
     "microsoft": {
         "client_id": os.environ.get("SOCIAL_MICROSOFT_CLIENT_ID", ""),
         "client_secret": os.environ.get("SOCIAL_MICROSOFT_CLIENT_SECRET", ""),
+    },
+}
+
+# ========== AI / LLM ==========
+AI_DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("AI_DEFAULT_TIMEOUT_SECONDS", "20"))
+AI_DEFAULT_MAX_RETRIES = int(os.environ.get("AI_DEFAULT_MAX_RETRIES", "1"))
+AI_ENABLE_FALLBACK = os.environ.get("AI_ENABLE_FALLBACK", "true").lower() == "true"
+
+AI_PROVIDERS = {
+    "openai": {
+        "engine": "openai",
+        "api_key": os.environ.get("OPENAI_API_KEY", ""),
+        "base_url": os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    },
+    "anthropic": {
+        "engine": "anthropic",
+        "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "base_url": os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
+        "api_version": os.environ.get("ANTHROPIC_API_VERSION", "2023-06-01"),
+    },
+}
+
+AI_TASK_ROUTES = {
+    "default": {
+        "primary": {
+            "provider": os.environ.get("AI_DEFAULT_PROVIDER", "openai"),
+            "model": os.environ.get("AI_MODEL_DEFAULT", "gpt-4o-mini"),
+        },
+        "fallbacks": [
+            {
+                "provider": os.environ.get("AI_DEFAULT_FALLBACK_PROVIDER", "anthropic"),
+                "model": os.environ.get("AI_MODEL_DEFAULT_FALLBACK", "claude-3-5-haiku-latest"),
+            }
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "text_generation": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_TEXT_GENERATION", "gpt-4o-mini")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_TEXT_GENERATION_FALLBACK", "claude-3-5-haiku-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "summarization": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_SUMMARIZATION", "gpt-4o-mini")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_SUMMARIZATION_FALLBACK", "claude-3-5-haiku-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "classification": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_CLASSIFICATION", "gpt-4o-mini")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_CLASSIFICATION_FALLBACK", "claude-3-5-haiku-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "structured_extraction": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_EXTRACTION", "gpt-4o-mini")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_EXTRACTION_FALLBACK", "claude-3-5-haiku-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "simple_task": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_SIMPLE_TASK", "gpt-4o-mini")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_SIMPLE_TASK_FALLBACK", "claude-3-5-haiku-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
+    },
+    "complex_task": {
+        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_COMPLEX_TASK", "gpt-4o")},
+        "fallbacks": [
+            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_COMPLEX_TASK_FALLBACK", "claude-3-7-sonnet-latest")}
+        ],
+        "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
+        "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
 }
