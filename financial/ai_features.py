@@ -129,7 +129,7 @@ def _build_spending_variation_insight(user, begin: date, end: date) -> dict[str,
             active=True,
             type=Payment.TYPE_DEBIT,
             payment_date__range=(begin, end),
-        ).aggregate(total=Coalesce(Sum("value"), 0))["total"]
+        ).aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
     )
 
     period_start = begin.replace(day=1)
@@ -142,7 +142,7 @@ def _build_spending_variation_insight(user, begin: date, end: date) -> dict[str,
             active=True,
             type=Payment.TYPE_DEBIT,
             payment_date__range=(previous_window_begin, previous_window_end),
-        ).aggregate(total=Coalesce(Sum("value"), 0))["total"]
+        ).aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
     )
 
     previous_average = previous_total / 3 if previous_total > 0 else 0.0
@@ -190,7 +190,7 @@ def _build_tag_concentration_insight(user, begin: date, end: date) -> dict[str, 
             invoice__tags__isnull=False,
         )
         .values("invoice__tags__name")
-        .annotate(amount=Coalesce(Sum("value"), 0))
+        .annotate(amount=Coalesce(Sum("value"), Decimal("0")))
         .order_by("-amount")
     )
 
@@ -237,7 +237,7 @@ def _build_overdue_risk_insight(user, begin: date, end: date) -> dict[str, Any] 
     )
 
     overdue_count = overdue_qs.count()
-    overdue_amount = _to_currency(overdue_qs.aggregate(total=Coalesce(Sum("value"), 0))["total"])
+    overdue_amount = _to_currency(overdue_qs.aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"])
     if overdue_count == 0 or overdue_amount <= 0:
         return None
 
@@ -247,7 +247,7 @@ def _build_overdue_risk_insight(user, begin: date, end: date) -> dict[str, Any] 
             active=True,
             type=Payment.TYPE_DEBIT,
             payment_date__range=(begin, end),
-        ).aggregate(total=Coalesce(Sum("value"), 0))["total"]
+        ).aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
     )
 
     ratio = (overdue_amount / period_debit) * 100 if period_debit > 0 else 0

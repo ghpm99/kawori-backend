@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import unicodedata
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from dateutil.relativedelta import relativedelta
@@ -149,7 +150,7 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
             invoice__tags__isnull=False,
         )
         .values("invoice__tags")
-        .annotate(total=Coalesce(Sum("value"), 0))
+        .annotate(total=Coalesce(Sum("value"), Decimal("0")))
     )
 
     historical_totals = {row["invoice__tags"]: float(row["total"] or 0) for row in debit_rows}

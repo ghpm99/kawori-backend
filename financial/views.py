@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 
 from dateutil.relativedelta import relativedelta
@@ -1152,8 +1153,8 @@ def report_daily_cash_flow_view(request, user):
         Payment.objects.filter(user=user, active=True, payment_date__range=(filters["begin"], filters["end"]))
         .values("payment_date")
         .annotate(
-            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), 0),
-            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), 0),
+            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), Decimal("0")),
+            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), Decimal("0")),
         )
         .order_by("payment_date")
     )
@@ -1259,8 +1260,8 @@ def report_balance_projection_view(request, user):
             active=True,
             payment_date__range=(month_start, month_end),
         ).aggregate(
-            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), 0),
-            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), 0),
+            credit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), Decimal("0")),
+            debit=Coalesce(Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), Decimal("0")),
         )
 
         projected_credit = float(sums["credit"] or 0)
@@ -1318,7 +1319,7 @@ def report_overdue_health_view(request, user):
     )
 
     overdue_count = overdue_payments.count()
-    overdue_amount = float(overdue_payments.aggregate(total=Coalesce(Sum("value"), 0))["total"] or 0)
+    overdue_amount = float(overdue_payments.aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"] or 0)
 
     delays = [(today - payment.payment_date).days for payment in overdue_payments]
     average_delay_days = round((sum(delays) / len(delays)), 1) if delays else 0
@@ -1329,7 +1330,7 @@ def report_overdue_health_view(request, user):
             active=True,
             type=Payment.TYPE_DEBIT,
             payment_date__range=(filters["begin"], filters["end"]),
-        ).aggregate(total=Coalesce(Sum("value"), 0))["total"]
+        ).aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
         or 0
     )
     overdue_ratio = round((overdue_amount / total_period_amount) * 100, 1) if total_period_amount else 0
@@ -1388,7 +1389,7 @@ def report_tag_evolution_view(request, user):
             invoice__tags__isnull=False,
         )
         .values("invoice__tags__id", "invoice__tags__name")
-        .annotate(amount=Coalesce(Sum("value"), 0))
+        .annotate(amount=Coalesce(Sum("value"), Decimal("0")))
     )
 
     current_data = {
@@ -1415,7 +1416,7 @@ def report_tag_evolution_view(request, user):
                 invoice__tags__isnull=False,
             )
             .values("invoice__tags__id")
-            .annotate(amount=Coalesce(Sum("value"), 0))
+            .annotate(amount=Coalesce(Sum("value"), Decimal("0")))
         )
         previous_data = {row["invoice__tags__id"]: float(row["amount"] or 0) for row in previous_rows}
 
