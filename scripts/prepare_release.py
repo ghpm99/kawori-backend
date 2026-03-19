@@ -207,7 +207,7 @@ def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dic
         django.setup()
 
         from ai.assist import safe_execute_ai_task
-        from ai.dto import AITaskRequest, AITaskType
+        from ai.prompt_service import build_ai_request_from_prompt
     except Exception:
         return None
 
@@ -216,27 +216,19 @@ def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dic
         "compliance_hints": compliance_hints,
     }
 
-    response = safe_execute_ai_task(
-        AITaskRequest(
-            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
-            input_text=json.dumps(payload, ensure_ascii=False),
-            instructions=(
-                "Avalie compliance de release e risco de regressão. "
-                "Retorne recomendações objetivas e verificáveis."
-            ),
-            metadata={
-                "schema": {
-                    "release_compliance_notes": ["string"],
-                    "oneoff_required": "boolean",
-                    "oneoff_reason": "string",
-                    "suggested_regression_tests": ["string"],
-                }
-            },
-            temperature=0.1,
-            max_tokens=260,
-        ),
-        feature_name="release_compliance",
-    )
+    try:
+        built_request = build_ai_request_from_prompt(
+            prompt_key="release.compliance.v1",
+            payload=json.dumps(payload, ensure_ascii=False),
+            feature_name="release_compliance",
+        )
+        response = safe_execute_ai_task(
+            built_request.task_request,
+            feature_name="release_compliance",
+        )
+    except Exception:
+        return None
+
     if response is None or not isinstance(response.output, dict):
         return None
 
@@ -252,6 +244,10 @@ def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dic
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
+        "prompt_key": built_request.prompt_resolution.key,
+        "prompt_source": built_request.prompt_resolution.source,
+        "prompt_version": built_request.prompt_resolution.version,
+        "prompt_hash": built_request.prompt_resolution.content_hash,
     }
 
 

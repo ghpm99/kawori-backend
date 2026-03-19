@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import json
+import logging
 from decimal import Decimal
 from typing import Any
 
 from ai.assist import safe_execute_ai_task
-from ai.dto import AITaskRequest, AITaskType
+from ai.prompt_service import build_ai_request_from_prompt
 from payment.models import ImportedPayment
 
-
-def _json_dumps(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, ensure_ascii=False, default=str)
+logger = logging.getLogger(__name__)
 
 
 def _to_confidence(value: Any) -> float | None:
@@ -71,27 +69,18 @@ def suggest_import_resolution(user, parsed_transaction, import_type: str) -> dic
         "possible_matches": candidate_payload,
     }
 
+    try:
+        built_request = build_ai_request_from_prompt(
+            prompt_key="payment.reconciliation.v1",
+            payload=payload,
+            feature_name="payment_reconciliation",
+        )
+    except Exception:
+        logger.exception("Falha ao montar prompt para sugestão de conciliação.")
+        return None
+
     response = safe_execute_ai_task(
-        AITaskRequest(
-            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
-            input_text=_json_dumps(payload),
-            instructions=(
-                "Você auxilia conciliação financeira. Escolha apenas entre os candidatos fornecidos, "
-                "sem inventar IDs. Se não houver confiança para merge, retorne estratégia new. "
-                "Se sugerir split, mantenha matched_payment_id nulo."
-            ),
-            metadata={
-                "schema": {
-                    "import_strategy": "merge|split|new",
-                    "matched_payment_id": "integer|null",
-                    "merge_group": "string|null",
-                    "confidence": "number_between_0_and_1",
-                    "reason": "string",
-                }
-            },
-            temperature=0.1,
-            max_tokens=220,
-        ),
+        built_request.task_request,
         feature_name="payment_reconciliation",
     )
     if response is None or not isinstance(response.output, dict):
@@ -127,6 +116,10 @@ def suggest_import_resolution(user, parsed_transaction, import_type: str) -> dic
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
+        "prompt_key": built_request.prompt_resolution.key,
+        "prompt_source": built_request.prompt_resolution.source,
+        "prompt_version": built_request.prompt_resolution.version,
+        "prompt_hash": built_request.prompt_resolution.content_hash,
     }
 
 
@@ -153,27 +146,18 @@ def suggest_payment_normalization(
         ],
     }
 
+    try:
+        built_request = build_ai_request_from_prompt(
+            prompt_key="payment.normalization.v1",
+            payload=payload,
+            feature_name="payment_normalization",
+        )
+    except Exception:
+        logger.exception("Falha ao montar prompt para normalização de pagamento.")
+        return None
+
     response = safe_execute_ai_task(
-        AITaskRequest(
-            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
-            input_text=_json_dumps(payload),
-            instructions=(
-                "Normalize dados financeiros para cadastro consistente. Retorne somente JSON com nome curto, "
-                "descrição consolidada, total de parcelas inferido e nomes de tags sugeridas."
-            ),
-            metadata={
-                "schema": {
-                    "normalized_name": "string",
-                    "normalized_description": "string",
-                    "installments_total": "integer|null",
-                    "tag_names": ["string"],
-                    "confidence": "number_between_0_and_1",
-                    "reason": "string",
-                }
-            },
-            temperature=0.1,
-            max_tokens=260,
-        ),
+        built_request.task_request,
         feature_name="payment_normalization",
     )
     if response is None or not isinstance(response.output, dict):
@@ -208,4 +192,8 @@ def suggest_payment_normalization(
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
+        "prompt_key": built_request.prompt_resolution.key,
+        "prompt_source": built_request.prompt_resolution.source,
+        "prompt_version": built_request.prompt_resolution.version,
+        "prompt_hash": built_request.prompt_resolution.content_hash,
     }

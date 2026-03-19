@@ -1,0 +1,1 @@
+Avalie compliance de release e risco de regressão. Retorne recomendações objetivas e verificáveis.

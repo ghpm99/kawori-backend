@@ -1,0 +1,74 @@
+prompts:
+  - key: payment.reconciliation.v1
+    version: v1
+    task_type: structured_extraction
+    schema:
+      import_strategy: merge|split|new
+      matched_payment_id: integer|null
+      merge_group: string|null
+      confidence: number_between_0_and_1
+      reason: string
+    temperature: 0.1
+    max_tokens: 220
+    template_file: payment/reconciliation.v1.txt
+    active: true
+
+  - key: payment.normalization.v1
+    version: v1
+    task_type: structured_extraction
+    schema:
+      normalized_name: string
+      normalized_description: string
+      installments_total: integer|null
+      tag_names:
+        - string
+      confidence: number_between_0_and_1
+      reason: string
+    temperature: 0.1
+    max_tokens: 260
+    template_file: payment/normalization.v1.txt
+    active: true
+
+  - key: mailer.communication_notifications.v1
+    version: v1
+    task_type: structured_extraction
+    schema:
+      subject_prefix: string
+      intro: string
+      highlights:
+        - string
+    temperature: 0.2
+    max_tokens: 180
+    template_file: mailer/communication_notifications.v1.txt
+    active: true
+
+  - key: audit.insights.v1
+    version: v1
+    task_type: structured_extraction
+    schema:
+      summary: string
+      incident_clusters:
+        - string
+      probable_root_causes:
+        - string
+      recommended_actions:
+        - string
+    temperature: 0.2
+    max_tokens: 320
+    template_file: audit/insights.v1.txt
+    active: true
+
+  - key: release.compliance.v1
+    version: v1
+    task_type: structured_extraction
+    schema:
+      release_compliance_notes:
+        - string
+      oneoff_required: boolean
+      oneoff_reason: string
+      suggested_regression_tests:
+        - string
+    temperature: 0.1
+    max_tokens: 260
+    template_file: release/compliance.v1.txt
+    active: true

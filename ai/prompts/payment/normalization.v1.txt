@@ -1,0 +1,1 @@
+Normalize dados financeiros para cadastro consistente. Retorne somente JSON com nome curto, descrição consolidada, total de parcelas inferido e nomes de tags sugeridas.

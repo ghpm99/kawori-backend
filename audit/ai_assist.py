@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import json
+import logging
 from typing import Any
 
 from ai.assist import safe_execute_ai_task
-from ai.dto import AITaskRequest, AITaskType
+from ai.prompt_service import build_ai_request_from_prompt
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_list(value: Any, limit: int = 6) -> list[str]:
@@ -82,25 +84,18 @@ def build_audit_ai_insights(
         "anomaly_candidates": anomaly_candidates,
     }
 
+    try:
+        built_request = build_ai_request_from_prompt(
+            prompt_key="audit.insights.v1",
+            payload=payload,
+            feature_name="audit_insights",
+        )
+    except Exception:
+        logger.exception("Falha ao montar prompt para insights de auditoria.")
+        return None
+
     response = safe_execute_ai_task(
-        AITaskRequest(
-            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
-            input_text=json.dumps(payload, ensure_ascii=False),
-            instructions=(
-                "Você é copiloto de observabilidade para auditoria. Resuma os principais incidentes, "
-                "aponte possíveis causas raiz e recomende ações práticas priorizadas."
-            ),
-            metadata={
-                "schema": {
-                    "summary": "string",
-                    "incident_clusters": ["string"],
-                    "probable_root_causes": ["string"],
-                    "recommended_actions": ["string"],
-                }
-            },
-            temperature=0.2,
-            max_tokens=320,
-        ),
+        built_request.task_request,
         feature_name="audit_insights",
     )
     if response is None or not isinstance(response.output, dict):
@@ -116,6 +111,10 @@ def build_audit_ai_insights(
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
+        "prompt_key": built_request.prompt_resolution.key,
+        "prompt_source": built_request.prompt_resolution.source,
+        "prompt_version": built_request.prompt_resolution.version,
+        "prompt_hash": built_request.prompt_resolution.content_hash,
     }
 
     if not result["summary"] and not result["incident_clusters"] and not result["recommended_actions"]:

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from payment.ai_assist import suggest_import_resolution
+from payment.ai_assist import suggest_import_resolution, suggest_payment_normalization
 from payment.utils import PaymentDetail
 
 
@@ -71,6 +71,10 @@ class PaymentAIAssistTestCase(SimpleTestCase):
         self.assertEqual(suggestion["matched_payment_id"], 12)
         self.assertEqual(suggestion["merge_group"], "grp-2026-01")
         self.assertEqual(suggestion["provider"], "openai")
+        self.assertEqual(suggestion["prompt_key"], "payment.reconciliation.v1")
+        self.assertEqual(suggestion["prompt_source"], "file")
+        self.assertEqual(suggestion["prompt_version"], "v1")
+        self.assertTrue(suggestion["prompt_hash"])
 
     def test_suggest_import_resolution_returns_none_when_already_matched(self):
         parsed_transaction = SimpleNamespace(
@@ -88,3 +92,42 @@ class PaymentAIAssistTestCase(SimpleTestCase):
 
         self.assertIsNone(suggestion)
         mocked_ai.assert_not_called()
+
+    def test_suggest_payment_normalization_includes_prompt_metadata(self):
+        main_payment = SimpleNamespace(
+            raw_name="Mercado XPTO",
+            raw_description="Compras do mês",
+            reference="ref-123",
+            raw_date=date(2026, 1, 10),
+            raw_payment_date=date(2026, 1, 10),
+            raw_value=100.0,
+        )
+        payments_to_process = [
+            SimpleNamespace(raw_name="Mercado XPTO", raw_description="Compra 1", raw_value=70.0),
+            SimpleNamespace(raw_name="Mercado XPTO", raw_description="Compra 2", raw_value=30.0),
+        ]
+
+        ai_response = SimpleNamespace(
+            output={
+                "normalized_name": "Mercado XPTO",
+                "normalized_description": "Compras variadas",
+                "installments_total": 2,
+                "tag_names": ["Alimentação", "Mercado"],
+                "confidence": 0.95,
+                "reason": "Padrão textual consistente.",
+            },
+            trace_id="trace-2",
+            provider="openai",
+            model="gpt-4o-mini",
+        )
+
+        with patch("payment.ai_assist.safe_execute_ai_task", return_value=ai_response):
+            normalized = suggest_payment_normalization(main_payment, payments_to_process)
+
+        self.assertIsNotNone(normalized)
+        self.assertEqual(normalized["normalized_name"], "Mercado XPTO")
+        self.assertEqual(normalized["installments_total"], 2)
+        self.assertEqual(normalized["prompt_key"], "payment.normalization.v1")
+        self.assertEqual(normalized["prompt_source"], "file")
+        self.assertEqual(normalized["prompt_version"], "v1")
+        self.assertTrue(normalized["prompt_hash"])

@@ -80,6 +80,7 @@ Implemented components:
 - `.github/workflows/publish.yml`: publishes the tag and GitHub Release after the CI workflow succeeds for the release commit on `main`
 - `.github/workflows/sync-main-to-develop.yml`: syncs `main` back into `develop` directly when possible and falls back to a sync PR when needed
 - `scripts/extract_release_notes.py`: extracts the matching changelog section for the release body
+- `ai/prompt_service.py`: resolves prompts from file catalog with optional DB override and prompt traceability metadata
 
 Operational guarantees in the current automation:
 
@@ -92,6 +93,25 @@ Operational guarantees in the current automation:
 - PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
 - new changelog entries are inserted at the top (newest first) rather than appended
 - after publish, `main` is synced back into `develop`, with a PR fallback when the direct sync fails
+
+## AI prompt lifecycle in release flow
+
+Prompt behavior is release-relevant and follows versioned artifacts:
+
+1. Prompts are versioned in code (`ai/prompts/registry.yaml` + template files).
+2. Runtime overrides are optional and gated by `AI_PROMPT_DB_OVERRIDE_ENABLED`.
+3. Overrides are environment-scoped (`AI_PROMPT_ENVIRONMENT`) and cached with short TTL (`AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS`).
+4. On override save/delete, cache is invalidated through Django signals.
+5. Every AI request carries traceability metadata:
+   - `prompt_key`
+   - `prompt_source` (`file` or `db`)
+   - `prompt_version`
+   - `prompt_hash`
+
+Operational implication:
+
+- release validation should verify critical prompt keys exist in the file registry before merging
+- temporary DB overrides must include validity window and change reason
 
 ## CI and workflow split
 

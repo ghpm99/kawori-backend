@@ -13,6 +13,9 @@ This repository will adopt release automation based on semantic versioning and C
 5. Every change that requires a one-off script, data correction, recalculation, or manual operational step must be registered in `scripts.xml`.
 6. Every registered one-off must also be documented in `docs/oneoff-registry.md`.
 7. Workflow changes must update the relevant document in `docs/` in the same change set.
+8. Every AI prompt used in production flows must be registered in `ai/prompts/registry.yaml` with its versioned template file in `ai/prompts/`.
+9. Prompt overrides in database must be created and activated only by users in the `AI_PROMPT_EDITOR` group and must include `change_reason`.
+10. Every AI execution that depends on prompts must keep prompt traceability metadata (`prompt_key`, `prompt_source`, `prompt_version`, `prompt_hash`).
 
 ## Commit convention
 
@@ -97,6 +100,20 @@ If a change requires one of those actions, it is incomplete until:
 1. the one-off is registered in `scripts.xml`
 2. the one-off is documented in `docs/oneoff-registry.md`
 3. the deploy flow knows when and how to run it
+
+## AI prompt governance
+
+The AI prompt source of truth is code-first:
+
+- file catalog: `ai/prompts/registry.yaml` + `ai/prompts/<domain>/<name>.txt`
+- optional runtime override: `ai.PromptOverride` managed via Django Admin
+
+Operational rules:
+
+- treat prompt text changes as behavior changes and review them in PR
+- never edit active override payload directly; clone a new version and activate it
+- temporary overrides should define validity window (`valid_from` / `valid_until`)
+- use `AI_PROMPT_DB_OVERRIDE_ENABLED` to control rollout by environment
 
 ## Review checklist
 

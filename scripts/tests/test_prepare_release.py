@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from types import SimpleNamespace
 import sys
 from pathlib import Path
 from unittest import TestCase
@@ -99,3 +100,51 @@ class ComplianceHintsTests(TestCase):
         self.assertIn("### Compliance Assistant", body)
         self.assertIn("### Regression Test Suggestions", body)
         self.assertIn("python manage.py test payment", body)
+
+
+class AIReleaseAssistanceTests(TestCase):
+    def test_build_ai_release_assistance_includes_prompt_metadata(self) -> None:
+        mocked_response = SimpleNamespace(
+            output={
+                "release_compliance_notes": ["Atualizar docs."],
+                "oneoff_required": False,
+                "oneoff_reason": "",
+                "suggested_regression_tests": ["python manage.py test payment"],
+            },
+            trace_id="trace-release-1",
+            provider="openai",
+            model="gpt-4o-mini",
+        )
+        mocked_request = SimpleNamespace(
+            task_request=SimpleNamespace(),
+            prompt_resolution=SimpleNamespace(
+                key="release.compliance.v1",
+                source="file",
+                version="v1",
+                content_hash="hash-release-v1",
+            ),
+        )
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "AI_ASSIST_ENABLED": "true",
+                    "OPENAI_API_KEY": "test-key",
+                },
+            ),
+            patch("django.setup"),
+            patch("ai.prompt_service.build_ai_request_from_prompt", return_value=mocked_request),
+            patch("ai.assist.safe_execute_ai_task", return_value=mocked_response),
+        ):
+            result = prepare_release.build_ai_release_assistance(
+                commits=[],
+                compliance_hints={"changed_files": []},
+            )
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["prompt_key"], "release.compliance.v1")
+        self.assertEqual(result["prompt_source"], "file")
+        self.assertEqual(result["prompt_version"], "v1")
+        self.assertEqual(result["prompt_hash"], "hash-release-v1")

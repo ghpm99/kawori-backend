@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import json
+import logging
 from datetime import date
 from typing import Any
 
 from ai.assist import safe_execute_ai_task
-from ai.dto import AITaskRequest, AITaskType
+from ai.prompt_service import build_ai_request_from_prompt
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_lines(value: Any, limit: int = 4) -> list[str]:
@@ -39,24 +41,18 @@ def suggest_payment_notification_copy(user, payments: list[dict], final_date: da
         ],
     }
 
+    try:
+        built_request = build_ai_request_from_prompt(
+            prompt_key="mailer.communication_notifications.v1",
+            payload=payload,
+            feature_name="communication_notifications",
+        )
+    except Exception:
+        logger.exception("Falha ao montar prompt para notificação financeira.")
+        return None
+
     response = safe_execute_ai_task(
-        AITaskRequest(
-            task_type=AITaskType.STRUCTURED_EXTRACTION.value,
-            input_text=json.dumps(payload, ensure_ascii=False),
-            instructions=(
-                "Crie uma comunicação objetiva para notificação financeira. Linguagem clara, sem promessas, "
-                "tom operacional e respeitoso."
-            ),
-            metadata={
-                "schema": {
-                    "subject_prefix": "string",
-                    "intro": "string",
-                    "highlights": ["string"],
-                }
-            },
-            temperature=0.2,
-            max_tokens=180,
-        ),
+        built_request.task_request,
         feature_name="communication_notifications",
     )
     if response is None or not isinstance(response.output, dict):
@@ -77,4 +73,8 @@ def suggest_payment_notification_copy(user, payments: list[dict], final_date: da
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
+        "prompt_key": built_request.prompt_resolution.key,
+        "prompt_source": built_request.prompt_resolution.source,
+        "prompt_version": built_request.prompt_resolution.version,
+        "prompt_hash": built_request.prompt_resolution.content_hash,
     }
