@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from contract.models import Contract
+from financial.ai_features import generate_financial_ai_insights
 from financial.utils import calculate_installments, generate_payments, update_contract_value
 from invoice.models import Invoice
 from kawori.decorators import validate_user
@@ -371,6 +372,21 @@ def parse_optional_period_filters(request):
         return None, JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
 
     return {"begin": date_from, "end": date_to}, None
+
+
+@require_POST
+@validate_user("financial")
+def report_ai_insights_view(request, user):
+    try:
+        payload = json.loads(request.body) if request.body else {}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=400)
+
+    if not isinstance(payload, dict):
+        return JsonResponse({"msg": "JSON inválido"}, status=400)
+
+    result = generate_financial_ai_insights(user=user, payload=payload)
+    return JsonResponse(result)
 
 
 @require_GET

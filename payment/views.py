@@ -19,6 +19,13 @@ from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.ai_assist import suggest_import_resolution
+from payment.ai_features import (
+    detect_statement_anomalies,
+    normalize_csv_transactions,
+    suggest_csv_mapping,
+    suggest_reconciliation_matches,
+    suggest_tag_suggestions,
+)
 from payment.models import ImportedPayment, Payment
 from payment.utils import (
     CSVMapping,
@@ -571,6 +578,131 @@ def statement_view(request, user):
             }
         }
     )
+
+
+@require_GET
+@validate_user("financial")
+def statement_anomalies_view(request, user):
+    date_from = request.GET.get("date_from")
+    date_to = request.GET.get("date_to")
+
+    if not date_from or not date_to:
+        return JsonResponse(
+            {"msg": "date_from and date_to are required"},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    try:
+        date_from_parsed = datetime.strptime(date_from, "%Y-%m-%d").date()
+        date_to_parsed = datetime.strptime(date_to, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse(
+            {"msg": "date_from and date_to must be in YYYY-MM-DD format"},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    if date_from_parsed > date_to_parsed:
+        return JsonResponse(
+            {"msg": "date_from must be less than or equal to date_to"},
+            status=HTTPStatus.BAD_REQUEST,
+        )
+
+    anomalies = detect_statement_anomalies(user, date_from_parsed, date_to_parsed)
+
+    return JsonResponse(
+        {
+            "data": {
+                "anomalies": anomalies,
+                "total_anomalies": len(anomalies),
+            }
+        }
+    )
+
+
+@require_POST
+@validate_user("financial")
+@audit_log("payment.csv_ai_map", CATEGORY_FINANCIAL, "Payment")
+def csv_ai_map_view(request, user):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
+
+    headers = data.get("headers")
+    if not isinstance(headers, list) or len(headers) == 0:
+        return JsonResponse({"msg": "headers is required"}, status=HTTPStatus.BAD_REQUEST)
+
+    sample_rows = data.get("sample_rows")
+    if not isinstance(sample_rows, list):
+        sample_rows = []
+
+    import_type = str(data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS))
+    result = suggest_csv_mapping(headers=headers, sample_rows=sample_rows, import_type=import_type)
+    return JsonResponse(result)
+
+
+@require_POST
+@validate_user("financial")
+@audit_log("payment.csv_ai_normalize", CATEGORY_FINANCIAL, "Payment")
+def csv_ai_normalize_view(request, user):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
+
+    transactions = data.get("transactions")
+    if transactions is None:
+        transactions = data.get("data")
+
+    if not isinstance(transactions, list):
+        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+
+    result = normalize_csv_transactions(transactions)
+    return JsonResponse(result)
+
+
+@require_POST
+@validate_user("financial")
+@audit_log("payment.csv_ai_reconcile", CATEGORY_FINANCIAL, "Payment")
+def csv_ai_reconcile_view(request, user):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
+
+    transactions = data.get("transactions")
+    if transactions is None:
+        transactions = data.get("import")
+
+    if not isinstance(transactions, list):
+        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+
+    import_type = str(data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS))
+    matches = suggest_reconciliation_matches(user=user, transactions=transactions, import_type=import_type)
+
+    return JsonResponse({"matches": matches})
+
+
+@require_POST
+@validate_user("financial")
+@audit_log("payment.ai_tag_suggestions", CATEGORY_FINANCIAL, "Payment")
+def ai_tag_suggestions_view(request, user):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
+
+    transactions = data.get("transactions")
+    if transactions is None:
+        transactions = data.get("data")
+    if transactions is None:
+        transactions = data.get("import")
+
+    if not isinstance(transactions, list):
+        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+
+    result = suggest_tag_suggestions(user=user, transactions=transactions)
+    return JsonResponse(result)
 
 
 @require_POST

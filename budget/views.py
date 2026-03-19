@@ -8,6 +8,7 @@ from django.db.models import Sum, Max
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
+from budget.ai_features import build_budget_allocation_suggestions
 from budget.models import Budget
 from budget.services import DEFAULT_BUDGETS
 from audit.decorators import audit_log
@@ -136,3 +137,11 @@ def reset_budget_allocation_view(request, user):
                     break
 
     return JsonResponse({"msg": "Orçamentos resetados com sucesso"})
+
+
+@require_GET
+@validate_user("financial")
+def ai_allocation_suggestions_view(request, user):
+    period = request.GET.get("period")
+    result = build_budget_allocation_suggestions(user=user, period=period)
+    return JsonResponse(result)

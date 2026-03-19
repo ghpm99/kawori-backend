@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path("", views.report_payment_view, name="financial_report_payment_view"),
+    path("ai-insights/", views.report_ai_insights_view, name="financial_report_ai_insights"),
     path("count_payment", views.report_count_payment_view, name="financial_report_count_payment"),
     path("amount_payment", views.report_amount_payment_view, name="financial_report_amount_payment"),
     path("amount_payment_open", views.report_amount_payment_open_view, name="financial_report_amount_payment_open"),
