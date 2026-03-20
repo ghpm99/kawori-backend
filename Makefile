@@ -94,6 +94,8 @@ release-main-ff:
 	git fetch origin --tags && \
 	git checkout develop && \
 	git pull --ff-only origin develop && \
+	git merge origin/main -m "build(sync): merge main into develop" && \
+	git push origin develop && \
 	git checkout main && \
 	git pull --ff-only origin main && \
 	git merge --ff-only origin/develop && \

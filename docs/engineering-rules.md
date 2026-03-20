@@ -81,6 +81,7 @@ Release-generated commits are excluded from release calculation and changelog ge
 - `develop` is the integration branch.
 - `main` is the stable release branch.
 - Releases are executed locally with `make release-main-ff`.
+- The command must sync `develop` with `origin/main` before attempting the release fast-forward.
 - The command must restore `kawori/version.py` and `CHANGELOG.md` from `origin/main` before recalculating release metadata.
 - The command must create `build(release): prepare vX.Y.Z`, tag `vX.Y.Z`, and push `main`.
 - After publishing, the command must fast-forward `develop` to `main` to keep release metadata aligned.
