@@ -2,7 +2,7 @@
 
 ## Objective
 
-This repository will adopt release automation based on semantic versioning and Conventional Commits. These rules are mandatory because the automation depends on predictable commit history, explicit version ownership, and explicit registration of operational actions.
+This repository uses local release orchestration based on semantic versioning and Conventional Commits. These rules are mandatory because release reliability depends on predictable commit history, explicit version ownership, and explicit registration of operational actions.
 
 ## Mandatory rules for every change
 
@@ -66,7 +66,7 @@ Breaking changes trigger a major version bump and must be deliberate.
 
 ## Version bump policy
 
-Current automation uses these rules:
+Current release tooling uses these rules:
 
 - `BREAKING CHANGE` or `!` -> major
 - `feat` -> minor
@@ -74,16 +74,16 @@ Current automation uses these rules:
 
 This repository intentionally releases every merged change that reaches `main`, even when the change is operational or documentation-oriented. That keeps deployed state, tags, changelog, and repository history aligned.
 
-Automation-generated commits are excluded from release calculation and changelog generation when they match the reserved release or sync signatures, such as `build(release): ...`, `build(sync): ...`, and the legacy `chore(release): ...`.
+Release-generated commits are excluded from release calculation and changelog generation when they match the reserved release or sync signatures, such as `build(release): ...`, `build(sync): ...`, and the legacy `chore(release): ...`.
 
 ## Branch and release policy
 
 - `develop` is the integration branch.
 - `main` is the stable release branch.
-- Release automation prepares a release branch from `main`, merges `develop`, restores release-controlled files from `main`, recalculates release metadata, and opens or updates the PR to `main`.
-- Merging that PR is the release approval point.
-- After the release commit reaches `main`, automation must sync `main` back into `develop`.
-- If the direct sync fails, automation must open or update a sync PR so the conflict is resolved once and `develop` is realigned with `main`.
+- Releases are executed locally with `make release-main-ff`.
+- The command must restore `kawori/version.py` and `CHANGELOG.md` from `origin/main` before recalculating release metadata.
+- The command must create `build(release): prepare vX.Y.Z`, tag `vX.Y.Z`, and push `main`.
+- After publishing, the command must fast-forward `develop` to `main` to keep release metadata aligned.
 
 ## One-off policy
 

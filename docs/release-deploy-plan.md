@@ -2,27 +2,18 @@
 
 ## Objective
 
-Automate versioning, release creation, and deployment while keeping the process explicit and easy to audit.
+Keep versioning, release creation, and deployment explicit and easy to audit, with release orchestration executed locally.
 
 ## Target workflow
 
 1. Development happens on `develop`.
-2. CI validates every push and pull request.
-3. Release automation inspects the commit history on `develop`.
-4. When releasable changes exist, automation creates or updates a release branch from `main`, merges `develop`, resets release-controlled files to the current `main` state, recalculates release metadata, and opens or updates the release PR to `main`.
-5. The release PR includes:
-   - semantic version bump
-   - changelog summary
-   - release metadata
-6. Approval and merge of that PR is the explicit release decision.
-7. Merge into `main` triggers:
-   - validation pipeline
-   - tag creation in the format `vX.Y.Z`
-   - GitHub Release creation
-   - deployment workflow or deploy-ready state
-8. After the release commit lands on `main`, automation syncs `main` back into `develop`.
-9. If the sync cannot be applied directly, automation opens or updates a sync PR to `develop`.
-10. The VM updates to the released tag and executes pending one-offs.
+2. CI validates push and pull request changes.
+3. Release is executed locally with `make release-main-ff`.
+4. The command fast-forwards `main` to `develop`, restores release-controlled files from `origin/main`, and recalculates version/changelog.
+5. The command creates the release commit `build(release): prepare vX.Y.Z`.
+6. The command creates and pushes the annotated tag `vX.Y.Z`.
+7. The command fast-forwards `develop` to `main` so release metadata stays aligned.
+8. The VM updates to the released tag and executes pending one-offs.
 
 ## Why this design
 
@@ -30,9 +21,9 @@ Automate versioning, release creation, and deployment while keeping the process 
 - `main` remains the stable release branch.
 - Release-controlled files must be recalculated from the latest published `main`, not from a drifted state in `develop`.
 - Version bumps are derived from commit history instead of manual memory.
-- Approval still exists at the release boundary.
+- Approval remains explicit because release execution is manual.
 - `main` must flow back into `develop` after every release so version and changelog files stay aligned.
-- Deployment can be automated without changing the release decision model.
+- Deployment remains manual and deterministic per release tag.
 
 ## Version ownership
 
@@ -50,7 +41,7 @@ __version__ = "0.0.0"
 
 This file becomes the single source of truth for:
 
-- release automation
+- release tooling
 - runtime introspection
 - deploy scripts
 - operational checks
@@ -61,38 +52,34 @@ This file becomes the single source of truth for:
 - `feat` -> minor bump
 - `BREAKING CHANGE` or `!` -> major bump
 - `docs`, `test`, `refactor`, `build`, and `chore` -> patch bump
-- automation commits such as `build(release): ...`, `build(sync): ...`, and legacy `chore(release): ...` are ignored for bump calculation and changelog generation
+- reserved release commits such as `build(release): ...`, `build(sync): ...`, and legacy `chore(release): ...` are ignored for bump calculation and changelog generation
 
 ## Implemented tooling
 
-This repository implements release preparation with repository-local scripts plus GitHub Actions instead of `release-please`.
+This repository implements release preparation with repository-local scripts and a local `make` command.
 
 Reason:
 
-- the required workflow is `develop -> automatic PR to main -> merge publishes release`
-- generic release tools work best when they prepare releases on the target branch itself
+- a single-maintainer flow benefits from deterministic local release execution
+- local fast-forward release avoids recurrent automation conflicts and stale PR branches
 - a local script keeps the SemVer rules explicit and easy to inspect
 
 Implemented components:
 
 - `scripts/prepare_release.py`: computes the next version from Conventional Commits, updates `kawori/version.py`, and refreshes `CHANGELOG.md`
-- `.github/workflows/release-pr.yml`: prepares or updates the release PR from `develop` to `main`
-- `.github/workflows/publish.yml`: publishes the tag and GitHub Release after the CI workflow succeeds for the release commit on `main`
-- `.github/workflows/sync-main-to-develop.yml`: syncs `main` back into `develop` directly when possible and falls back to a sync PR when needed
+- `Makefile` target `release-main-ff`: orchestrates local release from `develop` to `main`, release commit creation, tag creation, and `develop` sync
 - `scripts/extract_release_notes.py`: extracts the matching changelog section for the release body
 - `ai/prompt_service.py`: resolves prompts from file catalog with optional DB override and prompt traceability metadata
 
-Operational guarantees in the current automation:
+Operational guarantees in the local release command:
 
-- the release branch is created from `origin/main` and `develop` is merged into it before release metadata is recalculated
+- `main` is fast-forwarded from `origin/develop` before release metadata is recalculated
 - `kawori/version.py` and `CHANGELOG.md` are always restored from `origin/main` before the next release version and changelog are generated
-- conflicts in release-controlled files are resolved from `main`; conflicts in other files stop the workflow for manual intervention
+- the process stops on any non-fast-forward branch state or dirty working tree
 - the next version is compared against tags already merged into `main`, not arbitrary tags from unrelated branch history
-- automation-only commits are excluded from the next version calculation and changelog
-- the release branch is always force-pushed when a release is needed, avoiding stale release PR branches
-- PR lookup is repository-scoped and filters by `owner:branch` so reruns update the existing release PR instead of attempting a duplicate
+- reserved release commits are excluded from the next version calculation and changelog
 - new changelog entries are inserted at the top (newest first) rather than appended
-- after publish, `main` is synced back into `develop`, with a PR fallback when the direct sync fails
+- after tag publication, `main` is synced back into `develop` using fast-forward
 
 ## AI prompt lifecycle in release flow
 
@@ -113,7 +100,7 @@ Operational implication:
 - release validation should verify critical prompt keys exist in the file registry before merging
 - temporary DB overrides must include validity window and change reason
 
-## CI and workflow split
+## CI and release split
 
 Recommended workflow separation:
 
@@ -122,16 +109,10 @@ Recommended workflow separation:
    - lint
    - security
    - tests
-2. `release-pr.yml`
-   - runs on `develop`
-   - creates or updates the release PR
-3. `publish.yml`
-   - runs after CI succeeds for `main`
-   - creates tag and GitHub Release if needed
-4. `sync-main-to-develop.yml`
-   - runs on push to `main`
-   - updates `develop` directly or opens a sync PR
-5. VM deploy script
+2. `make release-main-ff`
+   - runs locally
+   - prepares release metadata, creates release commit, pushes `main`, tags, and syncs `develop`
+3. VM deploy script
    - runs manually on the server
    - updates checkout to the selected tag
    - installs dependencies, migrates, runs one-offs, and optionally restarts the service
@@ -142,10 +123,10 @@ Recommended implementation path:
 
 ### Phase 1: assisted deploy
 
-- release automation publishes the tag and release
+- local release command publishes the tag
 - operator enters the VM and runs a single deploy script
 
-This keeps server access manual while removing repetitive release work.
+This keeps server access and release control manual while removing repetitive branching work.
 
 ### Current stopping point
 
@@ -205,8 +186,8 @@ Implemented pieces:
 ### Phase 2
 
 - add `kawori/version.py`
-- integrate release automation
-- generate release PRs from `develop`
+- integrate release tooling
+- generate release metadata from `develop`
 
 ### Phase 3
 
@@ -227,10 +208,8 @@ Status:
 
 Expected daily workflow after implementation:
 
-1. commit changes to feature branches using Conventional Commits
+1. commit changes using Conventional Commits
 2. merge into `develop`
-3. automation prepares the release PR
-4. approve and merge the release PR into `main`
-5. CI validates the release commit on `main`, then publish automation creates the tag and GitHub Release
-6. automation syncs `main` back into `develop` directly or through a sync PR
-7. release and deploy happen with little or no manual intervention
+3. run `make release-main-ff` locally
+4. command pushes release commit to `main`, creates tag, and syncs `develop`
+5. run deployment on VM with `scripts/deploy_release.sh`

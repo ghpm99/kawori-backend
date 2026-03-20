@@ -1,4 +1,4 @@
-.PHONY: build run makemigrations migrate test version run-release-scripts restore-dump activate-run ci
+.PHONY: build run makemigrations migrate test version run-release-scripts restore-dump activate-run ci release-main-ff
 
 CI_TEST_ENV = DJANGO_SETTINGS_MODULE=kawori.settings.test \
 	SECRET_KEY=ci-test-secret-key \
@@ -77,3 +77,49 @@ ci:
 		$(CI_SQLITE_TEST_ENV) python manage.py makemigrations --check --dry-run; \
 		$(CI_SQLITE_TEST_ENV) python manage.py test; \
 	fi
+
+release-main-ff:
+	@echo ""
+	@echo "======== Release Main (fast-forward local) ========"
+	@CURRENT_BRANCH=$$(git branch --show-current) && \
+	if [ -z "$$CURRENT_BRANCH" ]; then \
+		echo "FAILED: Could not determine current branch" && exit 1; \
+	fi && \
+	if ! git diff-index --quiet HEAD --; then \
+		echo "FAILED: Working tree has uncommitted changes" && exit 1; \
+	fi && \
+	if ! git diff --cached --quiet; then \
+		echo "FAILED: Staging area has uncommitted changes" && exit 1; \
+	fi && \
+	git fetch origin --tags && \
+	git checkout develop && \
+	git pull --ff-only origin develop && \
+	git checkout main && \
+	git pull --ff-only origin main && \
+	git merge --ff-only origin/develop && \
+	git restore --source=origin/main --staged --worktree CHANGELOG.md kawori/version.py && \
+	RELEASE_OUTPUT=$$(mktemp) && \
+	GITHUB_OUTPUT="$$RELEASE_OUTPUT" python scripts/prepare_release.py --base-ref origin/main --head-ref HEAD && \
+	RELEASE_NEEDED=$$(awk -F= '$$1=="release_needed"{print $$2}' "$$RELEASE_OUTPUT") && \
+	if [ "$$RELEASE_NEEDED" != "true" ]; then \
+		rm -f "$$RELEASE_OUTPUT"; \
+		echo "No releasable changes found between main and develop."; \
+		git checkout "$$CURRENT_BRANCH"; \
+		exit 0; \
+	fi && \
+	RELEASE_VERSION=$$(awk -F= '$$1=="version"{print $$2}' "$$RELEASE_OUTPUT") && \
+	RELEASE_TAG=$$(awk -F= '$$1=="tag"{print $$2}' "$$RELEASE_OUTPUT") && \
+	rm -f "$$RELEASE_OUTPUT" && \
+	git add kawori/version.py CHANGELOG.md && \
+	git commit -m "build(release): prepare v$$RELEASE_VERSION" && \
+	if git rev-parse "$$RELEASE_TAG" >/dev/null 2>&1 || git ls-remote --tags --refs origin "$$RELEASE_TAG" | grep -q .; then \
+		echo "FAILED: Tag $$RELEASE_TAG already exists (local or remote)." && exit 1; \
+	fi && \
+	git tag -a "$$RELEASE_TAG" -m "Release $$RELEASE_TAG" && \
+	git push origin main && \
+	git push origin "$$RELEASE_TAG" && \
+	git checkout develop && \
+	git merge --ff-only main && \
+	git push origin develop && \
+	git checkout "$$CURRENT_BRANCH"
+	@echo "Release finished with local fast-forward, release commit, tag and develop sync."

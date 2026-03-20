@@ -1,11 +1,7 @@
 name: Publish Release
 
 on:
-  workflow_run:
-    workflows:
-      - Backend CI
-    types:
-      - completed
+  workflow_dispatch:
 
 permissions:
   contents: write
