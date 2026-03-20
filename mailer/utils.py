@@ -17,6 +17,7 @@ def enqueue_email(
     user=None,
     scheduled_at=None,
     max_retries=3,
+    context_data=None,
 ):
     body_html = render_to_string(template_name, context)
 
@@ -31,6 +32,7 @@ def enqueue_email(
         priority=priority,
         scheduled_at=scheduled_at or timezone.now(),
         max_retries=max_retries,
+        context_data=context_data or {},
     )
 
 
@@ -99,4 +101,13 @@ def enqueue_payment_notification(user, payments, final_date):
         category=EmailQueue.CATEGORY_NOTIFICATION,
         priority=EmailQueue.PRIORITY_NORMAL,
         user=user,
+        context_data={
+            "ai_dedupe_key": ai_copy.get("dedupe_key") if ai_copy else "",
+            "ai_copy": {
+                "subject_prefix": ai_copy.get("subject_prefix") if ai_copy else "",
+                "intro": ai_copy.get("intro") if ai_copy else "",
+                "highlights": ai_copy.get("highlights", []) if ai_copy else [],
+                "source": ai_copy.get("source") if ai_copy else "none",
+            },
+        },
     )

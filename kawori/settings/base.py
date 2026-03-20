@@ -221,6 +221,95 @@ AI_PROMPT_TEMPLATES_ROOT = BASE_DIR / "ai" / "prompts"
 AI_PROMPT_DB_OVERRIDE_ENABLED = os.environ.get("AI_PROMPT_DB_OVERRIDE_ENABLED", "false").lower() == "true"
 AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS = int(os.environ.get("AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS", "60"))
 AI_IMPORT_SUGGESTION_MAX_ITEMS = int(os.environ.get("AI_IMPORT_SUGGESTION_MAX_ITEMS", "20"))
+AI_IMPORT_SUGGESTION_MAX_PER_REQUEST = int(os.environ.get("AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", "12"))
+AI_IMPORT_SUGGESTION_DAILY_PER_USER = int(os.environ.get("AI_IMPORT_SUGGESTION_DAILY_PER_USER", "60"))
+AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE = float(os.environ.get("AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE", "0.82"))
+AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE = float(os.environ.get("AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", "0.58"))
+
+AI_CACHE_ENABLED = os.environ.get("AI_CACHE_ENABLED", "true").lower() == "true"
+AI_CACHE_DEFAULT_TTL_SECONDS = int(os.environ.get("AI_CACHE_DEFAULT_TTL_SECONDS", "600"))
+AI_CACHE_FEATURE_FLAGS = {
+    "audit_insights": os.environ.get("AI_CACHE_FEATURE_AUDIT_INSIGHTS", "true"),
+    "communication_notifications": os.environ.get("AI_CACHE_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"),
+    "release_compliance": os.environ.get("AI_CACHE_FEATURE_RELEASE_COMPLIANCE", "true"),
+    "payment_reconciliation": os.environ.get("AI_CACHE_FEATURE_PAYMENT_RECONCILIATION", "false"),
+    "payment_normalization": os.environ.get("AI_CACHE_FEATURE_PAYMENT_NORMALIZATION", "true"),
+}
+AI_CACHE_TTL_SECONDS = {
+    "audit_insights": int(os.environ.get("AI_CACHE_TTL_AUDIT_INSIGHTS", "900")),
+    "communication_notifications": int(os.environ.get("AI_CACHE_TTL_COMMUNICATION_NOTIFICATIONS", "86400")),
+    "release_compliance": int(os.environ.get("AI_CACHE_TTL_RELEASE_COMPLIANCE", "7200")),
+    "payment_normalization": int(os.environ.get("AI_CACHE_TTL_PAYMENT_NORMALIZATION", "1800")),
+}
+
+AI_RETRY_BACKOFF_SECONDS = float(os.environ.get("AI_RETRY_BACKOFF_SECONDS", "0.3"))
+AI_MAX_FALLBACK_ROUTES = int(os.environ.get("AI_MAX_FALLBACK_ROUTES", "1"))
+AI_PERSIST_EXECUTION_EVENTS = os.environ.get("AI_PERSIST_EXECUTION_EVENTS", "false").lower() == "true"
+
+AI_MODEL_PRICING = {
+    "gpt-4o-mini": {
+        "input_per_1k": float(os.environ.get("AI_PRICE_GPT_4O_MINI_INPUT", "0.00015")),
+        "output_per_1k": float(os.environ.get("AI_PRICE_GPT_4O_MINI_OUTPUT", "0.0006")),
+    },
+    "gpt-4o": {
+        "input_per_1k": float(os.environ.get("AI_PRICE_GPT_4O_INPUT", "0.0025")),
+        "output_per_1k": float(os.environ.get("AI_PRICE_GPT_4O_OUTPUT", "0.01")),
+    },
+    "claude-3-5-haiku-latest": {
+        "input_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_INPUT", "0.0008")),
+        "output_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_OUTPUT", "0.004")),
+    },
+    "claude-3-7-sonnet-latest": {
+        "input_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_37_SONNET_INPUT", "0.003")),
+        "output_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_37_SONNET_OUTPUT", "0.015")),
+    },
+}
+
+AI_FEATURE_MODEL_TIERS = {
+    "payment_reconciliation": {
+        "default_tier": "low_cost",
+        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_PAYMENT_RECONCILIATION", "0.55")),
+        "low_cost": {
+            "provider": os.environ.get("AI_LOW_COST_PROVIDER_PAYMENT_RECONCILIATION", "openai"),
+            "model": os.environ.get("AI_LOW_COST_MODEL_PAYMENT_RECONCILIATION", "gpt-4o-mini"),
+        },
+        "high_quality": {
+            "provider": os.environ.get("AI_HIGH_QUALITY_PROVIDER_PAYMENT_RECONCILIATION", "openai"),
+            "model": os.environ.get("AI_HIGH_QUALITY_MODEL_PAYMENT_RECONCILIATION", "gpt-4o"),
+        },
+    },
+    "audit_insights": {
+        "default_tier": "low_cost",
+        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_AUDIT_INSIGHTS", "0.45")),
+        "low_cost": {"provider": "openai", "model": os.environ.get("AI_LOW_COST_MODEL_AUDIT_INSIGHTS", "gpt-4o-mini")},
+        "high_quality": {"provider": "openai", "model": os.environ.get("AI_HIGH_QUALITY_MODEL_AUDIT_INSIGHTS", "gpt-4o")},
+    },
+    "communication_notifications": {
+        "default_tier": "low_cost",
+        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_COMMUNICATION_NOTIFICATIONS", "0.35")),
+        "low_cost": {"provider": "openai", "model": os.environ.get("AI_LOW_COST_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o-mini")},
+        "high_quality": {"provider": "openai", "model": os.environ.get("AI_HIGH_QUALITY_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o")},
+    },
+}
+
+AI_MAX_TOKENS_BY_FEATURE = {
+    "payment_reconciliation": int(os.environ.get("AI_MAX_TOKENS_PAYMENT_RECONCILIATION", "350")),
+    "payment_normalization": int(os.environ.get("AI_MAX_TOKENS_PAYMENT_NORMALIZATION", "320")),
+    "audit_insights": int(os.environ.get("AI_MAX_TOKENS_AUDIT_INSIGHTS", "380")),
+    "communication_notifications": int(os.environ.get("AI_MAX_TOKENS_COMMUNICATION_NOTIFICATIONS", "220")),
+    "release_compliance": int(os.environ.get("AI_MAX_TOKENS_RELEASE_COMPLIANCE", "420")),
+}
+AI_MAX_TOKENS_BY_TASK = {
+    "classification": int(os.environ.get("AI_MAX_TOKENS_CLASSIFICATION", "220")),
+    "structured_extraction": int(os.environ.get("AI_MAX_TOKENS_STRUCTURED_EXTRACTION", "260")),
+    "summarization": int(os.environ.get("AI_MAX_TOKENS_SUMMARIZATION", "360")),
+    "simple_task": int(os.environ.get("AI_MAX_TOKENS_SIMPLE_TASK", "280")),
+    "complex_task": int(os.environ.get("AI_MAX_TOKENS_COMPLEX_TASK", "520")),
+}
+
+AI_AUDIT_MIN_EVENTS = int(os.environ.get("AI_AUDIT_MIN_EVENTS", "25"))
+AI_AUDIT_MIN_FAILURE_EVENTS = int(os.environ.get("AI_AUDIT_MIN_FAILURE_EVENTS", "3"))
+AI_AUDIT_MIN_ANOMALY_CANDIDATES = int(os.environ.get("AI_AUDIT_MIN_ANOMALY_CANDIDATES", "1"))
 AI_FEATURE_FLAGS = {
     "payment_reconciliation": os.environ.get("AI_FEATURE_PAYMENT_RECONCILIATION", "true"),
     "payment_normalization": os.environ.get("AI_FEATURE_PAYMENT_NORMALIZATION", "true"),
@@ -241,6 +330,51 @@ AI_PROVIDERS = {
         "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
         "base_url": os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
         "api_version": os.environ.get("ANTHROPIC_API_VERSION", "2023-06-01"),
+    },
+    "google_gemini": {
+        "engine": "google_gemini",
+        "api_key": os.environ.get("GOOGLE_GEMINI_API_KEY", ""),
+        "base_url": os.environ.get("GOOGLE_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
+    },
+    "cohere": {
+        "engine": "cohere_chat",
+        "api_key": os.environ.get("COHERE_API_KEY", ""),
+        "base_url": os.environ.get("COHERE_BASE_URL", "https://api.cohere.com/v2"),
+    },
+    "mistral": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("MISTRAL_API_KEY", ""),
+        "base_url": os.environ.get("MISTRAL_BASE_URL", "https://api.mistral.ai/v1"),
+    },
+    "groq": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("GROQ_API_KEY", ""),
+        "base_url": os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
+    },
+    "openrouter": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("OPENROUTER_API_KEY", ""),
+        "base_url": os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+    },
+    "xai": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("XAI_API_KEY", ""),
+        "base_url": os.environ.get("XAI_BASE_URL", "https://api.x.ai/v1"),
+    },
+    "deepseek": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("DEEPSEEK_API_KEY", ""),
+        "base_url": os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+    },
+    "together": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("TOGETHER_API_KEY", ""),
+        "base_url": os.environ.get("TOGETHER_BASE_URL", "https://api.together.xyz/v1"),
+    },
+    "fireworks": {
+        "engine": "openai_compatible",
+        "api_key": os.environ.get("FIREWORKS_API_KEY", ""),
+        "base_url": os.environ.get("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"),
     },
 }
 

@@ -4,6 +4,7 @@ import requests
 
 from ai.dto import ProviderCompletionRequest, ProviderCompletionResponse
 from ai.exceptions import AIConfigurationError, AIProviderError, AIProviderTimeoutError, AIResponseFormatError
+from ai.pricing import estimate_cost
 from ai.providers.base import AIProviderGateway
 
 
@@ -49,7 +50,11 @@ class OpenAIChatProvider(AIProviderGateway):
 
         if response.status_code >= 400:
             body = response.text[:500]
-            raise AIProviderError(f"Provider '{self.provider_key}' retornou erro {response.status_code}: {body}")
+            raise AIProviderError(
+                f"Provider '{self.provider_key}' retornou erro {response.status_code}: {body}",
+                status_code=response.status_code,
+                transient=response.status_code == 429 or response.status_code >= 500,
+            )
 
         try:
             response_payload = response.json()
@@ -74,10 +79,35 @@ class OpenAIChatProvider(AIProviderGateway):
         if not raw_text:
             raise AIResponseFormatError(f"Provider '{self.provider_key}' retornou conteúdo vazio.")
 
+        usage = _extract_openai_usage(response_payload)
         return ProviderCompletionResponse(
             provider=request.provider,
             model=request.model,
             raw_text=raw_text,
             raw_payload=response_payload,
             finish_reason=first_choice.get("finish_reason"),
+            usage=usage,
+            cost_estimate=estimate_cost(request.model, usage),
         )
+
+
+def _extract_openai_usage(payload: dict) -> dict[str, int] | None:
+    usage = payload.get("usage") or {}
+    if not isinstance(usage, dict):
+        return None
+
+    try:
+        prompt_tokens = int(usage.get("prompt_tokens") or 0)
+        completion_tokens = int(usage.get("completion_tokens") or 0)
+        total_tokens = int(usage.get("total_tokens") or (prompt_tokens + completion_tokens))
+    except (TypeError, ValueError):
+        return None
+
+    if prompt_tokens == 0 and completion_tokens == 0 and total_tokens == 0:
+        return None
+
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }

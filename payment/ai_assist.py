@@ -35,7 +35,13 @@ def _normalize_int(value: Any, *, minimum: int = 1, maximum: int = 1000) -> int 
     return parsed
 
 
-def suggest_import_resolution(user, parsed_transaction, import_type: str) -> dict[str, Any] | None:
+def suggest_import_resolution(
+    user,
+    parsed_transaction,
+    import_type: str,
+    *,
+    heuristic_confidence: float | None = None,
+) -> dict[str, Any] | None:
     mapped_data = getattr(parsed_transaction, "mapped_data", None)
     matched_payment = getattr(parsed_transaction, "matched_payment", None)
     candidates = getattr(parsed_transaction, "possibly_matched_payment_list", None) or []
@@ -74,6 +80,10 @@ def suggest_import_resolution(user, parsed_transaction, import_type: str) -> dic
             prompt_key="payment.reconciliation.v1",
             payload=payload,
             feature_name="payment_reconciliation",
+            extra_metadata={
+                "user_id": user.id,
+                "heuristic_confidence": heuristic_confidence,
+            },
         )
     except Exception:
         logger.exception("Falha ao montar prompt para sugestão de conciliação.")
@@ -82,6 +92,7 @@ def suggest_import_resolution(user, parsed_transaction, import_type: str) -> dic
     response = safe_execute_ai_task(
         built_request.task_request,
         feature_name="payment_reconciliation",
+        user_id=user.id,
     )
     if response is None or not isinstance(response.output, dict):
         return None
@@ -151,6 +162,7 @@ def suggest_payment_normalization(
             prompt_key="payment.normalization.v1",
             payload=payload,
             feature_name="payment_normalization",
+            extra_metadata={"user_id": main_payment.user_id},
         )
     except Exception:
         logger.exception("Falha ao montar prompt para normalização de pagamento.")
@@ -159,6 +171,7 @@ def suggest_payment_normalization(
     response = safe_execute_ai_task(
         built_request.task_request,
         feature_name="payment_normalization",
+        user_id=main_payment.user_id,
     )
     if response is None or not isinstance(response.output, dict):
         return None

@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from ai.exceptions import AIConfigurationError
-from ai.providers import AIProviderRegistry, AnthropicMessagesProvider, OpenAIChatProvider
+from ai.providers import (
+    AIProviderRegistry,
+    AnthropicMessagesProvider,
+    CohereChatProvider,
+    GoogleGeminiProvider,
+    OpenAIChatProvider,
+    OpenAICompatibleChatProvider,
+)
 
 
 def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegistry:
@@ -28,6 +35,33 @@ def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegi
                 api_key=provider_conf.get("api_key", ""),
                 base_url=provider_conf.get("base_url", "https://api.anthropic.com/v1"),
                 api_version=provider_conf.get("api_version", "2023-06-01"),
+            )
+            continue
+
+        if engine == "openai_compatible":
+            providers[provider_key] = OpenAICompatibleChatProvider(
+                provider_key=provider_key,
+                api_key=provider_conf.get("api_key", ""),
+                base_url=provider_conf.get("base_url", ""),
+                auth_header_name=provider_conf.get("auth_header_name", "Authorization"),
+                auth_prefix=provider_conf.get("auth_prefix", "Bearer "),
+                completions_path=provider_conf.get("completions_path", "/chat/completions"),
+            )
+            continue
+
+        if engine == "google_gemini":
+            providers[provider_key] = GoogleGeminiProvider(
+                provider_key=provider_key,
+                api_key=provider_conf.get("api_key", ""),
+                base_url=provider_conf.get("base_url", "https://generativelanguage.googleapis.com/v1beta"),
+            )
+            continue
+
+        if engine == "cohere_chat":
+            providers[provider_key] = CohereChatProvider(
+                provider_key=provider_key,
+                api_key=provider_conf.get("api_key", ""),
+                base_url=provider_conf.get("base_url", "https://api.cohere.com/v2"),
             )
             continue
 

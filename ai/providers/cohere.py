@@ -4,23 +4,20 @@ import requests
 
 from ai.dto import ProviderCompletionRequest, ProviderCompletionResponse
 from ai.exceptions import AIConfigurationError, AIProviderError, AIProviderTimeoutError, AIResponseFormatError
-from ai.pricing import estimate_cost
 from ai.providers.base import AIProviderGateway
 
 
-class AnthropicMessagesProvider(AIProviderGateway):
+class CohereChatProvider(AIProviderGateway):
     def __init__(
         self,
         *,
         provider_key: str,
         api_key: str,
-        base_url: str = "https://api.anthropic.com/v1",
-        api_version: str = "2023-06-01",
+        base_url: str = "https://api.cohere.com/v2",
     ) -> None:
         self.provider_key = provider_key
         self.api_key = api_key or ""
-        self.base_url = (base_url or "https://api.anthropic.com/v1").rstrip("/")
-        self.api_version = api_version
+        self.base_url = (base_url or "https://api.cohere.com/v2").rstrip("/")
 
     def generate(self, request: ProviderCompletionRequest) -> ProviderCompletionResponse:
         if not self.api_key:
@@ -33,24 +30,24 @@ class AnthropicMessagesProvider(AIProviderGateway):
             if message.role in {"user", "assistant"}
         ]
         if not user_and_assistant_messages:
-            raise AIResponseFormatError("Mensagem do usuário não foi fornecida para o provider Anthropic.")
+            raise AIResponseFormatError("Mensagem do usuário não foi fornecida para o provider Cohere.")
 
         payload: dict[str, object] = {
             "model": request.model,
             "messages": user_and_assistant_messages,
-            "max_tokens": request.max_tokens or 512,
         }
-        if system_messages:
-            payload["system"] = "\n".join(system_messages)
         if request.temperature is not None:
             payload["temperature"] = request.temperature
+        if request.max_tokens is not None:
+            payload["max_tokens"] = request.max_tokens
+        if system_messages:
+            payload["preamble"] = "\n".join(system_messages)
 
         headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": self.api_version,
-            "content-type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
         }
-        url = f"{self.base_url}/messages"
+        url = f"{self.base_url}/chat"
 
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=request.timeout_seconds)
@@ -72,45 +69,19 @@ class AnthropicMessagesProvider(AIProviderGateway):
         except ValueError as exc:
             raise AIResponseFormatError(f"Provider '{self.provider_key}' retornou JSON inválido.") from exc
 
-        content_blocks = response_payload.get("content") or []
-        text_chunks = [
-            block.get("text", "")
-            for block in content_blocks
-            if isinstance(block, dict) and block.get("type") == "text"
-        ]
-        raw_text = "".join(text_chunks).strip()
+        message = response_payload.get("message") or {}
+        content_items = message.get("content") or []
+        raw_text = "".join(item.get("text", "") for item in content_items if isinstance(item, dict)).strip()
+        if not raw_text:
+            text_fallback = response_payload.get("text")
+            raw_text = str(text_fallback).strip() if text_fallback is not None else ""
         if not raw_text:
             raise AIResponseFormatError(f"Provider '{self.provider_key}' retornou conteúdo vazio.")
 
-        usage = _extract_anthropic_usage(response_payload)
         return ProviderCompletionResponse(
             provider=request.provider,
             model=request.model,
             raw_text=raw_text,
             raw_payload=response_payload,
-            finish_reason=response_payload.get("stop_reason"),
-            usage=usage,
-            cost_estimate=estimate_cost(request.model, usage),
+            finish_reason=response_payload.get("finish_reason"),
         )
-
-
-def _extract_anthropic_usage(payload: dict) -> dict[str, int] | None:
-    usage = payload.get("usage") or {}
-    if not isinstance(usage, dict):
-        return None
-
-    try:
-        prompt_tokens = int(usage.get("input_tokens") or 0)
-        completion_tokens = int(usage.get("output_tokens") or 0)
-        total_tokens = int(usage.get("total_tokens") or (prompt_tokens + completion_tokens))
-    except (TypeError, ValueError):
-        return None
-
-    if prompt_tokens == 0 and completion_tokens == 0 and total_tokens == 0:
-        return None
-
-    return {
-        "prompt_tokens": prompt_tokens,
-        "completion_tokens": completion_tokens,
-        "total_tokens": total_tokens,
-    }

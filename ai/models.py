@@ -164,3 +164,61 @@ class PromptOverrideHistory(models.Model):
 
     def __str__(self) -> str:
         return f"{self.key} ({self.environment}) {self.action} @ {self.changed_at.isoformat()}"
+
+
+class AIExecutionEvent(models.Model):
+    trace_id = models.CharField(max_length=64, db_index=True)
+    feature_name = models.CharField(max_length=128, db_index=True, blank=True, default="")
+    task_type = models.CharField(max_length=64, db_index=True, blank=True, default="")
+    provider = models.CharField(max_length=64, blank=True, default="")
+    model = models.CharField(max_length=128, blank=True, default="")
+    attempts = models.PositiveIntegerField(default=0)
+    used_fallback = models.BooleanField(default=False)
+    latency_ms = models.PositiveIntegerField(default=0)
+    success = models.BooleanField(default=False, db_index=True)
+    error_message = models.TextField(blank=True, default="")
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    total_tokens = models.PositiveIntegerField(default=0)
+    cost_estimate = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True)
+    cache_status = models.CharField(max_length=16, blank=True, default="")
+    retry_count = models.PositiveIntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ai_execution_events",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ai_execution_event"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["feature_name", "created_at"]),
+            models.Index(fields=["trace_id", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.feature_name}:{self.task_type} ({self.trace_id})"
+
+
+class AIBudgetPolicy(models.Model):
+    feature_name = models.CharField(max_length=128, unique=True)
+    active = models.BooleanField(default=True, db_index=True)
+    daily_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    monthly_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    user_daily_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    user_monthly_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_budget_policy"
+        ordering = ["feature_name"]
+
+    def __str__(self) -> str:
+        return f"{self.feature_name} (active={self.active})"

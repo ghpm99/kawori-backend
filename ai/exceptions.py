@@ -14,6 +14,11 @@ class AIConfigurationError(AIError):
 class AIProviderError(AIError):
     """Erros ao executar chamadas em providers externos."""
 
+    def __init__(self, message: str, *, status_code: int | None = None, transient: bool | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.transient = transient
+
 
 class AIProviderTimeoutError(AIProviderError):
     """Timeout na chamada ao provider."""

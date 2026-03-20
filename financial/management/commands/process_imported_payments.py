@@ -1,5 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
+import hashlib
+import json
 import re
 import time
 from financial.utils import generate_payments, update_invoice_value
@@ -250,7 +252,48 @@ class Command(BaseCommand):
         except Exception:
             return None
 
-        return suggest_payment_normalization(main_payment, payments_to_process)
+        signature = self._build_normalization_signature(payments_to_process)
+        cached = self._load_cached_normalization(payments_to_process, signature=signature)
+        if cached is not None:
+            return cached
+
+        normalization = suggest_payment_normalization(main_payment, payments_to_process)
+        if normalization:
+            for payment in payments_to_process:
+                payment.normalization_signature = signature
+                payment.normalization_data = normalization
+                payment.save(update_fields=["normalization_signature", "normalization_data", "updated_at"])
+        return normalization
+
+    def _build_normalization_signature(self, payments_to_process: list[ImportedPayment]) -> str:
+        payload = [
+            {
+                "id": payment.id,
+                "merge_group": payment.merge_group,
+                "raw_name": payment.raw_name,
+                "raw_description": payment.raw_description,
+                "raw_value": str(payment.raw_value),
+                "reference": payment.reference,
+                "raw_date": payment.raw_date.isoformat() if payment.raw_date else "",
+                "raw_payment_date": payment.raw_payment_date.isoformat() if payment.raw_payment_date else "",
+            }
+            for payment in sorted(payments_to_process, key=lambda item: item.id)
+        ]
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _load_cached_normalization(
+        self,
+        payments_to_process: list[ImportedPayment],
+        *,
+        signature: str,
+    ) -> dict | None:
+        for payment in payments_to_process:
+            if payment.normalization_signature != signature:
+                return None
+            if not payment.normalization_data:
+                return None
+        return payments_to_process[0].normalization_data if payments_to_process else None
 
     def process_payment(self, payments_to_process: list[ImportedPayment]):
         with transaction.atomic():

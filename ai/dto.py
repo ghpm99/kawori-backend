@@ -79,6 +79,8 @@ class ProviderCompletionResponse:
     raw_text: str
     raw_payload: dict[str, Any]
     finish_reason: str | None = None
+    usage: dict[str, int] | None = None
+    cost_estimate: float | None = None
 
 
 @dataclass(frozen=True)
@@ -111,3 +113,6 @@ class AITaskResponse:
     used_fallback: bool
     attempts: int
     execution_trace: list[ExecutionTraceEntry]
+    usage: dict[str, int] | None = None
+    cost_estimate: float | None = None
+    cache_status: str = "miss"

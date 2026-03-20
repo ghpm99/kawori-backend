@@ -6,7 +6,9 @@ from functools import lru_cache
 from django.conf import settings
 
 from ai.dto import AITaskRequest, AITaskResponse
+from ai.budget import check_budget
 from ai.exceptions import AIError
+from ai.telemetry import emit_event
 from ai.utils import execute_ai_task
 
 logger = logging.getLogger(__name__)
@@ -48,11 +50,35 @@ def safe_execute_ai_task(
     task_request: AITaskRequest,
     *,
     feature_name: str | None = None,
+    user_id: int | None = None,
 ) -> AITaskResponse | None:
     if not is_feature_enabled(feature_name):
         return None
 
     if not has_configured_provider():
+        return None
+
+    budget = check_budget(feature_name, user_id=user_id)
+    if not budget.allowed:
+        emit_event(
+            "ai_execution_blocked_budget",
+            {
+                "trace_id": task_request.resolved_trace_id(),
+                "feature_name": feature_name or "",
+                "task_type": task_request.resolved_task_type(),
+                "provider": "",
+                "model": "",
+                "attempts": 0,
+                "used_fallback": False,
+                "latency_ms": 0,
+                "usage": None,
+                "cost_estimate": None,
+                "cache_status": "bypass",
+                "success": False,
+                "error_message": budget.reason,
+                "user_id": user_id,
+            },
+        )
         return None
 
     try:

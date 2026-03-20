@@ -1,11 +1,15 @@
 import json
+from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
+from ai.cache import get_ai_response_cache
 from ai.dto import AITaskRequest, AITaskType, ProviderCompletionRequest, ProviderCompletionResponse
 from ai.exceptions import AIExecutionError, AIProviderError, AIProviderTimeoutError
 from ai.orchestrator import AIOrchestrator
+from ai.providers.anthropic import AnthropicMessagesProvider
 from ai.providers.base import AIProviderGateway, AIProviderRegistry
+from ai.providers.openai import OpenAIChatProvider
 from ai.routing import AITaskRouter
 from ai.strategies import build_default_task_strategy_registry
 
@@ -101,7 +105,10 @@ class AIOrchestratorTestCase(SimpleTestCase):
         self.assertTrue(response.execution_trace[1].success)
 
     def test_fallback_to_secondary_provider_when_primary_fails(self):
-        primary_provider = SequenceProvider("openai", sequence=[AIProviderError("falha no provider primário")])
+        primary_provider = SequenceProvider(
+            "openai",
+            sequence=[AIProviderError("falha no provider primário", transient=True)],
+        )
         fallback_provider = SequenceProvider("anthropic", sequence=["Resposta do fallback"])
         orchestrator = self._build_orchestrator(
             providers={"openai": primary_provider, "anthropic": fallback_provider},
@@ -125,6 +132,65 @@ class AIOrchestratorTestCase(SimpleTestCase):
         self.assertEqual(response.attempts, 2)
         self.assertFalse(response.execution_trace[0].success)
         self.assertTrue(response.execution_trace[1].success)
+
+    def test_non_transient_provider_error_does_not_trigger_fallback(self):
+        primary_provider = SequenceProvider(
+            "openai",
+            sequence=[AIProviderError("erro de validação", status_code=400, transient=False)],
+        )
+        fallback_provider = SequenceProvider("anthropic", sequence=["não deveria chamar fallback"])
+        orchestrator = self._build_orchestrator(
+            providers={"openai": primary_provider, "anthropic": fallback_provider},
+            routes={
+                "simple_task": {
+                    "primary": {"provider": "openai", "model": "gpt-4o-mini"},
+                    "fallbacks": [{"provider": "anthropic", "model": "claude-3-5-haiku-latest"}],
+                    "timeout_seconds": 5,
+                    "max_retries": 1,
+                }
+            },
+        )
+
+        with self.assertRaises(AIExecutionError):
+            orchestrator.execute(AITaskRequest(task_type=AITaskType.SIMPLE_TASK.value, input_text="foo"))
+
+        self.assertEqual(len(primary_provider.calls), 1)
+        self.assertEqual(len(fallback_provider.calls), 0)
+
+    @override_settings(
+        AI_CACHE_ENABLED=True,
+        AI_CACHE_FEATURE_FLAGS={"audit_insights": True},
+        AI_CACHE_TTL_SECONDS={"audit_insights": 30},
+        AI_CACHE_DEFAULT_TTL_SECONDS=30,
+    )
+    def test_cache_hit_avoids_second_external_call(self):
+        provider = SequenceProvider("openai", sequence=["primeira resposta"])
+        orchestrator = self._build_orchestrator(
+            providers={"openai": provider},
+            routes={
+                "simple_task": {
+                    "primary": {"provider": "openai", "model": "gpt-4o-mini"},
+                    "fallbacks": [],
+                    "timeout_seconds": 5,
+                    "max_retries": 0,
+                }
+            },
+        )
+
+        request = AITaskRequest(
+            task_type=AITaskType.SIMPLE_TASK.value,
+            input_text="mesmo payload",
+            metadata={"feature_name": "audit_insights"},
+        )
+        first = orchestrator.execute(request)
+        second = orchestrator.execute(request)
+
+        self.assertEqual(first.output, second.output)
+        self.assertEqual(second.cache_status, "hit")
+        self.assertEqual(len(provider.calls), 1)
+
+        cache = get_ai_response_cache()
+        cache._store.clear()  # nosec - isolamento do teste
 
     def test_classification_strategy_parses_json_response(self):
         provider = SequenceProvider(
@@ -202,3 +268,52 @@ class AIOrchestratorTestCase(SimpleTestCase):
 
         self.assertEqual(response.model, "gpt-4o-mini")
         self.assertEqual(response.output, "ok")
+
+
+class ProviderUsageParsingTestCase(SimpleTestCase):
+    @patch("ai.providers.openai.requests.post")
+    def test_openai_provider_extracts_usage(self, post_mock):
+        fake_response = Mock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        post_mock.return_value = fake_response
+
+        provider = OpenAIChatProvider(provider_key="openai", api_key="test")
+        response = provider.generate(
+            ProviderCompletionRequest(
+                provider="openai",
+                model="gpt-4o-mini",
+                messages=[type("M", (), {"role": "user", "content": "oi"})()],
+                timeout_seconds=5,
+            )
+        )
+        self.assertEqual(response.usage["prompt_tokens"], 10)
+        self.assertEqual(response.usage["completion_tokens"], 5)
+        self.assertEqual(response.usage["total_tokens"], 15)
+
+    @patch("ai.providers.anthropic.requests.post")
+    def test_anthropic_provider_extracts_usage(self, post_mock):
+        fake_response = Mock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "content": [{"type": "text", "text": "ok"}],
+            "usage": {"input_tokens": 12, "output_tokens": 7},
+            "stop_reason": "end_turn",
+        }
+        post_mock.return_value = fake_response
+
+        provider = AnthropicMessagesProvider(provider_key="anthropic", api_key="test")
+        response = provider.generate(
+            ProviderCompletionRequest(
+                provider="anthropic",
+                model="claude-3-5-haiku-latest",
+                messages=[type("M", (), {"role": "user", "content": "oi"})()],
+                timeout_seconds=5,
+            )
+        )
+        self.assertEqual(response.usage["prompt_tokens"], 12)
+        self.assertEqual(response.usage["completion_tokens"], 7)
+        self.assertEqual(response.usage["total_tokens"], 19)

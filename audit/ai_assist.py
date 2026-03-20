@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.conf import settings
+
 from ai.assist import safe_execute_ai_task
 from ai.prompt_service import build_ai_request_from_prompt
 
@@ -72,6 +74,20 @@ def build_audit_ai_insights(
     failures_by_action: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     anomaly_candidates = _build_candidates(summary, failures_by_action, by_user)
+    total_events = int(summary.get("total_events", 0) or 0)
+    total_failures = int(summary.get("failure_events", 0) or 0) + int(summary.get("error_events", 0) or 0)
+
+    min_events = int(getattr(settings, "AI_AUDIT_MIN_EVENTS", 25))
+    min_failures = int(getattr(settings, "AI_AUDIT_MIN_FAILURE_EVENTS", 3))
+    min_anomaly_candidates = int(getattr(settings, "AI_AUDIT_MIN_ANOMALY_CANDIDATES", 1))
+
+    has_enough_signal = (
+        total_events >= min_events
+        or total_failures >= min_failures
+        or len(anomaly_candidates) >= min_anomaly_candidates
+    )
+    if not has_enough_signal:
+        return None
 
     payload = {
         "filters": filters,
@@ -89,6 +105,7 @@ def build_audit_ai_insights(
             prompt_key="audit.insights.v1",
             payload=payload,
             feature_name="audit_insights",
+            extra_metadata={"heuristic_confidence": 0.4 if anomaly_candidates else 0.8},
         )
     except Exception:
         logger.exception("Falha ao montar prompt para insights de auditoria.")
