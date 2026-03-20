@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('invoice', '0003_alter_invoice_contract'),
+        ("invoice", "0003_alter_invoice_contract"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='invoice',
-            name='type',
-            field=models.IntegerField(choices=[(0, 'credit'), (1, 'debit')], default=1),
+            model_name="invoice",
+            name="type",
+            field=models.IntegerField(choices=[(0, "credit"), (1, "debit")], default=1),
         ),
     ]

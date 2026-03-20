@@ -12,7 +12,9 @@ from mailer.models import EmailQueue, UserEmailPreference
 class ProcessEmailQueueTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="worker_user", email="worker@test.com", password="testpass123")
+        cls.user = User.objects.create_user(
+            username="worker_user", email="worker@test.com", password="testpass123"
+        )
 
     def _create_email(self, **kwargs):
         defaults = {
@@ -39,23 +41,32 @@ class ProcessEmailQueueTestCase(TestCase):
 
     @patch("mailer.management.commands.process_email_queue.Command.send_email")
     def test_retries_failed_email(self, mock_send):
-        email = self._create_email(status=EmailQueue.STATUS_FAILED, retry_count=1, max_retries=3)
+        email = self._create_email(
+            status=EmailQueue.STATUS_FAILED, retry_count=1, max_retries=3
+        )
         call_command("process_email_queue", "--once", stdout=StringIO())
         email.refresh_from_db()
         self.assertEqual(email.status, EmailQueue.STATUS_SENT)
 
     @patch("mailer.management.commands.process_email_queue.Command.send_email")
     def test_does_not_process_exhausted_retries(self, mock_send):
-        email = self._create_email(status=EmailQueue.STATUS_FAILED, retry_count=3, max_retries=3)
+        email = self._create_email(
+            status=EmailQueue.STATUS_FAILED, retry_count=3, max_retries=3
+        )
         call_command("process_email_queue", "--once", stdout=StringIO())
         email.refresh_from_db()
         self.assertEqual(email.status, EmailQueue.STATUS_FAILED)
         mock_send.assert_not_called()
 
-    @patch("mailer.management.commands.process_email_queue.Command.send_email", side_effect=Exception("SMTP error"))
+    @patch(
+        "mailer.management.commands.process_email_queue.Command.send_email",
+        side_effect=Exception("SMTP error"),
+    )
     def test_marks_failed_on_send_error(self, mock_send):
         email = self._create_email()
-        call_command("process_email_queue", "--once", stdout=StringIO(), stderr=StringIO())
+        call_command(
+            "process_email_queue", "--once", stdout=StringIO(), stderr=StringIO()
+        )
         email.refresh_from_db()
         self.assertEqual(email.status, EmailQueue.STATUS_FAILED)
         self.assertEqual(email.retry_count, 1)
@@ -110,6 +121,7 @@ class ProcessEmailQueueTestCase(TestCase):
     @patch("mailer.management.commands.process_email_queue.Command.send_email")
     def test_does_not_process_future_scheduled(self, mock_send):
         from datetime import timedelta
+
         email = self._create_email(scheduled_at=timezone.now() + timedelta(hours=1))
         call_command("process_email_queue", "--once", stdout=StringIO())
         email.refresh_from_db()
@@ -120,7 +132,9 @@ class ProcessEmailQueueTestCase(TestCase):
     def test_processes_by_priority_order(self, mock_send):
         low = self._create_email(priority=EmailQueue.PRIORITY_LOW, subject="Low")
         high = self._create_email(priority=EmailQueue.PRIORITY_HIGH, subject="High")
-        call_command("process_email_queue", "--once", "--batch-size=1", stdout=StringIO())
+        call_command(
+            "process_email_queue", "--once", "--batch-size=1", stdout=StringIO()
+        )
         high.refresh_from_db()
         low.refresh_from_db()
         self.assertEqual(high.status, EmailQueue.STATUS_SENT)

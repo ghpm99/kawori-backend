@@ -3,7 +3,12 @@ from __future__ import annotations
 import requests
 
 from ai.dto import ProviderCompletionRequest, ProviderCompletionResponse
-from ai.exceptions import AIConfigurationError, AIProviderError, AIProviderTimeoutError, AIResponseFormatError
+from ai.exceptions import (
+    AIConfigurationError,
+    AIProviderError,
+    AIProviderTimeoutError,
+    AIResponseFormatError,
+)
 from ai.providers.base import AIProviderGateway
 
 
@@ -19,18 +24,26 @@ class CohereChatProvider(AIProviderGateway):
         self.api_key = api_key or ""
         self.base_url = (base_url or "https://api.cohere.com/v2").rstrip("/")
 
-    def generate(self, request: ProviderCompletionRequest) -> ProviderCompletionResponse:
+    def generate(
+        self, request: ProviderCompletionRequest
+    ) -> ProviderCompletionResponse:
         if not self.api_key:
-            raise AIConfigurationError(f"Provider '{self.provider_key}' sem API key configurada.")
+            raise AIConfigurationError(
+                f"Provider '{self.provider_key}' sem API key configurada."
+            )
 
-        system_messages = [message.content for message in request.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in request.messages if message.role == "system"
+        ]
         user_and_assistant_messages = [
             {"role": message.role, "content": message.content}
             for message in request.messages
             if message.role in {"user", "assistant"}
         ]
         if not user_and_assistant_messages:
-            raise AIResponseFormatError("Mensagem do usuário não foi fornecida para o provider Cohere.")
+            raise AIResponseFormatError(
+                "Mensagem do usuário não foi fornecida para o provider Cohere."
+            )
 
         payload: dict[str, object] = {
             "model": request.model,
@@ -50,11 +63,17 @@ class CohereChatProvider(AIProviderGateway):
         url = f"{self.base_url}/chat"
 
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=request.timeout_seconds)
+            response = requests.post(
+                url, headers=headers, json=payload, timeout=request.timeout_seconds
+            )
         except requests.Timeout as exc:
-            raise AIProviderTimeoutError(f"Timeout ao chamar provider '{self.provider_key}'.") from exc
+            raise AIProviderTimeoutError(
+                f"Timeout ao chamar provider '{self.provider_key}'."
+            ) from exc
         except requests.RequestException as exc:
-            raise AIProviderError(f"Falha de comunicação com provider '{self.provider_key}'.") from exc
+            raise AIProviderError(
+                f"Falha de comunicação com provider '{self.provider_key}'."
+            ) from exc
 
         if response.status_code >= 400:
             body = response.text[:500]
@@ -67,16 +86,22 @@ class CohereChatProvider(AIProviderGateway):
         try:
             response_payload = response.json()
         except ValueError as exc:
-            raise AIResponseFormatError(f"Provider '{self.provider_key}' retornou JSON inválido.") from exc
+            raise AIResponseFormatError(
+                f"Provider '{self.provider_key}' retornou JSON inválido."
+            ) from exc
 
         message = response_payload.get("message") or {}
         content_items = message.get("content") or []
-        raw_text = "".join(item.get("text", "") for item in content_items if isinstance(item, dict)).strip()
+        raw_text = "".join(
+            item.get("text", "") for item in content_items if isinstance(item, dict)
+        ).strip()
         if not raw_text:
             text_fallback = response_payload.get("text")
             raw_text = str(text_fallback).strip() if text_fallback is not None else ""
         if not raw_text:
-            raise AIResponseFormatError(f"Provider '{self.provider_key}' retornou conteúdo vazio.")
+            raise AIResponseFormatError(
+                f"Provider '{self.provider_key}' retornou conteúdo vazio."
+            )
 
         return ProviderCompletionResponse(
             provider=request.provider,

@@ -1,12 +1,12 @@
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 
 
 # Create your models here.
 class Contract(models.Model):
 
     class Meta:
-        db_table = 'financial_contract'
+        db_table = "financial_contract"
 
     name = models.TextField(max_length=255)
     value = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)

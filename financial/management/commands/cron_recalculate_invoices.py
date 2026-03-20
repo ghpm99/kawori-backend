@@ -2,7 +2,7 @@ import time
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db.models import Sum, Case, When, F, Count, Q
+from django.db.models import Case, Count, F, Sum, When
 
 from contract.models import Contract
 from invoice.models import Invoice
@@ -48,7 +48,11 @@ class Command(BaseCommand):
         self.stdout.write(f"[ISSUE] {msg}")
 
     def check_invoices(self):
-        invoices = Invoice.objects.filter(active=True).select_related("contract", "user").iterator(chunk_size=1000)
+        invoices = (
+            Invoice.objects.filter(active=True)
+            .select_related("contract", "user")
+            .iterator(chunk_size=1000)
+        )
 
         for invoice in invoices:
             self.check_invoice(invoice)
@@ -59,8 +63,18 @@ class Command(BaseCommand):
 
         agg = payments.aggregate(
             total=Sum("value"),
-            value_open=Sum(Case(When(status=Payment.STATUS_OPEN, then=F("value")), default=Decimal("0.00"))),
-            value_closed=Sum(Case(When(status=Payment.STATUS_DONE, then=F("value")), default=Decimal("0.00"))),
+            value_open=Sum(
+                Case(
+                    When(status=Payment.STATUS_OPEN, then=F("value")),
+                    default=Decimal("0.00"),
+                )
+            ),
+            value_closed=Sum(
+                Case(
+                    When(status=Payment.STATUS_DONE, then=F("value")),
+                    default=Decimal("0.00"),
+                )
+            ),
             count=Count("id"),
         )
 
@@ -94,7 +108,9 @@ class Command(BaseCommand):
             )
             if self.fix_mode:
                 invoice.value = expected_value
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} value to {expected_value}")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} value to {expected_value}"
+                )
 
         # 5. value_open mismatch
         if invoice.value_open != expected_value_open:
@@ -104,7 +120,9 @@ class Command(BaseCommand):
             )
             if self.fix_mode:
                 invoice.value_open = expected_value_open
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} value_open to {expected_value_open}")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} value_open to {expected_value_open}"
+                )
 
         # 6. value_closed mismatch
         if invoice.value_closed != expected_value_closed:
@@ -114,12 +132,16 @@ class Command(BaseCommand):
             )
             if self.fix_mode:
                 invoice.value_closed = expected_value_closed
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} value_closed to {expected_value_closed}")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} value_closed to {expected_value_closed}"
+                )
 
         # 7. value != value_open + value_closed (after potential fixes above)
         current_value = invoice.value if not self.fix_mode else expected_value
         current_open = invoice.value_open if not self.fix_mode else expected_value_open
-        current_closed = invoice.value_closed if not self.fix_mode else expected_value_closed
+        current_closed = (
+            invoice.value_closed if not self.fix_mode else expected_value_closed
+        )
         if current_value != (current_open + current_closed):
             self.report(
                 f"{prefix}: value decomposition error — "
@@ -145,7 +167,9 @@ class Command(BaseCommand):
             self.report(f"{prefix}: status is OPEN but no open payments exist")
             if self.fix_mode:
                 invoice.status = Invoice.STATUS_DONE
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} status to DONE")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} status to DONE"
+                )
 
         if next_open_payment and invoice.payment_date != next_open_payment:
             self.report(
@@ -154,23 +178,35 @@ class Command(BaseCommand):
             )
             if self.fix_mode:
                 invoice.payment_date = next_open_payment
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} payment_date to {next_open_payment}")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} payment_date to {next_open_payment}"
+                )
 
         if invoice.payment_date is None and invoice.status == Invoice.STATUS_OPEN:
             self.report(f"{prefix}: payment_date is null but status is OPEN")
 
         # 10. Status consistency
-        if expected_value_open == Decimal("0.00") and invoice.status == Invoice.STATUS_OPEN:
+        if (
+            expected_value_open == Decimal("0.00")
+            and invoice.status == Invoice.STATUS_OPEN
+        ):
             self.report(f"{prefix}: all payments are done but invoice status is OPEN")
             if self.fix_mode:
                 invoice.status = Invoice.STATUS_DONE
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} status to DONE")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} status to DONE"
+                )
 
-        if expected_value_open > Decimal("0.00") and invoice.status == Invoice.STATUS_DONE:
+        if (
+            expected_value_open > Decimal("0.00")
+            and invoice.status == Invoice.STATUS_DONE
+        ):
             self.report(f"{prefix}: has open payments but invoice status is DONE")
             if self.fix_mode:
                 invoice.status = Invoice.STATUS_OPEN
-                self.stdout.write(f"  [FIX] Updated invoice {invoice.id} status to OPEN")
+                self.stdout.write(
+                    f"  [FIX] Updated invoice {invoice.id} status to OPEN"
+                )
 
         # 11. Payment type mismatch with invoice
         mismatched_type_count = payments.exclude(type=invoice.type).count()
@@ -218,7 +254,9 @@ class Command(BaseCommand):
                 )
                 if self.fix_mode:
                     contract.value = expected_value
-                    self.stdout.write(f"  [FIX] Updated contract {contract.id} value to {expected_value}")
+                    self.stdout.write(
+                        f"  [FIX] Updated contract {contract.id} value to {expected_value}"
+                    )
 
             if contract.value_open != expected_open:
                 self.report(
@@ -227,7 +265,9 @@ class Command(BaseCommand):
                 )
                 if self.fix_mode:
                     contract.value_open = expected_open
-                    self.stdout.write(f"  [FIX] Updated contract {contract.id} value_open to {expected_open}")
+                    self.stdout.write(
+                        f"  [FIX] Updated contract {contract.id} value_open to {expected_open}"
+                    )
 
             if contract.value_closed != expected_closed:
                 self.report(
@@ -236,12 +276,21 @@ class Command(BaseCommand):
                 )
                 if self.fix_mode:
                     contract.value_closed = expected_closed
-                    self.stdout.write(f"  [FIX] Updated contract {contract.id} value_closed to {expected_closed}")
+                    self.stdout.write(
+                        f"  [FIX] Updated contract {contract.id} value_closed to {expected_closed}"
+                    )
 
             # Contract with invoices from different users
-            distinct_users = Invoice.objects.filter(contract=contract, active=True).values("user").distinct().count()
+            distinct_users = (
+                Invoice.objects.filter(contract=contract, active=True)
+                .values("user")
+                .distinct()
+                .count()
+            )
             if distinct_users > 1:
-                self.report(f"{prefix}: has invoices from {distinct_users} different users")
+                self.report(
+                    f"{prefix}: has invoices from {distinct_users} different users"
+                )
 
             if self.fix_mode:
                 contract.save()
@@ -253,7 +302,9 @@ class Command(BaseCommand):
         if count > 0:
             self.report(f"Found {count} active payment(s) without an invoice")
             for p in orphan_payments[:10]:
-                self.stdout.write(f"    Payment {p.id} (user={p.user_id}, value={p.value})")
+                self.stdout.write(
+                    f"    Payment {p.id} (user={p.user_id}, value={p.value})"
+                )
             if count > 10:
                 self.stdout.write(f"    ... and {count - 10} more")
 
@@ -263,7 +314,9 @@ class Command(BaseCommand):
         if count > 0:
             self.report(f"Found {count} active payment(s) linked to inactive invoices")
             for p in zombie_payments[:10]:
-                self.stdout.write(f"    Payment {p.id} (invoice={p.invoice_id}, user={p.user_id})")
+                self.stdout.write(
+                    f"    Payment {p.id} (invoice={p.invoice_id}, user={p.user_id})"
+                )
             if count > 10:
                 self.stdout.write(f"    ... and {count - 10} more")
             if self.fix_mode:

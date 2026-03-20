@@ -18,17 +18,23 @@ class CSVResolveImportsViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar tags para testes
         cls.tag1 = Tag.objects.create(name="Tag CSV 1", color="#FF0000", user=user)
         cls.tag2 = Tag.objects.create(name="Tag CSV 2", color="#00FF00", user=user)
-        cls.budget_tag = Tag.objects.create(name="Budget CSV", color="#0000FF", user=user)
+        cls.budget_tag = Tag.objects.create(
+            name="Budget CSV", color="#0000FF", user=user
+        )
 
         # Criar invoice com tags para testes de merge
         cls.invoice_with_tags = Invoice.objects.create(
@@ -39,7 +45,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             fixed=False,
             value=Decimal("1000.00"),
             value_open=Decimal("1000.00"),
-            user=user
+            user=user,
         )
         cls.invoice_with_tags.tags.add(cls.tag1, cls.budget_tag)
 
@@ -52,7 +58,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             fixed=False,
             value=Decimal("500.00"),
             value_open=Decimal("500.00"),
-            user=user
+            user=user,
         )
 
         # Criar pagamento existente para testes de merge
@@ -68,7 +74,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             value=Decimal("150.00"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice_with_tags
+            invoice=cls.invoice_with_tags,
         )
 
         # Obter token de autenticação
@@ -105,9 +111,9 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "installments": 1,
                         "payment_date": "2026-02-20",
                         "value": "100.00",
-                        "reference": "ref_nova_1"
+                        "reference": "ref_nova_1",
                     },
-                    "merge_group": "group1"
+                    "merge_group": "group1",
                 },
                 {
                     "mapped_payment": {
@@ -118,12 +124,12 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "installments": 1,
                         "payment_date": "2026-02-21",
                         "value": "200.00",
-                        "reference": "ref_nova_2"
+                        "reference": "ref_nova_2",
                     },
-                    "merge_group": "group2"
-                }
+                    "merge_group": "group2",
+                },
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         initial_count = ImportedPayment.objects.filter(user__username="test").count()
@@ -131,7 +137,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -146,8 +152,18 @@ class CSVResolveImportsViewTestCase(TestCase):
 
         # Verificar estrutura dos dados retornados
         for item in data["data"]:
-            expected_fields = ["import_payment_id", "reference", "action", "payment_id", 
-                              "name", "value", "date", "payment_date", "tags", "has_budget_tag"]
+            expected_fields = [
+                "import_payment_id",
+                "reference",
+                "action",
+                "payment_id",
+                "name",
+                "value",
+                "date",
+                "payment_date",
+                "tags",
+                "has_budget_tag",
+            ]
             for field in expected_fields:
                 self.assertIn(field, item)
 
@@ -170,17 +186,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "installments": 1,
                         "payment_date": "2026-02-20",
                         "value": "150.00",
-                        "reference": "cartao_nova_1"
+                        "reference": "cartao_nova_1",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -190,7 +206,9 @@ class CSVResolveImportsViewTestCase(TestCase):
 
         # Verificar se foi criado com import_source correto
         imported = ImportedPayment.objects.get(id=data["data"][0]["import_payment_id"])
-        self.assertEqual(imported.import_source, ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS)
+        self.assertEqual(
+            imported.import_source, ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+        )
 
     def test_csv_resolve_imports_view_success_merge_strategy(self):
         """Testa sucesso da view com estratégia merge - deve criar ImportedPayment com tags do pagamento"""
@@ -205,19 +223,19 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "installments": 1,
                         "payment_date": "2026-02-20",
                         "value": "120.00",
-                        "reference": "ref_merge"
+                        "reference": "ref_merge",
                     },
                     "matched_payment_id": self.existing_payment.id,
-                    "merge_group": "group_merge"
+                    "merge_group": "group_merge",
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -234,7 +252,7 @@ class CSVResolveImportsViewTestCase(TestCase):
 
         # Verificar se as tags foram copiadas
         self.assertEqual(len(item["tags"]), 2)  # tag1 e budget_tag
-        
+
         tag_names = [tag["name"] for tag in item["tags"]]
         self.assertIn("Tag CSV 1", tag_names)
         self.assertIn("Budget CSV", tag_names)
@@ -252,28 +270,28 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Group 1",
-                        "reference": "ref_group_1"
+                        "reference": "ref_group_1",
                     },
                     "matched_payment_id": self.existing_payment.id,
-                    "merge_group": "group1"
+                    "merge_group": "group1",
                 },
                 {
                     "mapped_payment": {
                         "type": Payment.TYPE_CREDIT,
                         "name": "Transação Group 2",
-                        "reference": "ref_group_2"
+                        "reference": "ref_group_2",
                     },
                     "matched_payment_id": self.existing_payment.id,
-                    "merge_group": "group2"
-                }
+                    "merge_group": "group2",
+                },
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -296,7 +314,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="Nome Antigo",
             raw_value=Decimal("100.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         import_data = {
@@ -306,17 +324,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "type": Payment.TYPE_CREDIT,
                         "name": "Nome Atualizado",
                         "reference": "ref_existente",  # Mesma referência
-                        "value": "150.00"
+                        "value": "150.00",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -340,7 +358,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="Não Editável",
             raw_value=Decimal("100.00"),
-            status=ImportedPayment.IMPORT_STATUS_PROCESSING  # Não editável
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING,  # Não editável
         )
 
         import_data = {
@@ -349,17 +367,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_CREDIT,
                         "name": "Tentativa Atualizar",
-                        "reference": "ref_nao_editavel"
+                        "reference": "ref_nao_editavel",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -384,17 +402,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Válida",
-                        "reference": "ref_valida"
+                        "reference": "ref_valida",
                     }
-                }
+                },
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -411,18 +429,18 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Inválida",
-                        "reference": "ref_invalida"
+                        "reference": "ref_invalida",
                     },
-                    "matched_payment_id": 99999  # ID não existe
+                    "matched_payment_id": 99999,  # ID não existe
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -440,17 +458,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação",
-                        "reference": "ref_test"
+                        "reference": "ref_test",
                     }
                 }
             ],
-            "import_type": "tipo_invalido"
+            "import_type": "tipo_invalido",
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -463,13 +481,13 @@ class CSVResolveImportsViewTestCase(TestCase):
         """Testa view com lista de importação vazia - deve retornar lista vazia"""
         import_data = {
             "import": [],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -487,7 +505,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -500,7 +518,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data="json_invalido",
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -519,11 +537,11 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Não Autorizada",
-                        "reference": "ref_nao_autorizada"
+                        "reference": "ref_nao_autorizada",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         # Usar cookies do usuário normal
@@ -533,7 +551,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -547,11 +565,11 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Sem Auth",
-                        "reference": "ref_sem_auth"
+                        "reference": "ref_sem_auth",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         # Limpar cookies
@@ -560,7 +578,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -574,7 +592,7 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Padrão",
-                        "reference": "ref_padrao"
+                        "reference": "ref_padrao",
                     }
                 }
             ]
@@ -584,7 +602,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -594,7 +612,9 @@ class CSVResolveImportsViewTestCase(TestCase):
 
         # Verificar se usou o padrão transactions
         imported = ImportedPayment.objects.get(id=data["data"][0]["import_payment_id"])
-        self.assertEqual(imported.import_source, ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
+        self.assertEqual(
+            imported.import_source, ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+        )
 
     def test_csv_resolve_imports_view_edge_case_merge_without_tags(self):
         """Testa edge case merge com pagamento sem tags - deve funcionar sem tags"""
@@ -604,12 +624,16 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Merge Sem Tags",
-                        "reference": "ref_merge_sem_tags"
+                        "reference": "ref_merge_sem_tags",
                     },
-                    "matched_payment_id": self.invoice_no_tags.payments.first().id if self.invoice_no_tags.payments.exists() else None
+                    "matched_payment_id": (
+                        self.invoice_no_tags.payments.first().id
+                        if self.invoice_no_tags.payments.exists()
+                        else None
+                    ),
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         # Criar pagamento na invoice sem tags se não existir
@@ -625,14 +649,14 @@ class CSVResolveImportsViewTestCase(TestCase):
                 value=Decimal("100.00"),
                 status=Payment.STATUS_OPEN,
                 user=User.objects.get(username="test"),
-                invoice=self.invoice_no_tags
+                invoice=self.invoice_no_tags,
             )
             import_data["import"][0]["matched_payment_id"] = payment_no_tags.id
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -654,18 +678,18 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "type": Payment.TYPE_DEBIT,
                         "name": f"Transação Grande {i}",
                         "reference": f"ref_grande_{i}",
-                        "value": "100.00"
+                        "value": "100.00",
                     }
                 }
                 for i in range(50)  # 50 itens
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -687,7 +711,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="Nome Inicial",
             raw_value=Decimal("100.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         import_data = {
@@ -697,17 +721,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "type": Payment.TYPE_CREDIT,
                         "name": "Nome Atualizado",
                         "reference": "ref_duplicada",  # Mesma referência
-                        "value": "150.00"
+                        "value": "150.00",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -729,17 +753,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação Estrutura",
-                        "reference": "ref_estrutura"
+                        "reference": "ref_estrutura",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -752,8 +776,18 @@ class CSVResolveImportsViewTestCase(TestCase):
         # Verificar estrutura de cada item
         if data["data"]:
             item = data["data"][0]
-            expected_fields = ["import_payment_id", "reference", "action", "payment_id",
-                              "name", "value", "date", "payment_date", "tags", "has_budget_tag"]
+            expected_fields = [
+                "import_payment_id",
+                "reference",
+                "action",
+                "payment_id",
+                "name",
+                "value",
+                "date",
+                "payment_date",
+                "tags",
+                "has_budget_tag",
+            ]
             for field in expected_fields:
                 self.assertIn(field, item)
 
@@ -773,7 +807,7 @@ class CSVResolveImportsViewTestCase(TestCase):
         Budget.objects.get_or_create(
             user=user,
             tag=self.budget_tag,
-            defaults={"allocation_percentage": Decimal("10.00")}
+            defaults={"allocation_percentage": Decimal("10.00")},
         )
 
         # Criar ImportedPayment já completado com tags e merge_group
@@ -789,7 +823,7 @@ class CSVResolveImportsViewTestCase(TestCase):
             raw_value=Decimal("30.00"),
             raw_date="2026-02-15",
             raw_payment_date="2026-02-20",
-            status=ImportedPayment.IMPORT_STATUS_COMPLETED
+            status=ImportedPayment.IMPORT_STATUS_COMPLETED,
         )
         completed_imported.raw_tags.set([self.tag1, self.budget_tag])
 
@@ -803,17 +837,17 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "reference": "ref_completed",
                         "value": "30.00",
                         "date": "2026-02-15",
-                        "payment_date": "2026-02-20"
+                        "payment_date": "2026-02-20",
                     }
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -846,10 +880,10 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "reference": "ref_discord_prop",
                         "value": "30.00",
                         "date": "2026-02-15",
-                        "payment_date": "2026-02-20"
+                        "payment_date": "2026-02-20",
                     },
                     "matched_payment_id": self.existing_payment.id,
-                    "merge_group": "discord_mg"
+                    "merge_group": "discord_mg",
                 },
                 {
                     "mapped_payment": {
@@ -858,18 +892,18 @@ class CSVResolveImportsViewTestCase(TestCase):
                         "reference": "ref_iof_discord_prop",
                         "value": "2.00",
                         "date": "2026-02-15",
-                        "payment_date": "2026-02-20"
+                        "payment_date": "2026-02-20",
                     },
-                    "merge_group": "discord_mg"  # Mesmo grupo, sem matched_payment_id
-                }
+                    "merge_group": "discord_mg",  # Mesmo grupo, sem matched_payment_id
+                },
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS
+            "import_type": ImportedPayment.IMPORT_SOURCE_CARD_PAYMENTS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -890,7 +924,9 @@ class CSVResolveImportsViewTestCase(TestCase):
         # Verificar no banco
         iof_imported = ImportedPayment.objects.get(id=iof_item["import_payment_id"])
         iof_tags = set(iof_imported.raw_tags.values_list("id", flat=True))
-        discord_imported = ImportedPayment.objects.get(id=discord_item["import_payment_id"])
+        discord_imported = ImportedPayment.objects.get(
+            id=discord_item["import_payment_id"]
+        )
         discord_tags = set(discord_imported.raw_tags.values_list("id", flat=True))
         self.assertEqual(iof_tags, discord_tags)
 
@@ -902,18 +938,18 @@ class CSVResolveImportsViewTestCase(TestCase):
                     "mapped_payment": {
                         "type": Payment.TYPE_DEBIT,
                         "name": "Transação MG",
-                        "reference": "ref_mg_test"
+                        "reference": "ref_mg_test",
                     },
-                    "merge_group": "test_mg"
+                    "merge_group": "test_mg",
                 }
             ],
-            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            "import_type": ImportedPayment.IMPORT_SOURCE_TRANSACTIONS,
         }
 
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)

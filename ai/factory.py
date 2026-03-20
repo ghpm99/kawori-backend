@@ -18,7 +18,9 @@ def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegi
 
     for provider_key, provider_conf in (provider_settings or {}).items():
         if not isinstance(provider_conf, dict):
-            raise AIConfigurationError(f"Provider '{provider_key}' possui configuração inválida.")
+            raise AIConfigurationError(
+                f"Provider '{provider_key}' possui configuração inválida."
+            )
 
         engine = (provider_conf.get("engine") or "").strip().lower()
         if engine == "openai":
@@ -45,7 +47,9 @@ def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegi
                 base_url=provider_conf.get("base_url", ""),
                 auth_header_name=provider_conf.get("auth_header_name", "Authorization"),
                 auth_prefix=provider_conf.get("auth_prefix", "Bearer "),
-                completions_path=provider_conf.get("completions_path", "/chat/completions"),
+                completions_path=provider_conf.get(
+                    "completions_path", "/chat/completions"
+                ),
             )
             continue
 
@@ -53,7 +57,9 @@ def build_provider_registry(provider_settings: dict[str, Any]) -> AIProviderRegi
             providers[provider_key] = GoogleGeminiProvider(
                 provider_key=provider_key,
                 api_key=provider_conf.get("api_key", ""),
-                base_url=provider_conf.get("base_url", "https://generativelanguage.googleapis.com/v1beta"),
+                base_url=provider_conf.get(
+                    "base_url", "https://generativelanguage.googleapis.com/v1beta"
+                ),
             )
             continue
 

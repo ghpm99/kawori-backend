@@ -1,18 +1,17 @@
-from http import HTTPStatus
 import json
 from datetime import datetime, timedelta
+from http import HTTPStatus
 
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from financial.utils import generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
-from audit.decorators import audit_log
-from audit.models import CATEGORY_FINANCIAL
 from payment.models import Payment
 from tag.models import Tag
 
@@ -48,13 +47,21 @@ def get_all_invoice_view(request, user):
     if req.get("date__gte"):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(
+            req.get("date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(
+            req.get("payment_date__gte")
+        ) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(
+            req.get("payment_date__lte")
+        ) or datetime.now() + timedelta(days=1)
 
-    invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by("payment_date", "id")
+    invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by(
+        "payment_date", "id"
+    )
 
     page_size = req.get("page_size", 10)
 
@@ -156,13 +163,19 @@ def detail_invoice_payments_view(request, id, user):
     if req.get("date__gte"):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(
+            req.get("date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("installments"):
         filters["installments"] = req.get("installments")
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(
+            req.get("payment_date__gte")
+        ) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(
+            req.get("payment_date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("fixed"):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
@@ -211,7 +224,9 @@ def save_tag_invoice_view(request, id, user):
 
     tags = Tag.objects.filter(id__in=data, user=user)
     if tags.count() != len(set(data)):
-        return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+        return JsonResponse(
+            {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
+        )
 
     with transaction.atomic():
         invoice.tags.set(tags)
@@ -255,7 +270,9 @@ def include_new_invoice_view(request, user):
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
-            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+            return JsonResponse(
+                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
+            )
 
     with transaction.atomic():
         invoice = Invoice.objects.create(
@@ -294,7 +311,9 @@ def save_detail_view(request, id, user):
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
-            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+            return JsonResponse(
+                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
+            )
 
     with transaction.atomic():
         if data.get("name") is not None:

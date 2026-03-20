@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('remote', '0003_rename_screenshot_screenshot_image'),
+        ("remote", "0003_rename_screenshot_screenshot_image"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='config',
-            name='type',
-            field=models.IntegerField(choices=[(0, 'empty'), (1, 'screen')], default=0),
+            model_name="config",
+            name="type",
+            field=models.IntegerField(choices=[(0, "empty"), (1, "screen")], default=0),
         ),
     ]

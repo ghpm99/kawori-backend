@@ -1,10 +1,7 @@
 from datetime import datetime, timedelta
 
-from dateutil.relativedelta import relativedelta
-
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from django.db import connection
 
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
@@ -41,13 +38,19 @@ def get_all_view(request, user):
     if req.get("date__gte"):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(
+            req.get("date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("installments"):
         filters["installments"] = req.get("installments")
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(
+            req.get("payment_date__gte")
+        ) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(
+            req.get("payment_date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("fixed"):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
@@ -55,7 +58,9 @@ def get_all_view(request, user):
     if req.get("contract"):
         filters["invoice__contract__name__icontains"] = req.get("contract")
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
+    payments_query = Payment.objects.filter(**filters, user=user).order_by(
+        "payment_date", "id"
+    )
     page_size = req.get("page_size", 10)
 
     data = paginate(payments_query, req.get("page", 1), page_size)

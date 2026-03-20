@@ -14,10 +14,14 @@ from ai.prompt_service import invalidate_prompt_override_cache
 
 
 @receiver(post_save, sender=PromptOverride)
-def prompt_override_post_save(sender, instance: PromptOverride, created: bool, **kwargs) -> None:
+def prompt_override_post_save(
+    sender, instance: PromptOverride, created: bool, **kwargs
+) -> None:
     PromptOverrideHistory.objects.create(
         prompt_override=instance,
-        action=PROMPT_HISTORY_ACTION_CREATED if created else PROMPT_HISTORY_ACTION_UPDATED,
+        action=(
+            PROMPT_HISTORY_ACTION_CREATED if created else PROMPT_HISTORY_ACTION_UPDATED
+        ),
         key=instance.key,
         environment=instance.environment,
         content=instance.content,
@@ -32,7 +36,9 @@ def prompt_override_post_save(sender, instance: PromptOverride, created: bool, *
         change_reason=instance.change_reason,
         changed_by=instance.updated_by,
     )
-    invalidate_prompt_override_cache(prompt_key=instance.key, environment=instance.environment)
+    invalidate_prompt_override_cache(
+        prompt_key=instance.key, environment=instance.environment
+    )
 
 
 @receiver(post_delete, sender=PromptOverride)
@@ -54,4 +60,6 @@ def prompt_override_post_delete(sender, instance: PromptOverride, **kwargs) -> N
         change_reason=instance.change_reason,
         changed_by=instance.updated_by,
     )
-    invalidate_prompt_override_cache(prompt_key=instance.key, environment=instance.environment)
+    invalidate_prompt_override_cache(
+        prompt_key=instance.key, environment=instance.environment
+    )

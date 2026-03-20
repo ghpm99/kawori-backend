@@ -6,16 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0001_initial'),
+        ("facetexture", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='BDOClass',
+            name="BDOClass",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=64, unique=True)),
-                ('abbreviation', models.CharField(max_length=32, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=64, unique=True)),
+                ("abbreviation", models.CharField(max_length=32, unique=True)),
             ],
         ),
     ]

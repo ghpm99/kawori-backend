@@ -3,10 +3,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from audit.models import (
-    ReleaseScriptExecution,
     SCRIPT_STATUS_FAILURE,
     SCRIPT_STATUS_SKIPPED,
     SCRIPT_STATUS_SUCCESS,
+    ReleaseScriptExecution,
 )
 from audit.release_scripts import get_pending_release_scripts
 
@@ -15,9 +15,21 @@ class Command(BaseCommand):
     help = "Execute pending registered release scripts up to the target version."
 
     def add_arguments(self, parser):
-        parser.add_argument("--target-version", required=True, help="Semantic version or tag, for example v2.1.0.")
-        parser.add_argument("--dry-run", action="store_true", help="List pending scripts without executing them.")
-        parser.add_argument("--force", action="store_true", help="Execute scripts even if they were already recorded.")
+        parser.add_argument(
+            "--target-version",
+            required=True,
+            help="Semantic version or tag, for example v2.1.0.",
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="List pending scripts without executing them.",
+        )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Execute scripts even if they were already recorded.",
+        )
         parser.add_argument(
             "--include-operational",
             action="store_true",
@@ -36,7 +48,9 @@ class Command(BaseCommand):
         if not force:
             executed_commands = {
                 (execution.release_version, execution.script_name)
-                for execution in ReleaseScriptExecution.objects.filter(status=SCRIPT_STATUS_SUCCESS)
+                for execution in ReleaseScriptExecution.objects.filter(
+                    status=SCRIPT_STATUS_SUCCESS
+                )
             }
 
         pending_scripts = get_pending_release_scripts(
@@ -57,7 +71,9 @@ class Command(BaseCommand):
                 continue
 
             if script.command_name not in available_commands:
-                raise CommandError(f"Registered command not found: {script.command_name}")
+                raise CommandError(
+                    f"Registered command not found: {script.command_name}"
+                )
 
             execution = ReleaseScriptExecution.objects.create(
                 release_version=normalized_version,

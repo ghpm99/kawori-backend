@@ -44,16 +44,26 @@ class EmailQueue(models.Model):
     ]
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="email_queue"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_queue",
     )
     to_email = models.EmailField()
     from_email = models.EmailField(blank=True, default="")
     subject = models.CharField(max_length=255)
     body_html = models.TextField()
-    email_type = models.CharField(max_length=30, choices=TYPE_CHOICES, default=TYPE_GENERIC)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default=CATEGORY_TRANSACTIONAL)
+    email_type = models.CharField(
+        max_length=30, choices=TYPE_CHOICES, default=TYPE_GENERIC
+    )
+    category = models.CharField(
+        max_length=20, choices=CATEGORY_CHOICES, default=CATEGORY_TRANSACTIONAL
+    )
     priority = models.IntegerField(default=PRIORITY_NORMAL)
-    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
     skip_reason = models.CharField(max_length=100, blank=True, default="")
     context_data = models.JSONField(default=dict, blank=True)
 
@@ -70,8 +80,12 @@ class EmailQueue(models.Model):
         db_table = "mailer_email_queue"
         ordering = ["priority", "scheduled_at"]
         indexes = [
-            models.Index(fields=["status", "scheduled_at"], name="idx_email_status_scheduled"),
-            models.Index(fields=["priority", "scheduled_at"], name="idx_email_priority_scheduled"),
+            models.Index(
+                fields=["status", "scheduled_at"], name="idx_email_status_scheduled"
+            ),
+            models.Index(
+                fields=["priority", "scheduled_at"], name="idx_email_priority_scheduled"
+            ),
         ]
 
     def __str__(self):
@@ -80,7 +94,9 @@ class EmailQueue(models.Model):
 
 class UserEmailPreference(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="email_preference"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_preference",
     )
     allow_all_emails = models.BooleanField(default=True)
     allow_notification = models.BooleanField(default=True)

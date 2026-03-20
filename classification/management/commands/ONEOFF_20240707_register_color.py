@@ -1,5 +1,7 @@
 import time
+
 from django.core.management.base import BaseCommand
+
 from facetexture.models import BDOClass
 
 
@@ -10,7 +12,7 @@ class Command(BaseCommand):
 
     def run_command(self):
         colors = [
-            {'id': 0, 'color': '#4d8e66'},
+            {"id": 0, "color": "#4d8e66"},
             {"id": 1, "color": "#4d8e66"},
             {"id": 2, "color": "#bc433b"},
             {"id": 3, "color": "#3f7398"},
@@ -44,7 +46,7 @@ class Command(BaseCommand):
         bdo_class_list = BDOClass.objects.all()
 
         for classe in bdo_class_list:
-            classe.color = colors[classe.id]['color']
+            classe.color = colors[classe.id]["color"]
             classe.save()
 
         print("Cores registradas!")

@@ -1,10 +1,12 @@
 from os.path import join
+
 from django.conf import settings
 from google.cloud import storage
 
-
 GCLOUD_PATH = join(settings.BASE_DIR, settings.GS_CREDENTIAL_PATH)
-__gcloud_client = storage.Client.from_service_account_json(json_credentials_path=GCLOUD_PATH)
+__gcloud_client = storage.Client.from_service_account_json(
+    json_credentials_path=GCLOUD_PATH
+)
 __gcloud_bucket = __gcloud_client.get_bucket(settings.GS_BUCKET_NAME)
 
 

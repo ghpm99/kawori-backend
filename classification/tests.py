@@ -7,16 +7,22 @@ from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from classification.models import Answer, AnswerSummary, Question
 from classification import views
+from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 
 
 class ClassificationViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="classification-reg", email="classification-reg@test.com", password="123")
-        cls.bdo_class = BDOClass.objects.create(name="Warrior", abbreviation="WR", color="#111111")
+        cls.user = User.objects.create_superuser(
+            username="classification-reg",
+            email="classification-reg@test.com",
+            password="123",
+        )
+        cls.bdo_class = BDOClass.objects.create(
+            name="Warrior", abbreviation="WR", color="#111111"
+        )
         cls.question = Question.objects.create(
             question_text="Pergunta?",
             question_details="Detalhes",
@@ -31,7 +37,9 @@ class ClassificationViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=json.dumps(data or {}), content_type="application/json")
+            request = request_factory_method(
+                "/", data=json.dumps(data or {}), content_type="application/json"
+            )
         target = inspect.unwrap(fn)
         if "user" in target.__code__.co_varnames:
             return target(request, user=user or self.user)
@@ -64,10 +72,14 @@ class ClassificationViewsRegressionTestCase(TestCase):
         self.assertEqual(resp_no_question.status_code, 400)
 
         with patch("classification.views.Question.objects.get", return_value=None):
-            resp_question_none = self._call(views.register_answer, method="post", data={"question_id": 1})
+            resp_question_none = self._call(
+                views.register_answer, method="post", data={"question_id": 1}
+            )
         self.assertEqual(resp_question_none.status_code, 404)
 
-        resp_no_combat = self._call(views.register_answer, method="post", data={"question_id": self.question.id})
+        resp_no_combat = self._call(
+            views.register_answer, method="post", data={"question_id": self.question.id}
+        )
         self.assertEqual(resp_no_combat.status_code, 400)
 
         resp_invalid_combat = self._call(
@@ -88,39 +100,73 @@ class ClassificationViewsRegressionTestCase(TestCase):
             resp_class_none = self._call(
                 views.register_answer,
                 method="post",
-                data={"question_id": self.question.id, "combat_style": 1, "bdo_class_id": 999},
+                data={
+                    "question_id": self.question.id,
+                    "combat_style": 1,
+                    "bdo_class_id": 999,
+                },
             )
         self.assertEqual(resp_class_none.status_code, 404)
 
         resp_no_vote = self._call(
             views.register_answer,
             method="post",
-            data={"question_id": self.question.id, "combat_style": 1, "bdo_class_id": self.bdo_class.id},
+            data={
+                "question_id": self.question.id,
+                "combat_style": 1,
+                "bdo_class_id": self.bdo_class.id,
+            },
         )
         self.assertEqual(resp_no_vote.status_code, 400)
 
         resp_vote_invalid = self._call(
             views.register_answer,
             method="post",
-            data={"question_id": self.question.id, "combat_style": 1, "bdo_class_id": self.bdo_class.id, "vote": "x"},
+            data={
+                "question_id": self.question.id,
+                "combat_style": 1,
+                "bdo_class_id": self.bdo_class.id,
+                "vote": "x",
+            },
         )
         self.assertEqual(resp_vote_invalid.status_code, 400)
 
         success = self._call(
             views.register_answer,
             method="post",
-            data={"question_id": self.question.id, "combat_style": 1, "bdo_class_id": self.bdo_class.id, "vote": 8},
+            data={
+                "question_id": self.question.id,
+                "combat_style": 1,
+                "bdo_class_id": self.bdo_class.id,
+                "vote": 8,
+            },
         )
         self.assertEqual(success.status_code, 200)
         self.assertEqual(Answer.objects.filter(user=self.user, vote=8).count(), 1)
 
     def test_get_bdo_class_total_votes_and_answer_by_class(self):
         other_class = BDOClass.objects.create(name="Witch", abbreviation="WT", color="")
-        Answer.objects.create(question=self.question, bdo_class=self.bdo_class, combat_style=1, user=self.user, vote=10)
-        Answer.objects.create(question=self.question, bdo_class=other_class, combat_style=2, user=self.user, vote=4)
+        Answer.objects.create(
+            question=self.question,
+            bdo_class=self.bdo_class,
+            combat_style=1,
+            user=self.user,
+            vote=10,
+        )
+        Answer.objects.create(
+            question=self.question,
+            bdo_class=other_class,
+            combat_style=2,
+            user=self.user,
+            vote=4,
+        )
 
-        with patch("classification.views.get_bdo_class_image_url", side_effect=lambda cid: f"img-{cid}"), patch(
-            "classification.views.get_bdo_class_symbol_url", side_effect=lambda cid: f"sym-{cid}"
+        with patch(
+            "classification.views.get_bdo_class_image_url",
+            side_effect=lambda cid: f"img-{cid}",
+        ), patch(
+            "classification.views.get_bdo_class_symbol_url",
+            side_effect=lambda cid: f"sym-{cid}",
         ):
             class_resp = self._call(views.get_bdo_class, method="get")
 

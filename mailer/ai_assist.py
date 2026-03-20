@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import logging
 import hashlib
 import json
-from datetime import date
-from datetime import timedelta
+import logging
+from datetime import date, timedelta
 from typing import Any
+
+from django.utils import timezone
 
 from ai.assist import safe_execute_ai_task
 from ai.prompt_service import build_ai_request_from_prompt
-from django.utils import timezone
-
 from mailer.models import EmailQueue
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,9 @@ def _normalize_lines(value: Any, limit: int = 4) -> list[str]:
     return lines
 
 
-def suggest_payment_notification_copy(user, payments: list[dict], final_date: date, channel: str) -> dict[str, Any] | None:
+def suggest_payment_notification_copy(
+    user, payments: list[dict], final_date: date, channel: str
+) -> dict[str, Any] | None:
     user_id = getattr(user, "id", None)
     dedupe_key = _build_notification_dedupe_key(user, payments, final_date, channel)
     recent_email = None
@@ -61,7 +62,9 @@ def suggest_payment_notification_copy(user, payments: list[dict], final_date: da
         "channel": channel,
         "username": getattr(user, "username", ""),
         "total_payments": len(payments),
-        "total_value": round(sum(float(item.get("value", 0) or 0) for item in payments), 2),
+        "total_value": round(
+            sum(float(item.get("value", 0) or 0) for item in payments), 2
+        ),
         "deadline": final_date.strftime("%d/%m/%Y"),
         "top_payments": [
             {
@@ -117,13 +120,17 @@ def suggest_payment_notification_copy(user, payments: list[dict], final_date: da
     }
 
 
-def _build_notification_dedupe_key(user, payments: list[dict], final_date: date, channel: str) -> str:
+def _build_notification_dedupe_key(
+    user, payments: list[dict], final_date: date, channel: str
+) -> str:
     payload = {
         "user_id": getattr(user, "id", None),
         "channel": channel,
         "final_date": final_date.isoformat(),
         "total_payments": len(payments),
-        "total_value": round(sum(float(item.get("value", 0) or 0) for item in payments), 2),
+        "total_value": round(
+            sum(float(item.get("value", 0) or 0) for item in payments), 2
+        ),
         "payments": [
             {
                 "name": item.get("name"),

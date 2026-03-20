@@ -4,12 +4,11 @@ import argparse
 import json
 import os
 import re
-import subprocess
+import subprocess  # nosec B404
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
-
 
 VERSION_FILE = Path("kawori/version.py")
 CHANGELOG_FILE = Path("CHANGELOG.md")
@@ -59,7 +58,7 @@ class CommitInfo:
 
 
 def git(*args: str) -> str:
-    return subprocess.check_output(["git", *args], text=True).strip()
+    return subprocess.check_output(["git", *args], text=True).strip()  # nosec
 
 
 def write_github_output(**values: str) -> None:
@@ -91,17 +90,30 @@ def load_latest_tag_version(base_ref: str) -> SemanticVersion | None:
     return max(versions) if versions else None
 
 
-def parse_conventional_commit(subject: str, body: str) -> tuple[str | None, str | None, bool]:
-    match = re.match(r"(?P<type>[a-z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?: (?P<summary>.+)", subject)
+def parse_conventional_commit(
+    subject: str, body: str
+) -> tuple[str | None, str | None, bool]:
+    match = re.match(
+        r"(?P<type>[a-z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?: (?P<summary>.+)",
+        subject,
+    )
     breaking_from_body = "BREAKING CHANGE:" in body
     if not match:
         return None, None, breaking_from_body
 
     commit_type = match.group("type")
     if commit_type not in ALLOWED_TYPES:
-        return None, match.group("scope"), breaking_from_body or bool(match.group("breaking"))
+        return (
+            None,
+            match.group("scope"),
+            breaking_from_body or bool(match.group("breaking")),
+        )
 
-    return commit_type, match.group("scope"), breaking_from_body or bool(match.group("breaking"))
+    return (
+        commit_type,
+        match.group("scope"),
+        breaking_from_body or bool(match.group("breaking")),
+    )
 
 
 def is_automation_commit(subject: str) -> bool:
@@ -109,7 +121,9 @@ def is_automation_commit(subject: str) -> bool:
 
 
 def load_commits(base_ref: str, head_ref: str) -> list[CommitInfo]:
-    raw_log = git("log", f"{base_ref}..{head_ref}", "--pretty=format:%H%x1f%s%x1f%b%x1e")
+    raw_log = git(
+        "log", f"{base_ref}..{head_ref}", "--pretty=format:%H%x1f%s%x1f%b%x1e"
+    )
     commits: list[CommitInfo] = []
 
     for entry in raw_log.split("\x1e"):
@@ -148,7 +162,9 @@ def load_changed_files(base_ref: str, head_ref: str) -> list[str]:
     return [line.strip() for line in raw_diff.splitlines() if line.strip()]
 
 
-def build_compliance_hints(commits: list[CommitInfo], changed_files: list[str]) -> dict[str, Any]:
+def build_compliance_hints(
+    commits: list[CommitInfo], changed_files: list[str]
+) -> dict[str, Any]:
     touched_files = set(changed_files)
     touched_docs = {
         "docs/engineering-rules.md": "engineering_rules",
@@ -159,13 +175,20 @@ def build_compliance_hints(commits: list[CommitInfo], changed_files: list[str]) 
     scripts_registry_touched = "scripts.xml" in touched_files
 
     has_migrations = any("/migrations/" in path for path in changed_files)
-    has_oneoff_command_change = any("management/commands/ONEOFF_" in path for path in changed_files)
+    has_oneoff_command_change = any(
+        "management/commands/ONEOFF_" in path for path in changed_files
+    )
     has_import_flow_change = any(
-        path.startswith("payment/") or path.startswith("financial/management/commands/process_imported_payments")
+        path.startswith("payment/")
+        or path.startswith("financial/management/commands/process_imported_payments")
         for path in changed_files
     )
-    inferred_oneoff_need = has_migrations or has_oneoff_command_change or has_import_flow_change
-    oneoff_registry_complete = scripts_registry_touched and "docs/oneoff-registry.md" in touched_files
+    inferred_oneoff_need = (
+        has_migrations or has_oneoff_command_change or has_import_flow_change
+    )
+    oneoff_registry_complete = (
+        scripts_registry_touched and "docs/oneoff-registry.md" in touched_files
+    )
 
     return {
         "changed_files": changed_files[:120],
@@ -194,9 +217,18 @@ def build_regression_test_hints(changed_files: list[str]) -> list[str]:
     return hints
 
 
-def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dict[str, Any]) -> dict[str, Any] | None:
-    ai_enabled = os.environ.get("AI_ASSIST_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
-    has_any_key = bool(os.environ.get("OPENAI_API_KEY")) or bool(os.environ.get("ANTHROPIC_API_KEY"))
+def build_ai_release_assistance(
+    commits: list[CommitInfo], compliance_hints: dict[str, Any]
+) -> dict[str, Any] | None:
+    ai_enabled = os.environ.get("AI_ASSIST_ENABLED", "true").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    has_any_key = bool(os.environ.get("OPENAI_API_KEY")) or bool(
+        os.environ.get("ANTHROPIC_API_KEY")
+    )
     if not ai_enabled or not has_any_key:
         return None
 
@@ -212,7 +244,14 @@ def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dic
         return None
 
     payload = {
-        "commits": [{"sha": commit.sha[:7], "subject": commit.subject, "breaking": commit.breaking} for commit in commits],
+        "commits": [
+            {
+                "sha": commit.sha[:7],
+                "subject": commit.subject,
+                "breaking": commit.breaking,
+            }
+            for commit in commits
+        ],
         "compliance_hints": compliance_hints,
     }
 
@@ -237,10 +276,14 @@ def build_ai_release_assistance(commits: list[CommitInfo], compliance_hints: dic
     suggested_tests = output.get("suggested_regression_tests")
 
     return {
-        "release_compliance_notes": [str(item).strip() for item in notes or [] if str(item).strip()][:8],
+        "release_compliance_notes": [
+            str(item).strip() for item in notes or [] if str(item).strip()
+        ][:8],
         "oneoff_required": bool(output.get("oneoff_required")),
         "oneoff_reason": str(output.get("oneoff_reason", "")).strip(),
-        "suggested_regression_tests": [str(item).strip() for item in suggested_tests or [] if str(item).strip()][:10],
+        "suggested_regression_tests": [
+            str(item).strip() for item in suggested_tests or [] if str(item).strip()
+        ][:10],
         "trace_id": response.trace_id,
         "provider": response.provider,
         "model": response.model,
@@ -271,9 +314,17 @@ def update_version_file(version_file: Path, version: SemanticVersion) -> None:
 def build_changelog_section(version: SemanticVersion, commits: list[CommitInfo]) -> str:
     sections = {
         "Breaking Changes": [commit for commit in commits if commit.breaking],
-        "Features": [commit for commit in commits if commit.type == "feat" and not commit.breaking],
+        "Features": [
+            commit
+            for commit in commits
+            if commit.type == "feat" and not commit.breaking
+        ],
         "Fixes": [commit for commit in commits if commit.type == "fix"],
-        "Maintenance": [commit for commit in commits if commit.type in {"refactor", "docs", "test", "build", "chore"}],
+        "Maintenance": [
+            commit
+            for commit in commits
+            if commit.type in {"refactor", "docs", "test", "build", "chore"}
+        ],
     }
 
     lines = [f"## v{version} - {date.today().isoformat()}", ""]
@@ -288,7 +339,9 @@ def build_changelog_section(version: SemanticVersion, commits: list[CommitInfo])
     return "\n".join(lines).strip() + "\n"
 
 
-def update_changelog(changelog_file: Path, version: SemanticVersion, commits: list[CommitInfo]) -> None:
+def update_changelog(
+    changelog_file: Path, version: SemanticVersion, commits: list[CommitInfo]
+) -> None:
     new_section = build_changelog_section(version, commits)
     if changelog_file.exists():
         existing = changelog_file.read_text(encoding="utf-8")
@@ -304,7 +357,12 @@ def update_changelog(changelog_file: Path, version: SemanticVersion, commits: li
     else:
         first_entry = re.search(r"^## v", existing, flags=re.MULTILINE)
         if first_entry:
-            updated = existing[:first_entry.start()] + new_section + "\n" + existing[first_entry.start():]
+            updated = (
+                existing[: first_entry.start()]
+                + new_section
+                + "\n"
+                + existing[first_entry.start() :]
+            )
         elif existing.endswith("\n"):
             updated = existing + new_section + "\n"
         else:
@@ -336,9 +394,15 @@ def build_pr_body(
     lines.append("")
 
     lines.append("### Compliance Assistant")
-    lines.append(f"- inferred_oneoff_need: `{compliance_hints.get('inferred_oneoff_need')}`")
-    lines.append(f"- scripts.xml updated: `{compliance_hints.get('scripts_registry_touched')}`")
-    lines.append(f"- one-off registry complete: `{compliance_hints.get('oneoff_registry_complete')}`")
+    lines.append(
+        f"- inferred_oneoff_need: `{compliance_hints.get('inferred_oneoff_need')}`"
+    )
+    lines.append(
+        f"- scripts.xml updated: `{compliance_hints.get('scripts_registry_touched')}`"
+    )
+    lines.append(
+        f"- one-off registry complete: `{compliance_hints.get('oneoff_registry_complete')}`"
+    )
     docs_touched = compliance_hints.get("docs_touched") or []
     if docs_touched:
         lines.append(f"- workflow docs touched: `{', '.join(docs_touched)}`")
@@ -355,9 +419,13 @@ def build_pr_body(
         lines.append("### AI Release Assistant")
         for note in ai_release_assistance.get("release_compliance_notes", []):
             lines.append(f"- {note}")
-        lines.append(f"- AI one-off required: `{ai_release_assistance.get('oneoff_required')}`")
+        lines.append(
+            f"- AI one-off required: `{ai_release_assistance.get('oneoff_required')}`"
+        )
         if ai_release_assistance.get("oneoff_reason"):
-            lines.append(f"- AI one-off reason: {ai_release_assistance.get('oneoff_reason')}")
+            lines.append(
+                f"- AI one-off reason: {ai_release_assistance.get('oneoff_reason')}"
+            )
         ai_test_hints = ai_release_assistance.get("suggested_regression_tests", [])
         if ai_test_hints:
             lines.append("- AI suggested tests:")
@@ -367,7 +435,9 @@ def build_pr_body(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prepare release metadata and update version/changelog files.")
+    parser = argparse.ArgumentParser(
+        description="Prepare release metadata and update version/changelog files."
+    )
     parser.add_argument("--base-ref", default="origin/main")
     parser.add_argument("--head-ref", default="HEAD")
     parser.add_argument("--version-file", default=str(VERSION_FILE))

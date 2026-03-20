@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0003_bdoclass_image'),
+        ("facetexture", "0003_bdoclass_image"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='bdoclass',
-            name='image',
-            field=models.ImageField(upload_to='bdoclass/'),
+            model_name="bdoclass",
+            name="image",
+            field=models.ImageField(upload_to="bdoclass/"),
         ),
     ]

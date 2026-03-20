@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
@@ -16,11 +16,15 @@ class StatementViewTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         cls.tag1 = Tag.objects.create(name="Moradia", color="#ff4d4f", user=user)
         cls.tag2 = Tag.objects.create(name="Alimentacao", color="#00ff00", user=user)
@@ -229,8 +233,16 @@ class StatementViewTestCase(TestCase):
         tx = data["transactions"][0]
 
         expected_fields = [
-            "id", "name", "description", "payment_date", "date",
-            "type", "value", "running_balance", "invoice_name", "tags",
+            "id",
+            "name",
+            "description",
+            "payment_date",
+            "date",
+            "type",
+            "value",
+            "running_balance",
+            "invoice_name",
+            "tags",
         ]
         for field in expected_fields:
             self.assertIn(field, tx)
@@ -261,7 +273,9 @@ class StatementViewTestCase(TestCase):
         data = json.loads(response.content)["data"]
 
         self.assertEqual(len(data["transactions"]), 0)
-        self.assertEqual(data["summary"]["closing_balance"], data["summary"]["opening_balance"])
+        self.assertEqual(
+            data["summary"]["closing_balance"], data["summary"]["opening_balance"]
+        )
         self.assertEqual(data["summary"]["total_credits"], 0.0)
         self.assertEqual(data["summary"]["total_debits"], 0.0)
 

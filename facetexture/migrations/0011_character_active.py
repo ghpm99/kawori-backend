@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0010_alter_character_user'),
+        ("facetexture", "0010_alter_character_user"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='character',
-            name='active',
+            model_name="character",
+            name="active",
             field=models.BooleanField(default=True),
         ),
     ]

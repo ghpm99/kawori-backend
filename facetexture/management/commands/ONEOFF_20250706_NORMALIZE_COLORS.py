@@ -1,7 +1,8 @@
 import time
+
 from django.core.management.base import BaseCommand
-from facetexture.models import BDOClass, Character
-from django.contrib.auth.models import User
+
+from facetexture.models import BDOClass
 
 
 class Command(BaseCommand):
@@ -45,7 +46,9 @@ class Command(BaseCommand):
         all_bdo_classes = BDOClass.objects.all()
 
         for bdo_class in all_bdo_classes:
-            bdo_class.color = suggested_glow_colors.get(bdo_class.class_order, "#C0E0FF")
+            bdo_class.color = suggested_glow_colors.get(
+                bdo_class.class_order, "#C0E0FF"
+            )
             bdo_class.save()
 
     def handle(self, *args, **options):

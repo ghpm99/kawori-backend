@@ -6,21 +6,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('classification', '0007_answer_updated_at_answersummary'),
+        ("classification", "0007_answer_updated_at_answersummary"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='answersummary',
-            name='combat_style',
+            model_name="answersummary",
+            name="combat_style",
         ),
         migrations.RemoveField(
-            model_name='answersummary',
-            name='vote',
+            model_name="answersummary",
+            name="vote",
         ),
         migrations.AddField(
-            model_name='answersummary',
-            name='resume',
+            model_name="answersummary",
+            name="resume",
             field=models.JSONField(default=dict),
         ),
     ]

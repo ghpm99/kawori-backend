@@ -1,9 +1,15 @@
-from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
+from django.test import TestCase, override_settings
+
 from mailer.models import EmailQueue
-from mailer.utils import enqueue_email, enqueue_password_reset, enqueue_email_verification, enqueue_payment_notification
+from mailer.utils import (
+    enqueue_email,
+    enqueue_email_verification,
+    enqueue_password_reset,
+    enqueue_payment_notification,
+)
 
 
 @override_settings(
@@ -13,14 +19,21 @@ from mailer.utils import enqueue_email, enqueue_password_reset, enqueue_email_ve
 class EnqueueEmailTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="testuser", email="test@example.com", password="testpass123")
+        cls.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
 
     def test_enqueue_email_creates_record(self):
         email = enqueue_email(
             to_email="dest@test.com",
             subject="Test subject",
             template_name="password_reset_email.html",
-            context={"user": self.user, "token": "abc", "reset_url": "http://test", "expiry_minutes": 30},
+            context={
+                "user": self.user,
+                "token": "abc",
+                "reset_url": "http://test",
+                "expiry_minutes": 30,
+            },
             email_type=EmailQueue.TYPE_GENERIC,
             user=self.user,
         )
@@ -65,6 +78,7 @@ class EnqueueEmailTestCase(TestCase):
             },
         ]
         from datetime import date
+
         final_date = date(2026, 3, 20)
         email = enqueue_payment_notification(self.user, payments, final_date)
         self.assertEqual(email.email_type, EmailQueue.TYPE_PAYMENT_NOTIFICATION)
@@ -79,8 +93,17 @@ class EnqueueEmailTestCase(TestCase):
             "intro": "Você possui pagamentos próximos.",
             "highlights": ["Internet em 15/03"],
         }
-        payments = [{"id": 1, "type": "Boleto", "name": "Internet", "payment_date": "15/03/2026", "value": 100.0}]
+        payments = [
+            {
+                "id": 1,
+                "type": "Boleto",
+                "name": "Internet",
+                "payment_date": "15/03/2026",
+                "value": 100.0,
+            }
+        ]
         from datetime import date
+
         final_date = date(2026, 3, 20)
 
         email = enqueue_payment_notification(self.user, payments, final_date)

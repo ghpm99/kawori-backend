@@ -8,18 +8,23 @@ from django.urls import reverse
 
 from payment.models import Payment
 
+
 class ProcessCSVUploadViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar alguns pagamentos existentes para testes de matching
         base_date = datetime.now().date()
@@ -34,7 +39,7 @@ class ProcessCSVUploadViewTestCase(TestCase):
             active=True,
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
-            user=user
+            user=user,
         )
 
         # Obter token de autenticação
@@ -63,21 +68,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "150.50", "descrição": "Pagamento Teste 1"},
-            {"data": "16/02/2026", "valor": "200.75", "descrição": "Pagamento Teste 2"}
+            {"data": "16/02/2026", "valor": "200.75", "descrição": "Pagamento Teste 2"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -100,21 +103,21 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa sucesso da view com data de pagamento específica - deve usar a data fornecida"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "transactions",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -128,18 +131,16 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa sucesso da view com corpo vazio - deve retornar lista vazia"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
         body = []
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -152,19 +153,14 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa sucesso da view sem tipo de importação - deve usar padrão 'transactions'"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body
-            }),
-            content_type="application/json"
+            data=json.dumps({"headers": headers, "body": body}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -174,17 +170,12 @@ class ProcessCSVUploadViewTestCase(TestCase):
 
     def test_process_csv_upload_error_missing_headers(self):
         """Testa erro da view sem headers - deve processar com lista vazia"""
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps({"body": body, "import_type": "transactions"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -197,16 +188,13 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa erro da view sem body - deve retornar lista vazia"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps({"headers": headers, "import_type": "transactions"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -220,7 +208,7 @@ class ProcessCSVUploadViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_process_csv_upload"),
             data="json_invalido",
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -235,11 +223,9 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa acesso negado para usuário sem permissão financial"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         # Usar cookies do usuário normal
         for key, morsel in self.cookies_normal.items():
@@ -247,12 +233,10 @@ class ProcessCSVUploadViewTestCase(TestCase):
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -262,23 +246,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa acesso sem autenticação"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         # Limpar cookies
         self.client.cookies.clear()
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -288,21 +268,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa edge case com formato de data inválido - deve gerar erros de validação"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
         body = [
             {"data": "data_invalida", "valor": "100.00"},
-            {"data": "2026-02-30", "valor": "150.00"}  # Data inexistente
+            {"data": "2026-02-30", "valor": "150.00"},  # Data inexistente
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -319,22 +297,20 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa edge case com formato de valor inválido - deve gerar erros de validação"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "valor_invalido"},
             {"data": "16/02/2026", "valor": "abc123"},
-            {"data": "17/02/2026", "valor": "-50.00"}  # Valor negativo
+            {"data": "17/02/2026", "valor": "-50.00"},  # Valor negativo
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -352,22 +328,20 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": "15/02/2026"},  # Falta valor
-            {"valor": "100.00"},      # Falta data
-            {"data": "16/02/2026", "descrição": "Teste"}  # Falta valor
+            {"valor": "100.00"},  # Falta data
+            {"data": "16/02/2026", "descrição": "Teste"},  # Falta valor
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -385,21 +359,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": "", "valor": "", "descrição": ""},
-            {"data": "15/02/2026", "valor": "100.00", "descrição": ""}
+            {"data": "15/02/2026", "valor": "100.00", "descrição": ""},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -417,21 +389,23 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
-            {"data": "15/02/2026", "valor": "100.50", "descrição": "Pagamento com ñ e ç"},
-            {"data": "16/02/2026", "valor": "200.75", "descrição": "Teste @#$%&*()"}
+            {
+                "data": "15/02/2026",
+                "valor": "100.50",
+                "descrição": "Pagamento com ñ e ç",
+            },
+            {"data": "16/02/2026", "valor": "200.75", "descrição": "Teste @#$%&*()"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -449,7 +423,7 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         long_description = "A" * 1000  # 1000 caracteres
         body = [
@@ -458,12 +432,10 @@ class ProcessCSVUploadViewTestCase(TestCase):
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -477,21 +449,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "parcelas", "system_field": "installments"}
+            {"csv_column": "parcelas", "system_field": "installments"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "100.50", "parcelas": "3"},
-            {"data": "16/02/2026", "valor": "200", "parcelas": "1"}
+            {"data": "16/02/2026", "valor": "200", "parcelas": "1"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -509,21 +479,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": None, "valor": None, "descrição": None},
-            {"data": "15/02/2026", "valor": "100.00", "descrição": None}
+            {"data": "15/02/2026", "valor": "100.00", "descrição": None},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -541,20 +509,16 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "coluna_inexistente", "system_field": "description"}
+            {"csv_column": "coluna_inexistente", "system_field": "description"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00", "outra_coluna": "teste"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00", "outra_coluna": "teste"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -572,23 +536,18 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa edge case com dataset muito grande - deve processar sem erros"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
 
         # Criar 100 linhas de dados
-        body = [
-            {"data": f"15/02/2026", "valor": f"{i + 1}.00"}
-            for i in range(100)
-        ]
+        body = [{"data": "15/02/2026", "valor": f"{i + 1}.00"} for i in range(100)]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -608,21 +567,21 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa edge case com data de pagamento inválida - deve usar tratamento padrão"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions",
-                "payment_date": "data_invalida"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "transactions",
+                    "payment_date": "data_invalida",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -639,20 +598,16 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa estrutura da resposta da view"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -664,7 +619,13 @@ class ProcessCSVUploadViewTestCase(TestCase):
 
         # Verificar estrutura de cada transação
         transaction = data["data"][0]
-        required_fields = ["id", "original_row", "mapped_data", "validation_errors", "is_valid"]
+        required_fields = [
+            "id",
+            "original_row",
+            "mapped_data",
+            "validation_errors",
+            "is_valid",
+        ]
         for field in required_fields:
             self.assertIn(field, transaction)
 
@@ -679,23 +640,25 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "100.00", "descrição": "Cartão 1"},
             {"data": "16/02/2026", "valor": "200.00", "descrição": "Cartão 2"},
-            {"data": "17/02/2026", "valor": "150.00", "descrição": "Cartão 3"}
+            {"data": "17/02/2026", "valor": "150.00", "descrição": "Cartão 3"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "card_payments",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "card_payments",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -715,21 +678,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa comportamento com import_type card_payments sem payment_date - deve usar tratamento padrão"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "100.00"},
-            {"data": "16/02/2026", "valor": "200.00"}
+            {"data": "16/02/2026", "valor": "200.00"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "card_payments"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "card_payments"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -747,23 +708,25 @@ class ProcessCSVUploadViewTestCase(TestCase):
         headers = [
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "100.00", "descrição": "Transação 1"},
             {"data": "16/02/2026", "valor": "200.00", "descrição": "Transação 2"},
-            {"data": "17/02/2026", "valor": "150.00", "descrição": "Transação 3"}
+            {"data": "17/02/2026", "valor": "150.00", "descrição": "Transação 3"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "transactions",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -783,21 +746,19 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa comportamento com import_type transactions sem payment_date - deve processar normalmente"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
         body = [
             {"data": "15/02/2026", "valor": "100.00"},
-            {"data": "16/02/2026", "valor": "200.00"}
+            {"data": "16/02/2026", "valor": "200.00"},
         ]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"headers": headers, "body": body, "import_type": "transactions"}
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -814,34 +775,36 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa diferença de comportamento entre card_payments e transactions com mesmo payment_date"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         # Testar com card_payments
         response_card = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "card_payments",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "card_payments",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         # Testar com transactions
         response_trans = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "transactions",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "transactions",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response_card.status_code, 200)
@@ -864,21 +827,21 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa comportamento com import_type inválido - deve usar tratamento padrão ou erro"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "tipo_invalido",
-                "payment_date": "20/02/2026"
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "tipo_invalido",
+                    "payment_date": "20/02/2026",
+                }
+            ),
+            content_type="application/json",
         )
 
         # A view deve processar mesmo com import_type inválido
@@ -893,21 +856,21 @@ class ProcessCSVUploadViewTestCase(TestCase):
         """Testa card_payments com payment_date vazio - deve usar tratamento padrão"""
         headers = [
             {"csv_column": "data", "system_field": "date"},
-            {"csv_column": "valor", "system_field": "value"}
+            {"csv_column": "valor", "system_field": "value"},
         ]
-        body = [
-            {"data": "15/02/2026", "valor": "100.00"}
-        ]
+        body = [{"data": "15/02/2026", "valor": "100.00"}]
 
         response = self.client.post(
             reverse("financial_process_csv_upload"),
-            data=json.dumps({
-                "headers": headers,
-                "body": body,
-                "import_type": "card_payments",
-                "payment_date": ""
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "headers": headers,
+                    "body": body,
+                    "import_type": "card_payments",
+                    "payment_date": "",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)

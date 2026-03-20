@@ -17,15 +17,21 @@ class PaymentAIEndpointsViewTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         cls.user = user
 
         cls.tag_health = Tag.objects.create(name="Saude", color="#FF0000", user=user)
-        cls.tag_transport = Tag.objects.create(name="Transporte", color="#00AAFF", user=user)
-        Budget.objects.create(user=user, tag=cls.tag_health, allocation_percentage=Decimal("25.00"))
+        cls.tag_transport = Tag.objects.create(
+            name="Transporte", color="#00AAFF", user=user
+        )
+        Budget.objects.create(
+            user=user, tag=cls.tag_health, allocation_percentage=Decimal("25.00")
+        )
 
         cls.invoice = Invoice.objects.create(
             name="Fatura Teste",
@@ -140,7 +146,9 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
 
-        suggestions = {item["csv_column"]: item["system_field"] for item in payload["suggestions"]}
+        suggestions = {
+            item["csv_column"]: item["system_field"] for item in payload["suggestions"]
+        }
         self.assertEqual(suggestions.get("Dt Pgto"), "payment_date")
         self.assertEqual(suggestions.get("Vl."), "value")
         self.assertEqual(suggestions.get("Parc."), "installments")

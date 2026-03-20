@@ -44,7 +44,9 @@ class PaymentModelsRegressionTestCase(TestCase):
         )
 
     def test_set_value_updates_payment_and_invoice(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("100.00"))
+        invoice = self._create_invoice(
+            value=Decimal("100.00"), value_open=Decimal("100.00")
+        )
         payment = self._create_payment(invoice=invoice, value=Decimal("10.00"))
 
         payment.set_value(Decimal("30.00"))
@@ -57,7 +59,9 @@ class PaymentModelsRegressionTestCase(TestCase):
 
     def test_close_value_updates_status_and_invoice(self):
         invoice = self._create_invoice(value_open=Decimal("10.00"))
-        payment = self._create_payment(invoice=invoice, value=Decimal("10.00"), status=Payment.STATUS_OPEN)
+        payment = self._create_payment(
+            invoice=invoice, value=Decimal("10.00"), status=Payment.STATUS_OPEN
+        )
 
         payment.close_value()
         payment.refresh_from_db()
@@ -134,8 +138,12 @@ class ImportedPaymentModelsRegressionTestCase(TestCase):
 
     def _create_imported(self, **kwargs):
         return ImportedPayment.objects.create(
-            import_source=kwargs.get("import_source", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS),
-            import_strategy=kwargs.get("import_strategy", ImportedPayment.IMPORT_STRATEGY_NEW),
+            import_source=kwargs.get(
+                "import_source", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+            ),
+            import_strategy=kwargs.get(
+                "import_strategy", ImportedPayment.IMPORT_STRATEGY_NEW
+            ),
             reference=kwargs.get("reference", "r1"),
             status=kwargs.get("status", ImportedPayment.IMPORT_STATUS_PENDING),
             raw_type=kwargs.get("raw_type", Payment.TYPE_DEBIT),
@@ -149,17 +157,27 @@ class ImportedPaymentModelsRegressionTestCase(TestCase):
         )
 
     def test_is_editable_by_status(self):
-        pending = self._create_imported(reference="p", status=ImportedPayment.IMPORT_STATUS_PENDING)
-        failed = self._create_imported(reference="f", status=ImportedPayment.IMPORT_STATUS_FAILED)
-        processing = self._create_imported(reference="x", status=ImportedPayment.IMPORT_STATUS_PROCESSING)
+        pending = self._create_imported(
+            reference="p", status=ImportedPayment.IMPORT_STATUS_PENDING
+        )
+        failed = self._create_imported(
+            reference="f", status=ImportedPayment.IMPORT_STATUS_FAILED
+        )
+        processing = self._create_imported(
+            reference="x", status=ImportedPayment.IMPORT_STATUS_PROCESSING
+        )
 
         self.assertTrue(pending.is_editable())
         self.assertTrue(failed.is_editable())
         self.assertFalse(processing.is_editable())
 
     def test_can_edit_filters_by_user_reference_and_status(self):
-        self._create_imported(reference="ok", status=ImportedPayment.IMPORT_STATUS_PENDING)
-        self._create_imported(reference="no", status=ImportedPayment.IMPORT_STATUS_PROCESSING)
+        self._create_imported(
+            reference="ok", status=ImportedPayment.IMPORT_STATUS_PENDING
+        )
+        self._create_imported(
+            reference="no", status=ImportedPayment.IMPORT_STATUS_PROCESSING
+        )
 
         other_user = User.objects.create_user(username="other-imported", password="123")
         ImportedPayment.objects.create(

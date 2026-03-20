@@ -7,8 +7,8 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
-from contract.models import Contract
 from contract import views
+from contract.models import Contract
 from invoice.models import Invoice
 from tag.models import Tag
 
@@ -16,9 +16,13 @@ from tag.models import Tag
 class ContractViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="contract-reg", email="contract-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="contract-reg", email="contract-reg@test.com", password="123"
+        )
         cls.other_user = User.objects.create_superuser(
-            username="contract-reg-other", email="contract-reg-other@test.com", password="123"
+            username="contract-reg-other",
+            email="contract-reg-other@test.com",
+            password="123",
         )
 
     def setUp(self):
@@ -30,7 +34,9 @@ class ContractViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=payload, content_type="application/json")
+            request = request_factory_method(
+                "/", data=payload, content_type="application/json"
+            )
 
         target = inspect.unwrap(fn)
         if id is None:
@@ -67,7 +73,9 @@ class ContractViewsRegressionTestCase(TestCase):
         contract_a = self._create_contract(name="A", value=Decimal("10.00"))
         self._create_contract(name="B", value=Decimal("20.00"))
 
-        all_response = self._call(views.get_all_contract_view, method="get", data={"page": 1, "page_size": 10})
+        all_response = self._call(
+            views.get_all_contract_view, method="get", data={"page": 1, "page_size": 10}
+        )
         self.assertEqual(all_response.status_code, 200)
         all_payload = json.loads(all_response.content)["data"]["data"]
         self.assertEqual(len(all_payload), 2)
@@ -82,11 +90,17 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(filtered_payload[0]["id"], contract_a.id)
 
     def test_save_new_contract_view(self):
-        response = self._call(views.save_new_contract_view, method="post", data={"name": "New C"})
+        response = self._call(
+            views.save_new_contract_view, method="post", data={"name": "New C"}
+        )
         self.assertEqual(response.status_code, 200)
 
         payload = json.loads(response.content)["data"]
-        self.assertTrue(Contract.objects.filter(id=payload["id"], name="New C", user=self.user).exists())
+        self.assertTrue(
+            Contract.objects.filter(
+                id=payload["id"], name="New C", user=self.user
+            ).exists()
+        )
 
     def test_detail_contract_view_success_and_not_found(self):
         contract = self._create_contract(name="Detail C")
@@ -99,16 +113,26 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(not_found.status_code, 404)
 
     def test_detail_contract_view_does_not_expose_other_user_contract(self):
-        other_contract = self._create_contract(name="Other Tenant", user=self.other_user)
+        other_contract = self._create_contract(
+            name="Other Tenant", user=self.other_user
+        )
         response = self._call(views.detail_contract_view, id=other_contract.id)
         self.assertEqual(response.status_code, 404)
 
-    def test_detail_contract_invoices_view_returns_active_contract_invoices_with_tags(self):
+    def test_detail_contract_invoices_view_returns_active_contract_invoices_with_tags(
+        self,
+    ):
         contract = self._create_contract(name="Invoices C")
-        active_invoice = self._create_invoice(contract=contract, name="Active", active=True, value=Decimal("30.00"))
-        self._create_invoice(contract=contract, name="Inactive", active=False, value=Decimal("90.00"))
+        active_invoice = self._create_invoice(
+            contract=contract, name="Active", active=True, value=Decimal("30.00")
+        )
+        self._create_invoice(
+            contract=contract, name="Inactive", active=False, value=Decimal("90.00")
+        )
         other_contract = self._create_contract(name="Other")
-        self._create_invoice(contract=other_contract, name="Other contract", active=True)
+        self._create_invoice(
+            contract=other_contract, name="Other contract", active=True
+        )
 
         tag = Tag.objects.create(name="TagC", color="#111111", user=self.user)
         active_invoice.tags.add(tag)
@@ -127,10 +151,14 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(payload[0]["tags"][0]["name"], "TagC")
 
     def test_include_new_invoice_view_not_found_and_success(self):
-        not_found = self._call(views.include_new_invoice_view, method="post", id=99999, data={"name": "x"})
+        not_found = self._call(
+            views.include_new_invoice_view, method="post", id=99999, data={"name": "x"}
+        )
         self.assertEqual(not_found.status_code, 404)
 
-        contract = self._create_contract(name="Target", value=Decimal("10.00"), value_open=Decimal("10.00"))
+        contract = self._create_contract(
+            name="Target", value=Decimal("10.00"), value_open=Decimal("10.00")
+        )
         tag = Tag.objects.create(name="NewTag", color="#222222", user=self.user)
 
         with patch("contract.views.generate_payments") as mocked_generate:
@@ -153,7 +181,9 @@ class ContractViewsRegressionTestCase(TestCase):
             )
 
         self.assertEqual(success.status_code, 200)
-        created = Invoice.objects.get(name="New invoice", contract=contract, user=self.user)
+        created = Invoice.objects.get(
+            name="New invoice", contract=contract, user=self.user
+        )
         self.assertEqual(created.tags.count(), 1)
         mocked_generate.assert_called_once_with(created)
 
@@ -162,8 +192,12 @@ class ContractViewsRegressionTestCase(TestCase):
         self.assertEqual(contract.value_open, Decimal("40.00"))
 
     def test_include_new_invoice_view_rejects_tag_from_other_user(self):
-        contract = self._create_contract(name="Target", value=Decimal("10.00"), value_open=Decimal("10.00"))
-        foreign_tag = Tag.objects.create(name="Foreign", color="#333333", user=self.other_user)
+        contract = self._create_contract(
+            name="Target", value=Decimal("10.00"), value_open=Decimal("10.00")
+        )
+        foreign_tag = Tag.objects.create(
+            name="Foreign", color="#333333", user=self.other_user
+        )
 
         response = self._call(
             views.include_new_invoice_view,
@@ -183,10 +217,14 @@ class ContractViewsRegressionTestCase(TestCase):
             },
         )
         self.assertEqual(response.status_code, 400)
-        self.assertFalse(Invoice.objects.filter(name="New invoice invalid", user=self.user).exists())
+        self.assertFalse(
+            Invoice.objects.filter(name="New invoice invalid", user=self.user).exists()
+        )
 
     def test_merge_contract_view_not_found_and_success(self):
-        not_found = self._call(views.merge_contract_view, method="post", id=99999, data={"contracts": []})
+        not_found = self._call(
+            views.merge_contract_view, method="post", id=99999, data={"contracts": []}
+        )
         self.assertEqual(not_found.status_code, 404)
 
         target = self._create_contract(name="Target")
@@ -223,7 +261,11 @@ class ContractViewsRegressionTestCase(TestCase):
             data={"contracts": [foreign_contract.id]},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(Contract.objects.filter(id=foreign_contract.id, user=self.other_user).exists())
+        self.assertTrue(
+            Contract.objects.filter(
+                id=foreign_contract.id, user=self.other_user
+            ).exists()
+        )
 
     def test_update_all_contracts_value_calls_service_for_each_contract(self):
         contract_a = self._create_contract(name="A")
@@ -231,7 +273,9 @@ class ContractViewsRegressionTestCase(TestCase):
         foreign_contract = self._create_contract(name="Foreign", user=self.other_user)
 
         with patch("contract.views.update_contract_value") as mocked_update:
-            response = self._call(views.update_all_contracts_value, method="post", data={})
+            response = self._call(
+                views.update_all_contracts_value, method="post", data={}
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(mocked_update.call_count, 2)
@@ -243,10 +287,17 @@ class ContractViewsRegressionTestCase(TestCase):
 class ContractModelsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="contract-models", email="contract-models@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="contract-models", email="contract-models@test.com", password="123"
+        )
 
     def test_set_value_updates_total_and_open(self):
-        contract = Contract.objects.create(name="C", value=Decimal("10.00"), value_open=Decimal("10.00"), user=self.user)
+        contract = Contract.objects.create(
+            name="C",
+            value=Decimal("10.00"),
+            value_open=Decimal("10.00"),
+            user=self.user,
+        )
 
         contract.set_value(Decimal("5.00"))
         contract.refresh_from_db()

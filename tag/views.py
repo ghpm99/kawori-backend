@@ -1,9 +1,8 @@
 import json
 
+from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from django.db.models import Sum, Count, Q
-
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
@@ -23,7 +22,9 @@ def get_all_tag_view(request, user):
     datas = (
         Tag.objects.filter(**filters, user=user)
         .annotate(
-            total_payments=Count("invoices", filter=Q(invoices__active=True), distinct=True),
+            total_payments=Count(
+                "invoices", filter=Q(invoices__active=True), distinct=True
+            ),
             total_value=Sum("invoices__value", filter=Q(invoices__active=True)),
             total_open=Sum("invoices__value_open", filter=Q(invoices__active=True)),
             total_closed=Sum("invoices__value_closed", filter=Q(invoices__active=True)),
@@ -34,7 +35,7 @@ def get_all_tag_view(request, user):
     tags = [
         {
             "id": data.id,
-            "name": f"# { data.name}" if hasattr(data, "budget") else data.name,
+            "name": f"# {data.name}" if hasattr(data, "budget") else data.name,
             "color": data.color,
             "total_payments": data.total_payments or 0,
             "total_value": data.total_value or 0,

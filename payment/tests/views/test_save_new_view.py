@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
@@ -15,12 +15,16 @@ class SaveNewViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Obter token de autenticação
         token = cls.client.post(
@@ -52,7 +56,7 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         initial_count = Payment.objects.filter(user__username="test").count()
@@ -60,7 +64,7 @@ class SaveNewViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -74,7 +78,9 @@ class SaveNewViewTestCase(TestCase):
         self.assertEqual(final_count, initial_count + 1)
 
         # Verificar dados do pagamento criado
-        payment = Payment.objects.filter(user__username="test", name="Pagamento Teste Único").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento Teste Único"
+        ).first()
         self.assertIsNotNone(payment)
         self.assertEqual(payment.type, Payment.TYPE_DEBIT)
         self.assertEqual(payment.name, "Pagamento Teste Único")
@@ -91,7 +97,7 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 3,
             "fixed": True,
-            "value": "300.00"
+            "value": "300.00",
         }
 
         initial_count = Payment.objects.filter(user__username="test").count()
@@ -99,7 +105,7 @@ class SaveNewViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -113,7 +119,9 @@ class SaveNewViewTestCase(TestCase):
         self.assertEqual(final_count, initial_count + 3)
 
         # Verificar dados dos pagamentos criados
-        payments = Payment.objects.filter(user__username="test", name="Pagamento Parcelado").order_by("installments")
+        payments = Payment.objects.filter(
+            user__username="test", name="Pagamento Parcelado"
+        ).order_by("installments")
         self.assertEqual(len(payments), 3)
 
         # Verificar valores das parcelas (300/3 = 100 cada)
@@ -126,7 +134,7 @@ class SaveNewViewTestCase(TestCase):
         expected_dates = [
             datetime(2026, 2, 20).date(),
             datetime(2026, 3, 20).date(),
-            datetime(2026, 4, 20).date()
+            datetime(2026, 4, 20).date(),
         ]
         for i, payment in enumerate(payments):
             self.assertEqual(payment.payment_date, expected_dates[i])
@@ -140,19 +148,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 3,
             "fixed": False,
-            "value": "100.00"
+            "value": "100.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se os pagamentos foram criados com valores corretos
-        payments = Payment.objects.filter(user__username="test", name="Pagamento Decimal").order_by("installments")
+        payments = Payment.objects.filter(
+            user__username="test", name="Pagamento Decimal"
+        ).order_by("installments")
         self.assertEqual(len(payments), 3)
 
         # A soma deve ser 100.00
@@ -168,13 +178,13 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 500 (campo obrigatório faltando)
@@ -188,13 +198,13 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 500
@@ -208,13 +218,13 @@ class SaveNewViewTestCase(TestCase):
             "date": "2026-02-15",
             "payment_date": "2026-02-20",
             "installments": 1,
-            "fixed": False
+            "fixed": False,
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 500
@@ -228,13 +238,13 @@ class SaveNewViewTestCase(TestCase):
             "date": "2026-02-15",
             "payment_date": "2026-02-20",
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 500
@@ -245,7 +255,7 @@ class SaveNewViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_save_new"),
             data="json_invalido",
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -265,7 +275,7 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         # Usar cookies do usuário normal
@@ -275,7 +285,7 @@ class SaveNewViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -290,7 +300,7 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         # Limpar cookies
@@ -299,7 +309,7 @@ class SaveNewViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -314,20 +324,22 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 0,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Não deve criar nenhum pagamento
         self.assertEqual(response.status_code, 200)
-        
+
         # Verificar que nenhum pagamento foi criado
-        payment = Payment.objects.filter(user__username="test", name="Pagamento Zero Parcelas").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento Zero Parcelas"
+        ).first()
         self.assertIsNone(payment)
 
     def test_save_new_view_edge_case_negative_installments(self):
@@ -339,13 +351,13 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": -1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Não deve criar nenhum pagamento
@@ -360,19 +372,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 2,
             "fixed": False,
-            "value": "0.00"
+            "value": "0.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se os pagamentos foram criados com valor zero
-        payments = Payment.objects.filter(user__username="test", name="Pagamento Zero Valor")
+        payments = Payment.objects.filter(
+            user__username="test", name="Pagamento Zero Valor"
+        )
         self.assertEqual(len(payments), 2)
 
         for payment in payments:
@@ -387,19 +401,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "-150.00"
+            "value": "-150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se o pagamento foi criado com valor negativo
-        payment = Payment.objects.filter(user__username="test", name="Pagamento Valor Negativo").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento Valor Negativo"
+        ).first()
         self.assertIsNotNone(payment)
         self.assertEqual(payment.value, Decimal("-150.00"))
 
@@ -412,19 +428,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 12,
             "fixed": False,
-            "value": "1200.00"
+            "value": "1200.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se todos os 12 pagamentos foram criados
-        payments = Payment.objects.filter(user__username="test", name="Pagamento Muitas Parcelas")
+        payments = Payment.objects.filter(
+            user__username="test", name="Pagamento Muitas Parcelas"
+        )
         self.assertEqual(len(payments), 12)
 
         # Verificar se a soma dos valores está correta
@@ -440,13 +458,13 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "20/02/2026",  # Formato inválido
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro por formato de data inválido
@@ -462,13 +480,13 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -487,19 +505,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2026-02-20",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se o pagamento foi criado com caracteres especiais
-        payment = Payment.objects.filter(user__username="test", name="Pagamento com ñ, ç, @#$%&*()").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento com ñ, ç, @#$%&*()"
+        ).first()
         self.assertIsNotNone(payment)
 
     def test_save_new_view_edge_case_future_dates(self):
@@ -511,19 +531,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2031-01-15",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se o pagamento foi criado com datas futuras
-        payment = Payment.objects.filter(user__username="test", name="Pagamento Futuro").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento Futuro"
+        ).first()
         self.assertIsNotNone(payment)
         self.assertEqual(str(payment.date), "2030-12-31")
         self.assertEqual(str(payment.payment_date), "2031-01-15")
@@ -537,19 +559,21 @@ class SaveNewViewTestCase(TestCase):
             "payment_date": "2020-01-15",
             "installments": 1,
             "fixed": False,
-            "value": "150.00"
+            "value": "150.00",
         }
 
         response = self.client.post(
             reverse("financial_save_new"),
             data=json.dumps(payment_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
 
         # Verificar se o pagamento foi criado com datas passadas
-        payment = Payment.objects.filter(user__username="test", name="Pagamento Passado").first()
+        payment = Payment.objects.filter(
+            user__username="test", name="Pagamento Passado"
+        ).first()
         self.assertIsNotNone(payment)
         self.assertEqual(str(payment.date), "2020-01-01")
         self.assertEqual(str(payment.payment_date), "2020-01-15")

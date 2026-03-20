@@ -103,8 +103,12 @@ class PaymentAIAssistTestCase(SimpleTestCase):
             raw_value=100.0,
         )
         payments_to_process = [
-            SimpleNamespace(raw_name="Mercado XPTO", raw_description="Compra 1", raw_value=70.0),
-            SimpleNamespace(raw_name="Mercado XPTO", raw_description="Compra 2", raw_value=30.0),
+            SimpleNamespace(
+                raw_name="Mercado XPTO", raw_description="Compra 1", raw_value=70.0
+            ),
+            SimpleNamespace(
+                raw_name="Mercado XPTO", raw_description="Compra 2", raw_value=30.0
+            ),
         ]
 
         ai_response = SimpleNamespace(
@@ -122,7 +126,9 @@ class PaymentAIAssistTestCase(SimpleTestCase):
         )
 
         with patch("payment.ai_assist.safe_execute_ai_task", return_value=ai_response):
-            normalized = suggest_payment_normalization(main_payment, payments_to_process)
+            normalized = suggest_payment_normalization(
+                main_payment, payments_to_process
+            )
 
         self.assertIsNotNone(normalized)
         self.assertEqual(normalized["normalized_name"], "Mercado XPTO")

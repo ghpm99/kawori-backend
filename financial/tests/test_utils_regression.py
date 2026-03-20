@@ -5,7 +5,12 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from contract.models import Contract
-from financial.utils import calculate_installments, generate_payments, update_contract_value, update_invoice_value
+from financial.utils import (
+    calculate_installments,
+    generate_payments,
+    update_contract_value,
+    update_invoice_value,
+)
 from invoice.models import Invoice
 from payment.models import Payment
 
@@ -72,11 +77,21 @@ class FinancialUtilsRegressionTestCase(TestCase):
 
         generate_payments(invoice, description="desc", reference="ref-123")
 
-        payments = list(Payment.objects.filter(invoice=invoice).order_by("installments"))
+        payments = list(
+            Payment.objects.filter(invoice=invoice).order_by("installments")
+        )
         self.assertEqual(len(payments), 3)
-        self.assertEqual([p.name for p in payments], ["Phone #1", "Phone #2", "Phone #3"])
-        self.assertEqual([p.value for p in payments], [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")])
-        self.assertEqual([p.payment_date for p in payments], [date(2026, 2, 15), date(2026, 3, 15), date(2026, 4, 15)])
+        self.assertEqual(
+            [p.name for p in payments], ["Phone #1", "Phone #2", "Phone #3"]
+        )
+        self.assertEqual(
+            [p.value for p in payments],
+            [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")],
+        )
+        self.assertEqual(
+            [p.payment_date for p in payments],
+            [date(2026, 2, 15), date(2026, 3, 15), date(2026, 4, 15)],
+        )
         self.assertEqual(payments[0].reference, "ref-123")
         self.assertEqual(payments[1].reference, "ref-123")
         self.assertEqual(payments[2].reference, "ref-123")
@@ -119,7 +134,9 @@ class FinancialUtilsRegressionTestCase(TestCase):
         self.assertEqual(invoice.payment_date, date(2026, 1, 10))
 
     def test_update_invoice_value_sets_done_when_open_is_zero(self):
-        invoice = self._create_invoice(name="Closed invoice", payment_date=date(2026, 1, 30))
+        invoice = self._create_invoice(
+            name="Closed invoice", payment_date=date(2026, 1, 30)
+        )
         self._create_payment(
             invoice=invoice,
             payment_date=date(2026, 1, 10),
@@ -158,9 +175,15 @@ class FinancialUtilsRegressionTestCase(TestCase):
             active=False,
         )
 
-        self._create_payment(invoice=active_invoice_1, value=Decimal("10.00"), status=Payment.STATUS_OPEN)
-        self._create_payment(invoice=active_invoice_1, value=Decimal("5.00"), status=Payment.STATUS_DONE)
-        self._create_payment(invoice=active_invoice_2, value=Decimal("20.00"), status=Payment.STATUS_OPEN)
+        self._create_payment(
+            invoice=active_invoice_1, value=Decimal("10.00"), status=Payment.STATUS_OPEN
+        )
+        self._create_payment(
+            invoice=active_invoice_1, value=Decimal("5.00"), status=Payment.STATUS_DONE
+        )
+        self._create_payment(
+            invoice=active_invoice_2, value=Decimal("20.00"), status=Payment.STATUS_OPEN
+        )
 
         update_contract_value(contract)
 

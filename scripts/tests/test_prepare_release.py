@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import importlib.util
-from types import SimpleNamespace
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-
 MODULE_PATH = Path(__file__).resolve().parents[1] / "prepare_release.py"
 SPEC = importlib.util.spec_from_file_location("prepare_release", MODULE_PATH)
+if SPEC is None or SPEC.loader is None:
+    raise RuntimeError("Failed to load prepare_release module spec")
 prepare_release = importlib.util.module_from_spec(SPEC)
-assert SPEC is not None and SPEC.loader is not None
 sys.modules[SPEC.name] = prepare_release
 SPEC.loader.exec_module(prepare_release)
 
@@ -41,12 +41,16 @@ class LoadCommitsTests(TestCase):
 
         self.assertEqual(len(commits), 1)
         self.assertEqual(commits[0].sha, "ddd444")
-        self.assertEqual(commits[0].subject, "feat(payment): add Pix reconciliation endpoint")
+        self.assertEqual(
+            commits[0].subject, "feat(payment): add Pix reconciliation endpoint"
+        )
 
 
 class LoadLatestTagVersionTests(TestCase):
     def test_load_latest_tag_version_uses_only_tags_merged_into_base_ref(self) -> None:
-        with patch.object(prepare_release, "git", return_value="v1.4.0\nv1.5.0\nnot-a-version"):
+        with patch.object(
+            prepare_release, "git", return_value="v1.4.0\nv1.5.0\nnot-a-version"
+        ):
             version = prepare_release.load_latest_tag_version("origin/main")
 
         self.assertEqual(str(version), "1.5.0")
@@ -95,7 +99,9 @@ class ComplianceHintsTests(TestCase):
         }
         test_hints = ["python manage.py test payment"]
 
-        body = prepare_release.build_pr_body(version, commits, compliance_hints, test_hints)
+        body = prepare_release.build_pr_body(
+            version, commits, compliance_hints, test_hints
+        )
 
         self.assertIn("### Compliance Assistant", body)
         self.assertIn("### Regression Test Suggestions", body)
@@ -134,7 +140,10 @@ class AIReleaseAssistanceTests(TestCase):
                 },
             ),
             patch("django.setup"),
-            patch("ai.prompt_service.build_ai_request_from_prompt", return_value=mocked_request),
+            patch(
+                "ai.prompt_service.build_ai_request_from_prompt",
+                return_value=mocked_request,
+            ),
             patch("ai.assist.safe_execute_ai_task", return_value=mocked_response),
         ):
             result = prepare_release.build_ai_release_assistance(
@@ -143,7 +152,8 @@ class AIReleaseAssistanceTests(TestCase):
             )
 
         self.assertIsNotNone(result)
-        assert result is not None
+        if result is None:
+            self.fail("Expected non-null AI release assistance result")
         self.assertEqual(result["prompt_key"], "release.compliance.v1")
         self.assertEqual(result["prompt_source"], "file")
         self.assertEqual(result["prompt_version"], "v1")

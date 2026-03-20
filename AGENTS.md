@@ -12,7 +12,11 @@ Templates and static-related assets are in `templates/` and `media/`. Shared uti
 - `make makemigrations`: generate migration files for model changes.
 - `make migrate`: apply database migrations.
 - `make test`: run the Django test suite with development settings.
+- `make ci`: run the same local quality gate validations used in GitHub Actions CI.
 - `make build`: run `collectstatic --no-input` for deploy and static preparation.
+
+## Delivery Gate
+Running `make ci` is mandatory before finalizing any delivery.
 
 ## Coding Style & Naming Conventions
 Use 4 spaces, UTF-8, LF endings, and max line length 130 (`.editorconfig`, `.flake8`).

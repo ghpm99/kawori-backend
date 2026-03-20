@@ -8,18 +8,23 @@ from django.urls import reverse
 
 from payment.models import Payment
 
+
 class GetAllScheduledViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar pagamentos de teste para o usuário com permissão
         base_date = datetime.now().date()
@@ -36,7 +41,7 @@ class GetAllScheduledViewTestCase(TestCase):
             active=True,
             value=Decimal("100.50"),
             status=Payment.STATUS_OPEN,
-            user=user
+            user=user,
         )
 
         # Payment 2: crédito done, data antiga
@@ -51,7 +56,7 @@ class GetAllScheduledViewTestCase(TestCase):
             active=True,
             value=Decimal("200.75"),
             status=Payment.STATUS_DONE,
-            user=user
+            user=user,
         )
 
         # Payment 3: débito aberto, parcelado
@@ -66,7 +71,7 @@ class GetAllScheduledViewTestCase(TestCase):
             active=True,
             value=Decimal("150.00"),
             status=Payment.STATUS_OPEN,
-            user=user
+            user=user,
         )
 
         # Payment 4: crédito aberto, inativo
@@ -81,7 +86,7 @@ class GetAllScheduledViewTestCase(TestCase):
             active=False,
             value=Decimal("75.25"),
             status=Payment.STATUS_OPEN,
-            user=user
+            user=user,
         )
 
         # Payment para usuário normal (não deve aparecer nos resultados do usuário test)
@@ -95,7 +100,7 @@ class GetAllScheduledViewTestCase(TestCase):
             active=True,
             value=Decimal("50.00"),
             status=Payment.STATUS_OPEN,
-            user=normal_user
+            user=normal_user,
         )
 
         # Obter token de autenticação
@@ -137,14 +142,25 @@ class GetAllScheduledViewTestCase(TestCase):
 
         # Verificar estrutura dos dados retornados
         payment_data = data["data"]["data"][0]
-        expected_fields = ["id", "status", "type", "name", "date", "installments",
-                          "payment_date", "fixed", "value"]
+        expected_fields = [
+            "id",
+            "status",
+            "type",
+            "name",
+            "date",
+            "installments",
+            "payment_date",
+            "fixed",
+            "value",
+        ]
         for field in expected_fields:
             self.assertIn(field, payment_data)
 
     def test_get_all_scheduled_view_with_status_filter_open(self):
         """Testa filtro por status 'open' - deve retornar apenas pagamentos abertos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "open"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "open"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -157,7 +173,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_status_filter_done(self):
         """Testa filtro por status 'done' - deve retornar apenas pagamentos concluídos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "done"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "done"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -170,7 +188,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_status_filter_all(self):
         """Testa filtro por status 'all' - deve retornar todos os pagamentos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "all"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "all"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -180,7 +200,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_status_filter_numeric_0(self):
         """Testa filtro por status numérico '0' - deve retornar pagamentos abertos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "0"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "0"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -193,7 +215,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_status_filter_numeric_1(self):
         """Testa filtro por status numérico '1' - deve retornar pagamentos concluídos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "1"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "1"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -206,7 +230,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_status_filter_invalid(self):
         """Testa filtro por status inválido - deve retornar todos os pagamentos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"status": "invalid"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"status": "invalid"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -216,7 +242,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_type_filter_debit(self):
         """Testa filtro por tipo 'debit' - deve retornar apenas débitos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"type": Payment.TYPE_DEBIT})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"type": Payment.TYPE_DEBIT}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -229,7 +257,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_type_filter_credit(self):
         """Testa filtro por tipo 'credit' - deve retornar apenas créditos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"type": Payment.TYPE_CREDIT})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"type": Payment.TYPE_CREDIT}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -242,7 +272,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_name_filter(self):
         """Testa filtro por nome (case insensitive) - deve retornar pagamentos com o termo"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"name__icontains": "teste"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"name__icontains": "teste"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -255,7 +287,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_name_filter_empty_result(self):
         """Testa filtro por nome que não retorna resultados"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"name__icontains": "inexistente"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"name__icontains": "inexistente"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -268,7 +302,9 @@ class GetAllScheduledViewTestCase(TestCase):
         base_date = datetime.now().date()
         filter_date = (base_date - timedelta(days=7)).strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"date__gte": filter_date})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"date__gte": filter_date}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -281,7 +317,9 @@ class GetAllScheduledViewTestCase(TestCase):
         base_date = datetime.now().date()
         filter_date = (base_date - timedelta(days=7)).strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"date__lte": filter_date})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"date__lte": filter_date}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -291,7 +329,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_invalid_date_filter(self):
         """Testa filtro com data inválida - deve usar data padrão"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"date__gte": "data-invalida"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"date__gte": "data-invalida"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -301,7 +341,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_installments_filter(self):
         """Testa filtro por número de parcelas"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"installments": "1"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"installments": "1"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -317,7 +359,9 @@ class GetAllScheduledViewTestCase(TestCase):
         base_date = datetime.now().date()
         filter_date = (base_date + timedelta(days=10)).strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"payment_date__gte": filter_date})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"payment_date__gte": filter_date}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -330,7 +374,9 @@ class GetAllScheduledViewTestCase(TestCase):
         base_date = datetime.now().date()
         filter_date = base_date.strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"payment_date__lte": filter_date})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"payment_date__lte": filter_date}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -340,7 +386,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_fixed_filter_true(self):
         """Testa filtro por fixed=true - deve retornar apenas pagamentos fixos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"fixed": "true"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"fixed": "true"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -353,7 +401,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_fixed_filter_false(self):
         """Testa filtro por fixed=false - deve retornar apenas pagamentos não fixos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"fixed": "false"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"fixed": "false"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -366,7 +416,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_active_filter_true(self):
         """Testa filtro por active=true - deve retornar apenas pagamentos ativos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"active": "true"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"active": "true"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -379,7 +431,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_active_filter_false(self):
         """Testa filtro por active=false - deve retornar apenas pagamentos inativos"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"active": "false"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"active": "false"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -392,11 +446,10 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_multiple_filters(self):
         """Testa combinação de múltiplos filtros"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {
-            "status": "open",
-            "type": Payment.TYPE_DEBIT,
-            "fixed": "false"
-        })
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"),
+            {"status": "open", "type": Payment.TYPE_DEBIT, "fixed": "false"},
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -411,7 +464,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_pagination(self):
         """Testa paginação dos resultados"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page": "1", "page_size": "2"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page": "1", "page_size": "2"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -425,7 +480,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_with_pagination_second_page(self):
         """Testa segunda página da paginação"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page": "2", "page_size": "2"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page": "2", "page_size": "2"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -457,8 +514,12 @@ class GetAllScheduledViewTestCase(TestCase):
 
         # Verificar se está ordenado por payment_date, depois por id
         for i in range(len(payments) - 1):
-            current_date = datetime.strptime(payments[i]["payment_date"], "%Y-%m-%d").date()
-            next_date = datetime.strptime(payments[i + 1]["payment_date"], "%Y-%m-%d").date()
+            current_date = datetime.strptime(
+                payments[i]["payment_date"], "%Y-%m-%d"
+            ).date()
+            next_date = datetime.strptime(
+                payments[i + 1]["payment_date"], "%Y-%m-%d"
+            ).date()
 
             if current_date == next_date:
                 # Se datas forem iguais, ordenar por id
@@ -519,7 +580,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_edge_case_very_large_page_size(self):
         """Testa edge case com page_size muito grande"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page_size": "1000"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page_size": "1000"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -531,7 +594,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_edge_case_page_zero(self):
         """Testa edge case com página igual a zero"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page": "0"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page": "0"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -541,7 +606,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_edge_case_negative_page(self):
         """Testa edge case com página negativa"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page": "-1"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page": "-1"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -551,7 +618,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_edge_case_page_beyond_results(self):
         """Testa edge case com página além dos resultados"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page": "10", "page_size": "2"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page": "10", "page_size": "2"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -572,10 +641,12 @@ class GetAllScheduledViewTestCase(TestCase):
             active=True,
             value=Decimal("10.00"),
             status=Payment.STATUS_OPEN,
-            user=User.objects.get(username="test")
+            user=User.objects.get(username="test"),
         )
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"name__icontains": "ñ"})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"name__icontains": "ñ"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -586,11 +657,10 @@ class GetAllScheduledViewTestCase(TestCase):
 
     def test_get_all_scheduled_view_edge_case_empty_string_filters(self):
         """Testa edge case com filtros sendo strings vazias"""
-        response = self.client.get(reverse("financial_get_all_scheduled"), {
-            "status": "",
-            "type": "",
-            "name__icontains": ""
-        })
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"),
+            {"status": "", "type": "", "name__icontains": ""},
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -614,7 +684,9 @@ class GetAllScheduledViewTestCase(TestCase):
 
         for filter_value, expected_bool in test_cases:
             with self.subTest(filter_value=filter_value):
-                response = self.client.get(reverse("financial_get_all_scheduled"), {"fixed": filter_value})
+                response = self.client.get(
+                    reverse("financial_get_all_scheduled"), {"fixed": filter_value}
+                )
 
                 self.assertEqual(response.status_code, 200)
                 data = json.loads(response.content)

@@ -4,8 +4,8 @@ import operator
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date as Date, timedelta
-from datetime import datetime
+from datetime import date as Date
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import reduce
 from typing import Dict, List, Optional, TypedDict
@@ -65,14 +65,22 @@ class PaymentDetail:
             "name": self.name,
             "description": self.description,
             "reference": self.reference,
-            "date": self.date.isoformat() if isinstance(self.date, (Date, datetime)) else self.date,
+            "date": (
+                self.date.isoformat()
+                if isinstance(self.date, (Date, datetime))
+                else self.date
+            ),
             "installments": self.installments,
             "payment_date": (
-                self.payment_date.isoformat() if isinstance(self.payment_date, (Date, datetime)) else self.payment_date
+                self.payment_date.isoformat()
+                if isinstance(self.payment_date, (Date, datetime))
+                else self.payment_date
             ),
             "fixed": self.fixed,
             "active": self.active,
-            "value": float(self.value) if isinstance(self.value, Decimal) else self.value,
+            "value": (
+                float(self.value) if isinstance(self.value, Decimal) else self.value
+            ),
             "invoice_id": self.invoice_id,
             "user_id": self.user_id,
         }
@@ -143,7 +151,9 @@ class ParsedTransaction:
         }
         result["mapped_data"] = self.mapped_data.to_dict() if self.mapped_data else None
 
-        result["matched_payment"] = self.matched_payment.to_dict() if self.matched_payment else None
+        result["matched_payment"] = (
+            self.matched_payment.to_dict() if self.matched_payment else None
+        )
 
         result["possibly_matched_payment_list"] = (
             [
@@ -262,7 +272,9 @@ def payment_mapped_to_detail(
         reference=mapped_data.get("reference", ""),
         date=date or Date.today(),
         installments=installments or 1,
-        payment_date=payment_date_import.date() if payment_date_import else payment_date,
+        payment_date=(
+            payment_date_import.date() if payment_date_import else payment_date
+        ),
         fixed=False,
         active=True,
         value=value,
@@ -289,7 +301,9 @@ def validate_payment_data(payment_data: PaymentDetail) -> List[str]:
     return errors
 
 
-def generate_payment_reference(row: Row, user=None, truncate_chars: int | None = None) -> str:
+def generate_payment_reference(
+    row: Row, user=None, truncate_chars: int | None = None
+) -> str:
 
     if not isinstance(row, dict):
         payload_obj = str(row)
@@ -346,11 +360,18 @@ def find_possible_payment_matches(
     date_clauses = []
 
     if payment_data.date:
-        date_clauses.append(Q(date__range=(payment_data.date - delta, payment_data.date + delta)))
+        date_clauses.append(
+            Q(date__range=(payment_data.date - delta, payment_data.date + delta))
+        )
 
     if payment_data.payment_date:
         date_clauses.append(
-            Q(payment_date__range=(payment_data.payment_date - delta, payment_data.payment_date + delta))
+            Q(
+                payment_date__range=(
+                    payment_data.payment_date - delta,
+                    payment_data.payment_date + delta,
+                )
+            )
         )
 
     if date_clauses:
@@ -419,8 +440,12 @@ def find_possible_payment_matches(
         tn = _normalize_text(p.name or "")
         td = _normalize_text(p.description or "")
 
-        text_score_name = fuzz.token_set_ratio(norm_name, tn) / 100.0 if norm_name else 0.0
-        text_score_desc = fuzz.token_set_ratio(norm_desc, td) / 100.0 if norm_desc else 0.0
+        text_score_name = (
+            fuzz.token_set_ratio(norm_name, tn) / 100.0 if norm_name else 0.0
+        )
+        text_score_desc = (
+            fuzz.token_set_ratio(norm_desc, td) / 100.0 if norm_desc else 0.0
+        )
         text_score = max(text_score_name, text_score_desc)
 
         if text_score >= 0.90:
@@ -460,14 +485,20 @@ def find_possible_payment_matches(
     return candidates[:top_n]
 
 
-def check_payment_is_valid(payment_data: PaymentDetail, import_type: str, validation_errors_lenght: int) -> bool:
+def check_payment_is_valid(
+    payment_data: PaymentDetail, import_type: str, validation_errors_lenght: int
+) -> bool:
     if import_type == "card_payments" and payment_data.name == "Pagamento recebido":
         return False
     return validation_errors_lenght == 0
 
 
 def process_csv_row(
-    user, import_type: str, header_mapping: List[CSVMapping], row: Row, payment_date: datetime
+    user,
+    import_type: str,
+    header_mapping: List[CSVMapping],
+    row: Row,
+    payment_date: datetime,
 ) -> ParsedTransaction:
     parser_transaction = ParsedTransaction(
         id=str(uuid.uuid4()),
@@ -502,7 +533,9 @@ def process_csv_row(
 
         payment_data_mapped[system_field] = process_func_col
 
-    payment_detail = payment_mapped_to_detail(user, import_type, payment_data_mapped, payment_date)
+    payment_detail = payment_mapped_to_detail(
+        user, import_type, payment_data_mapped, payment_date
+    )
 
     if payment_detail.reference == "" or payment_detail.reference is None:
         payment_detail.reference = generate_payment_reference(row, user)
@@ -512,9 +545,13 @@ def process_csv_row(
     parser_transaction.is_valid = check_payment_is_valid(
         payment_detail, import_type, len(parser_transaction.validation_errors)
     )
-    parser_transaction.matched_payment = find_payment_by_reference(user, payment_detail.reference)
+    parser_transaction.matched_payment = find_payment_by_reference(
+        user, payment_detail.reference
+    )
 
     if parser_transaction.matched_payment is None:
-        parser_transaction.possibly_matched_payment_list = find_possible_payment_matches(user, payment_detail)
+        parser_transaction.possibly_matched_payment_list = (
+            find_possible_payment_matches(user, payment_detail)
+        )
 
     return parser_transaction

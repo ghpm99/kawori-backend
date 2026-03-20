@@ -2,13 +2,23 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
-from typing import Any
 
 from django.conf import settings
 
 from ai.cache import get_ai_response_cache
-from ai.dto import AITaskRequest, AITaskResponse, ExecutionTraceEntry, ProviderCompletionRequest
-from ai.exceptions import AIConfigurationError, AIExecutionError, AIProviderError, AIProviderTimeoutError, AIResponseFormatError
+from ai.dto import (
+    AITaskRequest,
+    AITaskResponse,
+    ExecutionTraceEntry,
+    ProviderCompletionRequest,
+)
+from ai.exceptions import (
+    AIConfigurationError,
+    AIExecutionError,
+    AIProviderError,
+    AIProviderTimeoutError,
+    AIResponseFormatError,
+)
 from ai.providers.base import AIProviderRegistry
 from ai.routing import AITaskRouter
 from ai.strategies import TaskStrategyRegistry
@@ -37,10 +47,14 @@ class AIOrchestrator:
         user_id = (request.metadata or {}).get("user_id")
 
         strategy = self._strategy_registry.get(task_type)
-        route_config = self._task_router.resolve(task_type, feature_name=feature_name, metadata=request.metadata)
+        route_config = self._task_router.resolve(
+            task_type, feature_name=feature_name, metadata=request.metadata
+        )
         messages = strategy.build_messages(request)
 
-        max_fallback_routes = max(int(getattr(settings, "AI_MAX_FALLBACK_ROUTES", 1)), 0)
+        max_fallback_routes = max(
+            int(getattr(settings, "AI_MAX_FALLBACK_ROUTES", 1)), 0
+        )
         model_candidates = [route_config.primary_model]
         if self._enable_fallback and max_fallback_routes > 0:
             model_candidates.extend(route_config.fallback_models[:max_fallback_routes])
@@ -80,7 +94,8 @@ class AIOrchestrator:
                     provider=model_route.provider,
                     model=model_route.model,
                     messages=messages,
-                    timeout_seconds=request.timeout_seconds or route_config.timeout_seconds,
+                    timeout_seconds=request.timeout_seconds
+                    or route_config.timeout_seconds,
                     temperature=request.temperature,
                     max_tokens=effective_max_tokens,
                     response_format=strategy.response_format,
@@ -93,8 +108,14 @@ class AIOrchestrator:
 
                 try:
                     provider_response = provider.generate(provider_request)
-                    normalized_output = strategy.normalize_output(provider_response.raw_text, request)
-                except (AIProviderError, AIResponseFormatError, AIConfigurationError) as exc:
+                    normalized_output = strategy.normalize_output(
+                        provider_response.raw_text, request
+                    )
+                except (
+                    AIProviderError,
+                    AIResponseFormatError,
+                    AIConfigurationError,
+                ) as exc:
                     last_error = exc
                     execution_trace.append(
                         ExecutionTraceEntry(
@@ -231,7 +252,9 @@ class AIOrchestrator:
             return None
 
         cache = get_ai_response_cache()
-        cache_key = cache.build_cache_key(request, provider=primary_provider, model=primary_model)
+        cache_key = cache.build_cache_key(
+            request, provider=primary_provider, model=primary_model
+        )
         cached = cache.get(cache_key)
         if cached is None:
             emit_event(
@@ -320,7 +343,9 @@ class AIOrchestrator:
         return _to_bool(per_feature.get(feature_name, True), default=True)
 
     @staticmethod
-    def _resolve_max_tokens(*, requested_max_tokens: int | None, feature_name: str, task_type: str) -> int | None:
+    def _resolve_max_tokens(
+        *, requested_max_tokens: int | None, feature_name: str, task_type: str
+    ) -> int | None:
         feature_caps = getattr(settings, "AI_MAX_TOKENS_BY_FEATURE", {}) or {}
         task_caps = getattr(settings, "AI_MAX_TOKENS_BY_TASK", {}) or {}
 
@@ -330,7 +355,9 @@ class AIOrchestrator:
         if task_type in task_caps:
             caps.append(int(task_caps[task_type]))
 
-        filtered = [int(value) for value in caps if value is not None and int(value) > 0]
+        filtered = [
+            int(value) for value in caps if value is not None and int(value) > 0
+        ]
         if not filtered:
             return None
         return min(filtered)

@@ -1,8 +1,9 @@
 import time
-from django.core.management.base import BaseCommand
+
 from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
 from django.db.models import Count
-from django.db.models.functions import Trim, Lower
+from django.db.models.functions import Lower, Trim
 
 from invoice.models import Invoice
 from tag.models import Tag
@@ -24,7 +25,10 @@ class Command(BaseCommand):
         for duplicate in duplicates:
             tags = (
                 Tag.objects.annotate(normalized_name=Lower(Trim("name")))
-                .filter(normalized_name=duplicate["normalized_name"], user_id=duplicate["user"])
+                .filter(
+                    normalized_name=duplicate["normalized_name"],
+                    user_id=duplicate["user"],
+                )
                 .order_by("id")
             )
 

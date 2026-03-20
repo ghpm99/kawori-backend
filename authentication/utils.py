@@ -80,7 +80,9 @@ SOCIAL_PROVIDER_DEFINITIONS = {
 
 
 def slugify_username(value: str) -> str:
-    safe_value = re.sub(r"[^a-zA-Z0-9_]+", "_", (value or "").strip().lower()).strip("_")
+    safe_value = re.sub(r"[^a-zA-Z0-9_]+", "_", (value or "").strip().lower()).strip(
+        "_"
+    )
     return safe_value or "user"
 
 
@@ -142,7 +144,9 @@ def get_social_provider_config(provider: str) -> dict:
     }
 
 
-def build_social_authorize_url(provider_config: dict, state: str, redirect_uri: str) -> str:
+def build_social_authorize_url(
+    provider_config: dict, state: str, redirect_uri: str
+) -> str:
     query = {
         "client_id": provider_config["client_id"],
         "redirect_uri": redirect_uri,
@@ -153,7 +157,9 @@ def build_social_authorize_url(provider_config: dict, state: str, redirect_uri: 
     return f"{provider_config['auth_url']}?{urlencode(query)}"
 
 
-def exchange_social_code_for_token(provider_config: dict, code: str, redirect_uri: str) -> dict:
+def exchange_social_code_for_token(
+    provider_config: dict, code: str, redirect_uri: str
+) -> dict:
     headers = {"Accept": "application/json"}
     payload = {
         "client_id": provider_config["client_id"],
@@ -162,7 +168,9 @@ def exchange_social_code_for_token(provider_config: dict, code: str, redirect_ur
         "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
     }
-    response = requests.post(provider_config["token_url"], data=payload, headers=headers, timeout=12)
+    response = requests.post(
+        provider_config["token_url"], data=payload, headers=headers, timeout=12
+    )
     if response.status_code >= 400:
         raise SocialOAuthError("Falha ao trocar o código OAuth.", status_code=400)
 
@@ -201,7 +209,11 @@ def fetch_social_profile(provider_config: dict, token_data: dict) -> dict:
         )
         payload = response.json()
         avatar = payload.get("avatar")
-        avatar_url = f"https://cdn.discordapp.com/avatars/{payload.get('id')}/{avatar}.png" if avatar else ""
+        avatar_url = (
+            f"https://cdn.discordapp.com/avatars/{payload.get('id')}/{avatar}.png"
+            if avatar
+            else ""
+        )
         return {
             "provider_user_id": str(payload.get("id", "")),
             "email": payload.get("email", "") or "",
@@ -214,7 +226,10 @@ def fetch_social_profile(provider_config: dict, token_data: dict) -> dict:
     if provider == "github":
         response = requests.get(
             "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+            },
             timeout=12,
         )
         payload = response.json()
@@ -223,16 +238,23 @@ def fetch_social_profile(provider_config: dict, token_data: dict) -> dict:
         if not email:
             email_response = requests.get(
                 "https://api.github.com/user/emails",
-                headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/vnd.github+json",
+                },
                 timeout=12,
             )
-            email_payload = email_response.json() if email_response.status_code < 400 else []
+            email_payload = (
+                email_response.json() if email_response.status_code < 400 else []
+            )
             if isinstance(email_payload, list):
                 primary_verified = next(
                     (
                         item
                         for item in email_payload
-                        if item.get("email") and item.get("primary") and item.get("verified")
+                        if item.get("email")
+                        and item.get("primary")
+                        and item.get("verified")
                     ),
                     None,
                 )
@@ -252,7 +274,10 @@ def fetch_social_profile(provider_config: dict, token_data: dict) -> dict:
     if provider == "facebook":
         response = requests.get(
             "https://graph.facebook.com/me",
-            params={"fields": "id,name,email,picture.type(large)", "access_token": access_token},
+            params={
+                "fields": "id,name,email,picture.type(large)",
+                "access_token": access_token,
+            },
             timeout=12,
         )
         payload = response.json()

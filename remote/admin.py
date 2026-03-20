@@ -1,11 +1,11 @@
 from django.contrib import admin
+
 from remote.models import Config, Screenshot
 
 
 # Register your models here.
 class ConfigAdmin(admin.ModelAdmin):
-    list_display = ('type', 'value')
-    pass
+    list_display = ("type", "value")
 
 
 admin.site.register(Config, ConfigAdmin)

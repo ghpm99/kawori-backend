@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0007_character'),
+        ("facetexture", "0007_character"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='character',
-            name='image',
+            model_name="character",
+            name="image",
             field=models.CharField(max_length=128),
         ),
         migrations.AlterField(
-            model_name='character',
-            name='name',
+            model_name="character",
+            name="name",
             field=models.CharField(max_length=128),
         ),
     ]

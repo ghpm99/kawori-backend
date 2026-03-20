@@ -1,20 +1,79 @@
+.PHONY: build run makemigrations migrate test version run-release-scripts restore-dump activate-run ci
+
+CI_TEST_ENV = DJANGO_SETTINGS_MODULE=kawori.settings.test \
+	SECRET_KEY=ci-test-secret-key \
+	POSTGRES_DB=kawori \
+	POSTGRES_USER=postgres \
+	POSTGRES_PASSWORD=postgres \
+	POSTGRES_HOST=127.0.0.1 \
+	POSTGRES_PORT=5432 \
+	POSTGRES_TEST_DB=test_kawori \
+	BASE_URL=http://localhost:8000 \
+	BASE_URL_WEBHOOK=http://localhost:8100 \
+	BASE_URL_FRONTEND=http://localhost:3000 \
+	BASE_URL_FRONTEND_FINANCIAL=http://localhost:5173 \
+	COOKIE_DOMAIN=localhost \
+	ENV_PUSHER_APP_ID=1 \
+	ENV_PUSHER_KEY=ci-pusher-key \
+	ENV_PUSHER_SECRET=ci-pusher-secret \
+	ENV_PUSHER_CLUSTER=mt1
+
+CI_SQLITE_TEST_ENV = DJANGO_SETTINGS_MODULE=kawori.settings.test_sqlite \
+	SECRET_KEY=ci-test-secret-key \
+	BASE_URL=http://localhost:8000 \
+	BASE_URL_WEBHOOK=http://localhost:8100 \
+	BASE_URL_FRONTEND=http://localhost:3000 \
+	BASE_URL_FRONTEND_FINANCIAL=http://localhost:5173 \
+	COOKIE_DOMAIN=localhost \
+	ENV_PUSHER_APP_ID=1 \
+	ENV_PUSHER_KEY=ci-pusher-key \
+	ENV_PUSHER_SECRET=ci-pusher-secret \
+	ENV_PUSHER_CLUSTER=mt1
+
 build:
 	python manage.py collectstatic --no-input
+
 run:
 	python manage.py runserver --settings=kawori.settings.development
+
 makemigrations:
 	python manage.py makemigrations --settings=kawori.settings.development
+
 migrate:
 	python manage.py migrate --settings=kawori.settings.development
+
 test:
 	python manage.py test --settings=kawori.settings.development
+
 version:
 	python manage.py app_version --settings=kawori.settings.development
+
 run-release-scripts:
 	python manage.py run_release_scripts --target-version=$(VERSION) --settings=kawori.settings.development
+
 restore-dump:
 	psql -U postgres -h localhost -c "drop database kawori;"
 	psql -U postgres -h localhost -c "create database kawori;"
 	psql -U postgres -h localhost kawori < ~/dump/kawori.tar
+
 activate-run:
 	.venv/bin/python3.13 manage.py runserver --settings=kawori.settings.development
+
+# Local mirror of .github/workflows/ci.yml quality gate validations.
+ci:
+	black --check .
+	isort --check-only --profile black .
+	flake8 .
+	bandit -r . -x ./.venv,./**/migrations -s B105,B106
+	pip-audit -r requirements.txt
+	@if python -c "import socket; s=socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1',5432)); s.close()" >/dev/null 2>&1; then \
+		echo "Using PostgreSQL test settings (kawori.settings.test)"; \
+		$(CI_TEST_ENV) python manage.py check; \
+		$(CI_TEST_ENV) python manage.py makemigrations --check --dry-run; \
+		$(CI_TEST_ENV) python manage.py test; \
+	else \
+		echo "PostgreSQL not available, using SQLite test settings (kawori.settings.test_sqlite)"; \
+		$(CI_SQLITE_TEST_ENV) python manage.py check; \
+		$(CI_SQLITE_TEST_ENV) python manage.py makemigrations --check --dry-run; \
+		$(CI_SQLITE_TEST_ENV) python manage.py test; \
+	fi

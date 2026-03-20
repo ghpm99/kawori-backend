@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
-from django.db import models
+
 from django.contrib.auth.models import User
+from django.db import models
+
 from invoice.models import Invoice
 from tag.models import Tag
 
@@ -56,7 +58,9 @@ class Payment(models.Model):
             "reference": self.reference,
             "date": self.date.isoformat() if self.date else None,
             "installments": self.installments,
-            "payment_date": self.payment_date.isoformat() if self.payment_date else None,
+            "payment_date": (
+                self.payment_date.isoformat() if self.payment_date else None
+            ),
             "fixed": self.fixed,
             "active": self.active,
             "value": float(self.value) if self.value is not None else None,
@@ -134,13 +138,21 @@ class ImportedPayment(models.Model):
     )
 
     reference = models.TextField(max_length=1024, blank=True)
-    matched_payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
+    matched_payment = models.ForeignKey(
+        Payment, on_delete=models.CASCADE, null=True, blank=True
+    )
     merge_group = models.TextField(max_length=255, null=True, blank=True)
-    ai_idempotency_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    ai_idempotency_key = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
     ai_suggestion_data = models.JSONField(default=dict, blank=True)
-    normalization_signature = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    normalization_signature = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
     normalization_data = models.JSONField(default=dict, blank=True)
-    status = models.CharField(max_length=32, default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS)
+    status = models.CharField(
+        max_length=32, default=IMPORT_STATUS_PENDING, choices=IMPORT_STATUS
+    )
     status_description = models.TextField(max_length=1024, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -150,7 +162,9 @@ class ImportedPayment(models.Model):
     raw_date = models.DateField(default=date.today)
     raw_installments = models.IntegerField(default=1)
     raw_payment_date = models.DateField(default=date.today)
-    raw_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
+    raw_value = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal(0.0)
+    )
     raw_tags = models.ManyToManyField(Tag, related_name="imported_payment", blank=True)
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

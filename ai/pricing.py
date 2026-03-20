@@ -4,7 +4,6 @@ from typing import Any
 
 from django.conf import settings
 
-
 _DEFAULT_PRICING: dict[str, dict[str, float]] = {
     "gpt-4o-mini": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
     "gpt-4o": {"input_per_1k": 0.0025, "output_per_1k": 0.01},
@@ -40,5 +39,7 @@ def estimate_cost(model: str, usage: dict[str, Any] | None) -> float | None:
     if input_per_1k < 0 or output_per_1k < 0:
         return None
 
-    estimated = ((prompt_tokens / 1000.0) * input_per_1k) + ((completion_tokens / 1000.0) * output_per_1k)
+    estimated = ((prompt_tokens / 1000.0) * input_per_1k) + (
+        (completion_tokens / 1000.0) * output_per_1k
+    )
     return round(estimated, 8)

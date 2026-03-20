@@ -16,12 +16,16 @@ class DetailViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar invoice para testes
         cls.invoice = Invoice.objects.create(
@@ -32,7 +36,7 @@ class DetailViewTestCase(TestCase):
             fixed=False,
             value=Decimal("1000.00"),
             value_open=Decimal("1000.00"),
-            user=user
+            user=user,
         )
 
         # Criar pagamento de teste para o usuário com permissão
@@ -49,7 +53,7 @@ class DetailViewTestCase(TestCase):
             value=Decimal("150.50"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice
+            invoice=cls.invoice,
         )
 
         # Criar pagamento para usuário normal (não deve ser acessível)
@@ -65,7 +69,7 @@ class DetailViewTestCase(TestCase):
             value=Decimal("200.00"),
             status=Payment.STATUS_DONE,
             user=normal_user,
-            invoice=cls.invoice
+            invoice=cls.invoice,
         )
 
         # Obter token de autenticação
@@ -91,7 +95,9 @@ class DetailViewTestCase(TestCase):
 
     def test_detail_view_success(self):
         """Testa sucesso da view com ID válido - deve retornar detalhes do pagamento"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -100,8 +106,20 @@ class DetailViewTestCase(TestCase):
         payment_data = data["data"]
 
         # Verificar estrutura dos dados retornados
-        expected_fields = ["id", "status", "type", "name", "date", "installments",
-                          "payment_date", "fixed", "active", "value", "invoice", "invoice_name"]
+        expected_fields = [
+            "id",
+            "status",
+            "type",
+            "name",
+            "date",
+            "installments",
+            "payment_date",
+            "fixed",
+            "active",
+            "value",
+            "invoice",
+            "invoice_name",
+        ]
         for field in expected_fields:
             self.assertIn(field, payment_data)
 
@@ -111,7 +129,9 @@ class DetailViewTestCase(TestCase):
         self.assertEqual(payment_data["type"], self.payment.type)
         self.assertEqual(payment_data["name"], self.payment.name)
         self.assertEqual(payment_data["installments"], self.payment.installments)
-        self.assertEqual(payment_data["payment_date"], self.payment.payment_date.strftime("%Y-%m-%d"))
+        self.assertEqual(
+            payment_data["payment_date"], self.payment.payment_date.strftime("%Y-%m-%d")
+        )
         self.assertEqual(payment_data["fixed"], self.payment.fixed)
         self.assertEqual(payment_data["active"], self.payment.active)
         self.assertEqual(payment_data["value"], float(self.payment.value))
@@ -132,10 +152,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("300.00"),
             status=Payment.STATUS_DONE,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": credit_payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": credit_payment.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -160,10 +182,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": fixed_payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": fixed_payment.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -184,16 +208,20 @@ class DetailViewTestCase(TestCase):
             value=Decimal("50.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": inactive_payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": inactive_payment.id})
+        )
 
         self.assertEqual(response.status_code, 404)
 
     def test_detail_view_error_payment_not_found(self):
         """Testa erro da view com ID inexistente - deve retornar erro 404"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": 99999}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": 99999})
+        )
 
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
@@ -209,7 +237,9 @@ class DetailViewTestCase(TestCase):
 
     def test_detail_view_error_payment_from_other_user(self):
         """Testa erro da view tentando acessar pagamento de outro usuário - deve retornar erro 404"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": self.payment_normal_user.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": self.payment_normal_user.id})
+        )
 
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
@@ -223,7 +253,9 @@ class DetailViewTestCase(TestCase):
         for key, morsel in self.cookies_normal.items():
             self.client.cookies[key] = morsel.value
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         # Deve retornar erro 401 ou 403
         self.assertIn(response.status_code, [401, 403])
@@ -233,26 +265,34 @@ class DetailViewTestCase(TestCase):
         # Limpar cookies
         self.client.cookies.clear()
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         # Deve retornar erro 401 ou 403
         self.assertIn(response.status_code, [401, 403])
 
     def test_detail_view_error_wrong_method_post(self):
         """Testa erro da view com método POST - deve retornar erro 405"""
-        response = self.client.post(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.post(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         self.assertEqual(response.status_code, 405)
 
     def test_detail_view_error_wrong_method_put(self):
         """Testa erro da view com método PUT - deve retornar erro 405"""
-        response = self.client.put(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.put(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         self.assertEqual(response.status_code, 405)
 
     def test_detail_view_error_wrong_method_delete(self):
         """Testa erro da view com método DELETE - deve retornar erro 405"""
-        response = self.client.delete(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.delete(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         self.assertEqual(response.status_code, 405)
 
@@ -286,10 +326,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("0.00"),  # Valor zero em vez de nulo
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_null.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_null.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -300,7 +342,7 @@ class DetailViewTestCase(TestCase):
     def test_detail_view_edge_case_payment_with_very_long_name(self):
         """Testa edge case com pagamento com nome muito longo - deve retornar dados corretamente"""
         long_name = "A" * 500  # 500 caracteres
-        
+
         payment_long = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name=long_name,
@@ -312,10 +354,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_long.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_long.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -326,7 +370,7 @@ class DetailViewTestCase(TestCase):
     def test_detail_view_edge_case_payment_with_special_characters(self):
         """Testa edge case com pagamento com caracteres especiais - deve retornar dados corretamente"""
         special_name = "Pagamento com ñ, ç, @#$%&*() e \"aspas\" e 'apóstrofos'"
-        
+
         payment_special = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name=special_name,
@@ -338,10 +382,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_special.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_special.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -352,7 +398,7 @@ class DetailViewTestCase(TestCase):
     def test_detail_view_edge_case_payment_with_future_dates(self):
         """Testa edge case com pagamento com datas no futuro - deve retornar dados corretamente"""
         future_date = datetime.now().date() + timedelta(days=365)
-        
+
         payment_future = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Pagamento Futuro",
@@ -364,22 +410,26 @@ class DetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_future.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_future.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
         payment_data = data["data"]
         self.assertEqual(str(payment_data["date"]), str(future_date))
-        self.assertEqual(str(payment_data["payment_date"]), str(future_date + timedelta(days=30)))
+        self.assertEqual(
+            str(payment_data["payment_date"]), str(future_date + timedelta(days=30))
+        )
 
     def test_detail_view_edge_case_payment_with_past_dates(self):
         """Testa edge case com pagamento com datas no passado - deve retornar dados corretamente"""
         past_date = datetime.now().date() - timedelta(days=365)
-        
+
         payment_past = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Pagamento Passado",
@@ -391,17 +441,21 @@ class DetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_DONE,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_past.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_past.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
         payment_data = data["data"]
         self.assertEqual(str(payment_data["date"]), str(past_date))
-        self.assertEqual(str(payment_data["payment_date"]), str(past_date + timedelta(days=30)))
+        self.assertEqual(
+            str(payment_data["payment_date"]), str(past_date + timedelta(days=30))
+        )
 
     def test_detail_view_edge_case_payment_with_many_installments(self):
         """Testa edge case com pagamento com muitas parcelas - deve retornar dados corretamente"""
@@ -416,10 +470,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("2400.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_many.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_many.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -440,10 +496,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("0.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_zero.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_zero.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -464,10 +522,12 @@ class DetailViewTestCase(TestCase):
             value=Decimal("-100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice
+            invoice=self.invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment_negative.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment_negative.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -477,7 +537,9 @@ class DetailViewTestCase(TestCase):
 
     def test_detail_view_response_structure(self):
         """Testa estrutura da resposta da view"""
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": self.payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": self.payment.id})
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -488,8 +550,20 @@ class DetailViewTestCase(TestCase):
 
         # Verificar estrutura dos dados do pagamento
         payment_data = data["data"]
-        expected_fields = ["id", "status", "type", "name", "date", "installments",
-                          "payment_date", "fixed", "active", "value", "invoice", "invoice_name"]
+        expected_fields = [
+            "id",
+            "status",
+            "type",
+            "name",
+            "date",
+            "installments",
+            "payment_date",
+            "fixed",
+            "active",
+            "value",
+            "invoice",
+            "invoice_name",
+        ]
         for field in expected_fields:
             self.assertIn(field, payment_data)
 

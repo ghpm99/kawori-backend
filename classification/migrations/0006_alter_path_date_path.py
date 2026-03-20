@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('classification', '0005_path_date_path_alter_answer_combat_style'),
+        ("classification", "0005_path_date_path_alter_answer_combat_style"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='path',
-            name='date_path',
+            model_name="path",
+            name="date_path",
             field=models.DateField(null=True),
         ),
     ]

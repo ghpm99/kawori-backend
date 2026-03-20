@@ -10,7 +10,6 @@ from django.db.models.functions import Coalesce
 
 from payment.models import Payment
 
-
 SEVERITY_ORDER = {
     "critical": 3,
     "attention": 2,
@@ -122,7 +121,9 @@ def _to_currency(value: Decimal | float | int | None) -> float:
     return float(value)
 
 
-def _build_spending_variation_insight(user, begin: date, end: date) -> dict[str, Any] | None:
+def _build_spending_variation_insight(
+    user, begin: date, end: date
+) -> dict[str, Any] | None:
     current_total = _to_currency(
         Payment.objects.filter(
             user=user,
@@ -156,7 +157,9 @@ def _build_spending_variation_insight(user, begin: date, end: date) -> dict[str,
     if variation > 0:
         severity = "attention" if variation >= 25 else "info"
         title = "Aumento atipico de despesas"
-        action = "revisar gastos variaveis e definir limite semanal para categorias em alta"
+        action = (
+            "revisar gastos variaveis e definir limite semanal para categorias em alta"
+        )
     else:
         severity = "info"
         title = "Reducao relevante de despesas"
@@ -180,7 +183,9 @@ def _build_spending_variation_insight(user, begin: date, end: date) -> dict[str,
     }
 
 
-def _build_tag_concentration_insight(user, begin: date, end: date) -> dict[str, Any] | None:
+def _build_tag_concentration_insight(
+    user, begin: date, end: date
+) -> dict[str, Any] | None:
     rows = list(
         Payment.objects.filter(
             user=user,
@@ -202,7 +207,9 @@ def _build_tag_concentration_insight(user, begin: date, end: date) -> dict[str, 
         return None
 
     top_rows = rows[:2]
-    top_share = (sum(_to_currency(item["amount"]) for item in top_rows) / total_amount) * 100
+    top_share = (
+        sum(_to_currency(item["amount"]) for item in top_rows) / total_amount
+    ) * 100
     if top_share < 55:
         return None
 
@@ -210,7 +217,9 @@ def _build_tag_concentration_insight(user, begin: date, end: date) -> dict[str, 
     title = "Concentracao alta em poucas tags"
     metric = f"{top_share:.0f}%"
     context = f"{len(top_rows)} tags concentram a maior parte das despesas do periodo"
-    action = f"revisar recorrencias de {', '.join(top_names)} e ajustar teto por categoria"
+    action = (
+        f"revisar recorrencias de {', '.join(top_names)} e ajustar teto por categoria"
+    )
 
     confidence = min(0.95, 0.62 + min(top_share, 85) / 220)
 
@@ -237,7 +246,9 @@ def _build_overdue_risk_insight(user, begin: date, end: date) -> dict[str, Any] 
     )
 
     overdue_count = overdue_qs.count()
-    overdue_amount = _to_currency(overdue_qs.aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"])
+    overdue_amount = _to_currency(
+        overdue_qs.aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
+    )
     if overdue_count == 0 or overdue_amount <= 0:
         return None
 
@@ -269,7 +280,9 @@ def _build_overdue_risk_insight(user, begin: date, end: date) -> dict[str, Any] 
     }
 
 
-def generate_financial_ai_insights(user, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def generate_financial_ai_insights(
+    user, payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
     payload = payload or {}
     begin, end = _resolve_period(payload)
 
@@ -299,7 +312,13 @@ def generate_financial_ai_insights(user, payload: dict[str, Any] | None = None) 
             }
         )
 
-    insights.sort(key=lambda item: (SEVERITY_ORDER.get(item["severity"], 0), item.get("confidence", 0)), reverse=True)
+    insights.sort(
+        key=lambda item: (
+            SEVERITY_ORDER.get(item["severity"], 0),
+            item.get("confidence", 0),
+        ),
+        reverse=True,
+    )
 
     return {
         "priority_insights": insights,

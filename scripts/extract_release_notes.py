@@ -20,7 +20,9 @@ def extract_release_notes(changelog_path: Path, version: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Extract a version section from the changelog.")
+    parser = argparse.ArgumentParser(
+        description="Extract a version section from the changelog."
+    )
     parser.add_argument("--changelog", default="CHANGELOG.md")
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", required=True)

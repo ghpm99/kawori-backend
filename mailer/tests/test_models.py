@@ -7,7 +7,9 @@ from mailer.models import EmailQueue, UserEmailPreference
 class EmailQueueModelTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="testuser", email="test@example.com", password="testpass123")
+        cls.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
 
     def test_create_email_queue(self):
         email = EmailQueue.objects.create(
@@ -35,13 +37,22 @@ class EmailQueueModelTestCase(TestCase):
 
     def test_default_ordering(self):
         high = EmailQueue.objects.create(
-            to_email="a@test.com", subject="High", body_html="", priority=EmailQueue.PRIORITY_HIGH
+            to_email="a@test.com",
+            subject="High",
+            body_html="",
+            priority=EmailQueue.PRIORITY_HIGH,
         )
         low = EmailQueue.objects.create(
-            to_email="b@test.com", subject="Low", body_html="", priority=EmailQueue.PRIORITY_LOW
+            to_email="b@test.com",
+            subject="Low",
+            body_html="",
+            priority=EmailQueue.PRIORITY_LOW,
         )
         normal = EmailQueue.objects.create(
-            to_email="c@test.com", subject="Normal", body_html="", priority=EmailQueue.PRIORITY_NORMAL
+            to_email="c@test.com",
+            subject="Normal",
+            body_html="",
+            priority=EmailQueue.PRIORITY_NORMAL,
         )
         emails = list(EmailQueue.objects.all())
         self.assertEqual(emails[0].id, high.id)
@@ -58,7 +69,9 @@ class EmailQueueModelTestCase(TestCase):
 class UserEmailPreferenceModelTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="prefuser", email="pref@example.com", password="testpass123")
+        cls.user = User.objects.create_user(
+            username="prefuser", email="pref@example.com", password="testpass123"
+        )
 
     def test_create_preference_defaults(self):
         pref = UserEmailPreference.objects.create(user=self.user)

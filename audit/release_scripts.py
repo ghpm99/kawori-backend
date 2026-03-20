@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from xml.etree import ElementTree
+from xml.etree import ElementTree  # nosec B405
 
 from django.conf import settings
 
@@ -57,7 +57,7 @@ def load_release_scripts(registry_path: Path | None = None) -> list[ReleaseScrip
         return []
 
     try:
-        root = ElementTree.fromstring(_wrap_registry(raw_content))
+        root = ElementTree.fromstring(_wrap_registry(raw_content))  # nosec B314
     except ElementTree.ParseError as exc:
         raise ValueError(f"Invalid release script registry: {path}") from exc
 

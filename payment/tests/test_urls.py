@@ -1,14 +1,18 @@
 """
 Teste simples para verificar se as URLs estão funcionando
 """
-from django.test import TestCase
-from django.urls import reverse, resolve
+
 from django.contrib.auth.models import Group, User
+from django.test import TestCase
+from django.urls import reverse
+
 
 class PaymentURLsTestCase(TestCase):
     def setUp(self):
         # Criar usuário para testes que precisam de autenticação
-        self.user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        self.user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(self.user)
 
@@ -42,20 +46,22 @@ class PaymentURLsTestCase(TestCase):
     def test_all_payment_urls_list(self):
         """Lista todas as URLs de payment para debug"""
         from django.urls import get_resolver
-        from django.urls.resolvers import URLResolver, URLPattern
-        
-        def list_urls(urlpatterns, prefix=''):
+        from django.urls.resolvers import URLPattern, URLResolver
+
+        def list_urls(urlpatterns, prefix=""):
             urls = []
             for pattern in urlpatterns:
                 if isinstance(pattern, URLResolver):
-                    urls.extend(list_urls(pattern.url_patterns, prefix + str(pattern.pattern)))
+                    urls.extend(
+                        list_urls(pattern.url_patterns, prefix + str(pattern.pattern))
+                    )
                 elif isinstance(pattern, URLPattern):
                     urls.append(f"{prefix}{pattern.pattern} -> {pattern.name}")
             return urls
-        
+
         resolver = get_resolver()
         urls = list_urls(resolver.url_patterns)
         print("\n=== URLs encontradas ===")
         for url in urls:
-            if 'payment' in url or 'financial' in url:
+            if "payment" in url or "financial" in url:
                 print(url)

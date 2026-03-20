@@ -1,18 +1,20 @@
+import inspect
 import io
 import json
 import logging
-import inspect
 import tempfile
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, User
-from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
+from audit import views as audit_views
+from audit.admin import AuditLogAdmin
 from audit.decorators import (
     audit_log,
     audit_log_auth,
@@ -21,8 +23,6 @@ from audit.decorators import (
     sanitize_query_params,
     sanitize_request_detail,
 )
-from audit.admin import AuditLogAdmin
-from audit import views as audit_views
 from audit.models import (
     CATEGORY_AUTH,
     CATEGORY_FINANCIAL,
@@ -32,7 +32,11 @@ from audit.models import (
     AuditLog,
     ReleaseScriptExecution,
 )
-from audit.release_scripts import SemanticVersion, get_pending_release_scripts, load_release_scripts
+from audit.release_scripts import (
+    SemanticVersion,
+    get_pending_release_scripts,
+    load_release_scripts,
+)
 
 
 class AuditLogModelTestCase(TestCase):
@@ -73,8 +77,12 @@ class AuditLogModelTestCase(TestCase):
         self.assertEqual(log.username, "unknown")
 
     def test_ordering_is_newest_first(self):
-        AuditLog.objects.create(action="first", category=CATEGORY_AUTH, result=RESULT_SUCCESS)
-        AuditLog.objects.create(action="second", category=CATEGORY_AUTH, result=RESULT_SUCCESS)
+        AuditLog.objects.create(
+            action="first", category=CATEGORY_AUTH, result=RESULT_SUCCESS
+        )
+        AuditLog.objects.create(
+            action="second", category=CATEGORY_AUTH, result=RESULT_SUCCESS
+        )
         logs = AuditLog.objects.all()
         self.assertEqual(logs[0].action, "second")
         self.assertEqual(logs[1].action, "first")
@@ -438,7 +446,9 @@ class AuditViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
         self.assertIn("ai_insights", data)
-        self.assertEqual(data["ai_insights"]["summary"], "Falhas concentradas em login.")
+        self.assertEqual(
+            data["ai_insights"]["summary"], "Falhas concentradas em login."
+        )
 
     def test_get_audit_report_denied_for_non_admin(self):
         self._login_as("regular_user", "user123")
@@ -500,7 +510,10 @@ class AuditDecoratorsRegressionTestCase(TestCase):
 
     def test_sanitize_request_detail_handles_multipart_after_stream_read(self):
         uploaded_file = SimpleUploadedFile("bg.png", b"png", content_type="image/png")
-        request = self.rf.post("/x?token=abc", {"icon_style": "P", "password": "secret", "background": uploaded_file})
+        request = self.rf.post(
+            "/x?token=abc",
+            {"icon_style": "P", "password": "secret", "background": uploaded_file},
+        )
 
         _ = request.POST
         detail = sanitize_request_detail(request)
@@ -514,9 +527,9 @@ class AuditDecoratorsRegressionTestCase(TestCase):
         request = self.rf.get("/x")
         request.COOKIES["access_token"] = valid_token
 
-        with patch("audit.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "audit.decorators.AccessToken.get", return_value=None
-        ):
+        with patch(
+            "audit.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch("audit.decorators.AccessToken.get", return_value=None):
             self.assertIsNone(get_user_from_access_token(request))
 
         request_bad = self.rf.get("/x")
@@ -529,7 +542,9 @@ class AuditDecoratorsRegressionTestCase(TestCase):
         def failing_view(request, *args, **kwargs):
             raise RuntimeError("boom")
 
-        request = self.rf.post("/x", data='{"token":"s"}', content_type="application/json")
+        request = self.rf.post(
+            "/x", data='{"token":"s"}', content_type="application/json"
+        )
         with self.assertRaises(RuntimeError):
             failing_view(request, user=self.user, id=10)
 
@@ -542,7 +557,11 @@ class AuditDecoratorsRegressionTestCase(TestCase):
         def failing_auth_view(request, *args, **kwargs):
             raise RuntimeError("boom-auth")
 
-        request_auth = self.rf.post("/x", data='{"email":"audit-decorator@test.com"}', content_type="application/json")
+        request_auth = self.rf.post(
+            "/x",
+            data='{"email":"audit-decorator@test.com"}',
+            content_type="application/json",
+        )
         with self.assertRaises(RuntimeError):
             failing_auth_view(request_auth)
 
@@ -556,7 +575,9 @@ class AuditViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(
-            username="audit-view-admin", email="audit-view-admin@test.com", password="123"
+            username="audit-view-admin",
+            email="audit-view-admin@test.com",
+            password="123",
         )
         now = timezone.now()
         AuditLog.objects.create(
@@ -617,14 +638,18 @@ class AuditViewsRegressionTestCase(TestCase):
                 "limit": 0,
             },
         )
-        response_small = inspect.unwrap(audit_views.get_audit_report)(request_small_limit, user=self.user)
+        response_small = inspect.unwrap(audit_views.get_audit_report)(
+            request_small_limit, user=self.user
+        )
         self.assertEqual(response_small.status_code, 200)
         data_small = json.loads(response_small.content)["data"]
         self.assertEqual(data_small["filters"]["action"], "a1")
         self.assertEqual(data_small["summary"]["total_events"], 1)
 
         request_big_limit = self.rf.get("/audit/report/", {"limit": 1000})
-        response_big = inspect.unwrap(audit_views.get_audit_report)(request_big_limit, user=self.user)
+        response_big = inspect.unwrap(audit_views.get_audit_report)(
+            request_big_limit, user=self.user
+        )
         self.assertEqual(response_big.status_code, 200)
 
 
@@ -644,20 +669,33 @@ class ReleaseScriptRegistryTestCase(TestCase):
         self.assertEqual(str(SemanticVersion.parse("2.1.3")), "2.1.3")
 
     def test_load_release_scripts_sorts_by_version(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
-            registry.write('<script version="2.0.0">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
-            registry.write('<script version="1.9.9">ONEOFF_TEST_FAILING_SCRIPT</script>\n')
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as registry:
+            registry.write(
+                '<script version="2.0.0">ONEOFF_TEST_RELEASE_SCRIPT</script>\n'
+            )
+            registry.write(
+                '<script version="1.9.9">ONEOFF_TEST_FAILING_SCRIPT</script>\n'
+            )
 
         scripts = load_release_scripts(registry.name)
 
         self.assertEqual(
-            [script.command_name for script in scripts], ["ONEOFF_TEST_FAILING_SCRIPT", "ONEOFF_TEST_RELEASE_SCRIPT"]
+            [script.command_name for script in scripts],
+            ["ONEOFF_TEST_FAILING_SCRIPT", "ONEOFF_TEST_RELEASE_SCRIPT"],
         )
 
     def test_get_pending_release_scripts_skips_executed_and_operational_entries(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
-            registry.write('<script version="2.0.1">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
-            registry.write('<script version="2.0.1">cron_recalculate_invoices</script>\n')
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as registry:
+            registry.write(
+                '<script version="2.0.1">ONEOFF_TEST_RELEASE_SCRIPT</script>\n'
+            )
+            registry.write(
+                '<script version="2.0.1">cron_recalculate_invoices</script>\n'
+            )
 
         pending_scripts = get_pending_release_scripts(
             target_version="v2.0.1",
@@ -677,23 +715,35 @@ class RunReleaseScriptsCommandTestCase(TestCase):
         self.assertIn(__version__, out.getvalue())
 
     def test_run_release_scripts_executes_pending_registered_script(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
-            registry.write('<script version="2.0.3">ONEOFF_TEST_RELEASE_SCRIPT</script>\n')
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as registry:
+            registry.write(
+                '<script version="2.0.3">ONEOFF_TEST_RELEASE_SCRIPT</script>\n'
+            )
 
         with override_settings(RELEASE_SCRIPT_REGISTRY_PATH=registry.name):
             call_command("run_release_scripts", target_version="v2.0.3")
 
-        execution = ReleaseScriptExecution.objects.get(script_name="ONEOFF_TEST_RELEASE_SCRIPT")
+        execution = ReleaseScriptExecution.objects.get(
+            script_name="ONEOFF_TEST_RELEASE_SCRIPT"
+        )
         self.assertEqual(execution.release_version, "2.0.3")
         self.assertEqual(execution.status, "success")
 
     def test_run_release_scripts_records_failure(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as registry:
-            registry.write('<script version="2.0.3">ONEOFF_TEST_FAILING_SCRIPT</script>\n')
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".xml", delete=False, encoding="utf-8"
+        ) as registry:
+            registry.write(
+                '<script version="2.0.3">ONEOFF_TEST_FAILING_SCRIPT</script>\n'
+            )
 
         with override_settings(RELEASE_SCRIPT_REGISTRY_PATH=registry.name):
             with self.assertRaisesMessage(Exception, "intentional failure"):
                 call_command("run_release_scripts", target_version="v2.0.3")
 
-        execution = ReleaseScriptExecution.objects.get(script_name="ONEOFF_TEST_FAILING_SCRIPT")
+        execution = ReleaseScriptExecution.objects.get(
+            script_name="ONEOFF_TEST_FAILING_SCRIPT"
+        )
         self.assertEqual(execution.status, "failure")

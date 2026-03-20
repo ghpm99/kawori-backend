@@ -28,7 +28,9 @@ class UserToken(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tokens")
     token_hash = models.CharField(max_length=64, unique=True, db_index=True)
-    token_type = models.CharField(max_length=30, choices=TOKEN_TYPE_CHOICES, default=TOKEN_TYPE_PASSWORD_RESET)
+    token_type = models.CharField(
+        max_length=30, choices=TOKEN_TYPE_CHOICES, default=TOKEN_TYPE_PASSWORD_RESET
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
@@ -44,8 +46,12 @@ class UserToken(models.Model):
         return hashlib.sha256(raw_token.encode()).hexdigest()
 
     @classmethod
-    def create_for_user(cls, user: User, token_type: str, ip_address: str = None) -> str:
-        cls.objects.filter(user=user, token_type=token_type, used=False).update(used=True)
+    def create_for_user(
+        cls, user: User, token_type: str, ip_address: str = None
+    ) -> str:
+        cls.objects.filter(user=user, token_type=token_type, used=False).update(
+            used=True
+        )
 
         raw_token = cls.generate_raw_token()
         token_hash = cls.hash_token(raw_token)
@@ -91,7 +97,9 @@ class EmailVerification(models.Model):
     class Meta:
         db_table = "auth_email_verification"
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="email_verification")
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="email_verification"
+    )
     is_verified = models.BooleanField(default=False)
     verified_at = models.DateTimeField(null=True, blank=True)
 
@@ -109,7 +117,13 @@ class SocialAuthState(models.Model):
 
     provider = models.CharField(max_length=30, db_index=True)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default=MODE_LOGIN)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="social_states")
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="social_states",
+    )
     state_hash = models.CharField(max_length=64, unique=True, db_index=True)
     frontend_redirect_uri = models.URLField(max_length=500, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -157,11 +171,18 @@ class SocialAccount(models.Model):
     class Meta:
         db_table = "auth_social_account"
         constraints = [
-            models.UniqueConstraint(fields=["provider", "provider_user_id"], name="unique_provider_external_user"),
-            models.UniqueConstraint(fields=["user", "provider"], name="unique_user_provider"),
+            models.UniqueConstraint(
+                fields=["provider", "provider_user_id"],
+                name="unique_provider_external_user",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "provider"], name="unique_user_provider"
+            ),
         ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="social_accounts")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="social_accounts"
+    )
     provider = models.CharField(max_length=30)
     provider_user_id = models.CharField(max_length=191)
     email = models.EmailField(blank=True, default="")

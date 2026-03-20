@@ -180,11 +180,23 @@ def get_audit_report(request, user):
         .order_by("day")
     )
     interactions_by_day = [
-        {"day": item["day"].isoformat() if item["day"] else None, "count": item["count"]} for item in interactions_by_day
+        {
+            "day": item["day"].isoformat() if item["day"] else None,
+            "count": item["count"],
+        }
+        for item in interactions_by_day
     ]
 
-    by_action = list(logs.values("action").annotate(count=Count("id")).order_by("-count", "action")[:limit])
-    by_category = list(logs.values("category").annotate(count=Count("id")).order_by("-count", "category")[:limit])
+    by_action = list(
+        logs.values("action")
+        .annotate(count=Count("id"))
+        .order_by("-count", "action")[:limit]
+    )
+    by_category = list(
+        logs.values("category")
+        .annotate(count=Count("id"))
+        .order_by("-count", "category")[:limit]
+    )
     by_user = list(
         logs.exclude(username="")
         .values("username", "user_id")

@@ -5,8 +5,8 @@ from functools import lru_cache
 
 from django.conf import settings
 
-from ai.dto import AITaskRequest, AITaskResponse
 from ai.budget import check_budget
+from ai.dto import AITaskRequest, AITaskResponse
 from ai.exceptions import AIError
 from ai.telemetry import emit_event
 from ai.utils import execute_ai_task
@@ -84,8 +84,13 @@ def safe_execute_ai_task(
     try:
         return execute_ai_task(task_request)
     except AIError as exc:
-        logger.warning("IA indisponivel para feature '%s': %s", feature_name or "default", exc)
+        logger.warning(
+            "IA indisponivel para feature '%s': %s", feature_name or "default", exc
+        )
         return None
     except Exception:
-        logger.exception("Falha inesperada na execucao de IA para feature '%s'.", feature_name or "default")
+        logger.exception(
+            "Falha inesperada na execucao de IA para feature '%s'.",
+            feature_name or "default",
+        )
         return None

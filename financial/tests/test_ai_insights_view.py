@@ -16,7 +16,9 @@ class FinancialAIInsightsViewTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        user = User.objects.create_superuser(username="insights", email="insights@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="insights", email="insights@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
         cls.user = user

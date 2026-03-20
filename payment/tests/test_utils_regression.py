@@ -10,6 +10,7 @@ from payment.models import Payment
 from payment.utils import (
     ParsedTransaction,
     PaymentDetail,
+    _normalize_text,
     check_payment_is_valid,
     csv_header_mapping,
     find_payment_by_reference,
@@ -22,7 +23,6 @@ from payment.utils import (
     process_csv_row,
     process_csv_value,
     validate_payment_data,
-    _normalize_text,
 )
 
 
@@ -121,7 +121,9 @@ class PaymentUtilsRegressionTestCase(TestCase):
     def test_parse_helpers(self):
         self.assertEqual(process_csv_date("2026-01-31"), date(2026, 1, 31))
         self.assertEqual(process_csv_date("31/01/2026"), date(2026, 1, 31))
-        self.assertIsNone(process_csv_date("01/31/2026"))  # MM/DD/YYYY format removed (ambiguous)
+        self.assertIsNone(
+            process_csv_date("01/31/2026")
+        )  # MM/DD/YYYY format removed (ambiguous)
         self.assertIsNone(process_csv_date("invalid"))
         self.assertIsNone(process_csv_date(None))
 
@@ -145,7 +147,12 @@ class PaymentUtilsRegressionTestCase(TestCase):
         mapped = payment_mapped_to_detail(
             self.user,
             "card_payments",
-            {"value": Decimal("-10"), "name": "", "description": "fallback name", "date": date(2026, 1, 1)},
+            {
+                "value": Decimal("-10"),
+                "name": "",
+                "description": "fallback name",
+                "date": date(2026, 1, 1),
+            },
             datetime(2026, 1, 15),
         )
         self.assertEqual(mapped.type, Payment.TYPE_CREDIT)
@@ -282,7 +289,9 @@ class PaymentUtilsRegressionTestCase(TestCase):
             user_id=self.user.id,
         )
 
-        candidates = find_possible_payment_matches(self.user, payment_data, threshold=0.10, top_n=1)
+        candidates = find_possible_payment_matches(
+            self.user, payment_data, threshold=0.10, top_n=1
+        )
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0]["payment"].name, "Mercado Central")
 
@@ -290,7 +299,9 @@ class PaymentUtilsRegressionTestCase(TestCase):
         payment_data_no_dates = PaymentDetail(
             **{**payment_data.__dict__, "date": None, "payment_date": None}
         )
-        candidates_no_dates = find_possible_payment_matches(self.user, payment_data_no_dates, threshold=0.0)
+        candidates_no_dates = find_possible_payment_matches(
+            self.user, payment_data_no_dates, threshold=0.0
+        )
         self.assertGreaterEqual(len(candidates_no_dates), 1)
 
     def test_find_possible_payment_matches_handles_value_cast_exception(self):
@@ -323,7 +334,10 @@ class PaymentUtilsRegressionTestCase(TestCase):
             invoice_id=None,
             user_id=self.user.id,
         )
-        with patch("payment.utils.Payment.objects.filter", return_value=DummyQS([dummy_payment])):
+        with patch(
+            "payment.utils.Payment.objects.filter",
+            return_value=DummyQS([dummy_payment]),
+        ):
             candidates = find_possible_payment_matches(self.user, data, threshold=0.0)
         self.assertEqual(len(candidates), 1)
 
@@ -359,17 +373,27 @@ class PaymentUtilsRegressionTestCase(TestCase):
         )
 
         with (
-            patch("payment.utils.Payment.objects.filter", return_value=DummyQS([dummy_payment])),
+            patch(
+                "payment.utils.Payment.objects.filter",
+                return_value=DummyQS([dummy_payment]),
+            ),
             patch("payment.utils.fuzz.token_set_ratio", side_effect=[80, 0]),
         ):
-            candidates_80 = find_possible_payment_matches(self.user, data, threshold=0.0)
+            candidates_80 = find_possible_payment_matches(
+                self.user, data, threshold=0.0
+            )
         self.assertEqual(len(candidates_80), 1)
 
         with (
-            patch("payment.utils.Payment.objects.filter", return_value=DummyQS([dummy_payment])),
+            patch(
+                "payment.utils.Payment.objects.filter",
+                return_value=DummyQS([dummy_payment]),
+            ),
             patch("payment.utils.fuzz.token_set_ratio", side_effect=[65, 0]),
         ):
-            candidates_65 = find_possible_payment_matches(self.user, data, threshold=0.0)
+            candidates_65 = find_possible_payment_matches(
+                self.user, data, threshold=0.0
+            )
         self.assertEqual(len(candidates_65), 1)
 
     def test_check_payment_is_valid(self):
@@ -400,14 +424,26 @@ class PaymentUtilsRegressionTestCase(TestCase):
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "x", "system_field": "ignore"},
         ]
-        row = {"descrição": "Mercado 2/10", "valor": "15.5", "data": "2026-01-10", "x": "ignored"}
+        row = {
+            "descrição": "Mercado 2/10",
+            "valor": "15.5",
+            "data": "2026-01-10",
+            "x": "ignored",
+        }
 
         with (
             patch("payment.utils.find_payment_by_reference", return_value=None),
-            patch("payment.utils.find_possible_payment_matches", return_value=[{"payment": Mock(id=1), "score": 0.5}]),
-            patch("payment.utils.generate_payment_reference", return_value="generated-ref"),
+            patch(
+                "payment.utils.find_possible_payment_matches",
+                return_value=[{"payment": Mock(id=1), "score": 0.5}],
+            ),
+            patch(
+                "payment.utils.generate_payment_reference", return_value="generated-ref"
+            ),
         ):
-            tx = process_csv_row(self.user, "transactions", headers, row, datetime(2026, 1, 31))
+            tx = process_csv_row(
+                self.user, "transactions", headers, row, datetime(2026, 1, 31)
+            )
 
         self.assertEqual(tx.mapped_data.reference, "generated-ref")
         self.assertTrue(isinstance(tx.validation_errors, list))
@@ -428,14 +464,27 @@ class PaymentUtilsRegressionTestCase(TestCase):
             value=Decimal("1"),
             user_id=self.user.id,
         )
-        row_with_ref = {"descrição": "Pagamento recebido", "valor": "10", "data": "2026-01-10", "reference": "exists"}
-        headers_with_ref = headers + [{"csv_column": "reference", "system_field": "reference"}]
+        row_with_ref = {
+            "descrição": "Pagamento recebido",
+            "valor": "10",
+            "data": "2026-01-10",
+            "reference": "exists",
+        }
+        headers_with_ref = headers + [
+            {"csv_column": "reference", "system_field": "reference"}
+        ]
 
         with (
             patch("payment.utils.find_payment_by_reference", return_value=existing),
             patch("payment.utils.find_possible_payment_matches") as possible_mock,
         ):
-            tx2 = process_csv_row(self.user, "card_payments", headers_with_ref, row_with_ref, datetime(2026, 1, 31))
+            tx2 = process_csv_row(
+                self.user,
+                "card_payments",
+                headers_with_ref,
+                row_with_ref,
+                datetime(2026, 1, 31),
+            )
 
         self.assertIsNotNone(tx2.matched_payment)
         self.assertIsNone(tx2.possibly_matched_payment_list)

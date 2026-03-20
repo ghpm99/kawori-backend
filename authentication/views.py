@@ -1,6 +1,6 @@
-from http import HTTPStatus
 import json
 from datetime import datetime
+from http import HTTPStatus
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -10,12 +10,19 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpRequest, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.models import EmailVerification, SocialAccount, SocialAuthState, UserToken
+from audit.decorators import audit_log, audit_log_auth
+from audit.models import CATEGORY_AUTH
+from authentication.models import (
+    EmailVerification,
+    SocialAccount,
+    SocialAuthState,
+    UserToken,
+)
 from authentication.utils import (
     SocialOAuthError,
     build_social_authorize_url,
@@ -31,8 +38,6 @@ from authentication.utils import (
     send_verification_email_async,
     split_name,
 )
-from audit.decorators import audit_log, audit_log_auth
-from audit.models import CATEGORY_AUTH
 from kawori.decorators import validate_user
 
 
@@ -45,7 +50,9 @@ def _build_auth_response(user: User, payload: dict = None) -> JsonResponse:
 
     access_token = AccessToken.for_user(user)
     refresh_token = RefreshToken.for_user(user)
-    refresh_token_expiration = datetime.fromtimestamp(refresh_token["exp"], tz=timezone.utc)
+    refresh_token_expiration = datetime.fromtimestamp(
+        refresh_token["exp"], tz=timezone.utc
+    )
 
     response_payload = payload.copy() if payload else {}
     response_payload["refresh_token_expiration"] = refresh_token_expiration.isoformat()
@@ -104,7 +111,11 @@ def _create_user_from_social_profile(profile: dict, provider: str) -> User:
     email = (profile.get("email") or "").strip().lower()
     full_name = (profile.get("full_name") or "").strip()
     first_name, last_name = split_name(full_name)
-    base_username = email.split("@")[0] if email else f"{provider}_{profile.get('provider_user_id', 'user')}"
+    base_username = (
+        email.split("@")[0]
+        if email
+        else f"{provider}_{profile.get('provider_user_id', 'user')}"
+    )
     username = generate_unique_username(base_username)
 
     user = User.objects.create_user(username=username, email=email, password=None)
@@ -131,9 +142,13 @@ def _create_user_from_social_profile(profile: dict, provider: str) -> User:
     return user
 
 
-def _redirect_or_json(state_obj: SocialAuthState, payload: dict, status_code: int = 200):
+def _redirect_or_json(
+    state_obj: SocialAuthState, payload: dict, status_code: int = 200
+):
     if state_obj and state_obj.frontend_redirect_uri:
-        redirect_url = build_social_redirect_url(state_obj.frontend_redirect_uri, payload)
+        redirect_url = build_social_redirect_url(
+            state_obj.frontend_redirect_uri, payload
+        )
         return HttpResponseRedirect(redirect_url)
     return JsonResponse(payload, status=status_code)
 
@@ -156,7 +171,9 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     if not user:
         return JsonResponse({"msg": "Dados incorretos."}, status=HTTPStatus.NOT_FOUND)
     if not user.is_active:
-        return JsonResponse({"msg": "Este usuário não está ativo."}, status=HTTPStatus.FORBIDDEN)
+        return JsonResponse(
+            {"msg": "Este usuário não está ativo."}, status=HTTPStatus.FORBIDDEN
+        )
 
     return _build_auth_response(user)
 
@@ -190,7 +207,9 @@ def verify_token(request: HttpRequest) -> JsonResponse:
     access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
 
     if access_token_cookie is None:
-        return JsonResponse({"msg": "Token não encontrado"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Token não encontrado"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     try:
 
@@ -202,7 +221,9 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 
     except Exception as e:
 
-        json_response = JsonResponse({"error": str(e), "valid": False}, status=HTTPStatus.UNAUTHORIZED)
+        json_response = JsonResponse(
+            {"error": str(e), "valid": False}, status=HTTPStatus.UNAUTHORIZED
+        )
 
         json_response.delete_cookie(
             settings.ACCESS_TOKEN_NAME,
@@ -217,7 +238,9 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
 
     refresh_token_cookie = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
     if refresh_token_cookie is None:
-        return JsonResponse({"msg": "Token não encontrado"}, status=HTTPStatus.FORBIDDEN)
+        return JsonResponse(
+            {"msg": "Token não encontrado"}, status=HTTPStatus.FORBIDDEN
+        )
 
     try:
         refresh_token = RefreshToken(refresh_token_cookie)
@@ -239,7 +262,9 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
 
         return json_response
     except Exception as e:
-        return JsonResponse({"error": str(e), "valid": False}, status=HTTPStatus.FORBIDDEN)
+        return JsonResponse(
+            {"error": str(e), "valid": False}, status=HTTPStatus.FORBIDDEN
+        )
 
 
 @require_POST
@@ -250,7 +275,10 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     required_fields = ["username", "password", "email", "name", "last_name"]
     for field in required_fields:
         if not data.get(field):
-            return JsonResponse({"msg": "Todos os campos são obrigatórios."}, status=HTTPStatus.BAD_REQUEST)
+            return JsonResponse(
+                {"msg": "Todos os campos são obrigatórios."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
 
     username = data["username"]
     password = data["password"]
@@ -261,15 +289,21 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     username_exists = User.objects.filter(username=username).exists()
 
     if username_exists:
-        return JsonResponse({"msg": "Usuário já cadastrado"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Usuário já cadastrado"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     email_exists = User.objects.filter(email=email).exists()
 
     if email_exists:
-        return JsonResponse({"msg": "E-mail já cadastrado"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "E-mail já cadastrado"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     with transaction.atomic():
-        user = User.objects.create_user(username=username, password=password, email=email)
+        user = User.objects.create_user(
+            username=username, password=password, email=email
+        )
         user.first_name = name
         user.last_name = last_name
         user.save()
@@ -288,7 +322,9 @@ def signup_view(request: HttpRequest) -> JsonResponse:
     try:
         ip_address = get_client_ip(request)
         raw_token = UserToken.create_for_user(
-            user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, ip_address=ip_address
+            user,
+            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
+            ip_address=ip_address,
         )
         send_verification_email_async(user, raw_token)
     except Exception:  # nosec B110
@@ -304,7 +340,9 @@ def obtain_csrf_cookie(request: HttpRequest) -> JsonResponse:
 
 # ─── Password reset ───────────────────────────────────────────────────────────
 
-_RESET_GENERIC_MSG = "Se o e-mail estiver cadastrado, você receberá as instruções em breve."
+_RESET_GENERIC_MSG = (
+    "Se o e-mail estiver cadastrado, você receberá as instruções em breve."
+)
 
 
 @require_POST
@@ -318,11 +356,15 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     email = data.get("email", "").strip().lower()
     if not email:
-        return JsonResponse({"msg": "E-mail é obrigatório."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "E-mail é obrigatório."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     ip_address = get_client_ip(request)
 
@@ -340,7 +382,9 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
     if UserToken.is_rate_limited_by_user(user, UserToken.TOKEN_TYPE_PASSWORD_RESET):
         return JsonResponse({"msg": _RESET_GENERIC_MSG})
 
-    raw_token = UserToken.create_for_user(user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address=ip_address)
+    raw_token = UserToken.create_for_user(
+        user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address=ip_address
+    )
     send_password_reset_email_async(user, raw_token)
 
     return JsonResponse({"msg": _RESET_GENERIC_MSG})
@@ -363,7 +407,9 @@ def validate_reset_token(request: HttpRequest) -> JsonResponse:
     token_hash = UserToken.hash_token(raw_token)
 
     try:
-        token_obj = UserToken.objects.get(token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
+        token_obj = UserToken.objects.get(
+            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
     except UserToken.DoesNotExist:
         return JsonResponse(
             {"valid": False, "msg": "Token inválido ou expirado."},
@@ -389,7 +435,9 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     raw_token = data.get("token", "").strip()
     new_password = data.get("new_password", "")
@@ -447,11 +495,15 @@ def verify_email(request: HttpRequest) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     raw_token = data.get("token", "").strip()
     if not raw_token:
-        return JsonResponse({"msg": "Token é obrigatório."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Token é obrigatório."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     token_hash = UserToken.hash_token(raw_token)
 
@@ -534,18 +586,29 @@ def social_authorize(request: HttpRequest, provider: str) -> JsonResponse:
 
     current_user = _get_current_user_from_cookie(request)
     requested_mode = (request.GET.get("mode") or "").strip().lower()
-    mode = SocialAuthState.MODE_LINK if requested_mode == SocialAuthState.MODE_LINK else SocialAuthState.MODE_LOGIN
+    mode = (
+        SocialAuthState.MODE_LINK
+        if requested_mode == SocialAuthState.MODE_LINK
+        else SocialAuthState.MODE_LOGIN
+    )
     if mode == SocialAuthState.MODE_LINK and not current_user:
-        return JsonResponse({"msg": "Usuário precisa estar autenticado para vincular."}, status=HTTPStatus.UNAUTHORIZED)
+        return JsonResponse(
+            {"msg": "Usuário precisa estar autenticado para vincular."},
+            status=HTTPStatus.UNAUTHORIZED,
+        )
 
     frontend_redirect_uri = (request.GET.get("frontend_redirect_uri") or "").strip()
-    redirect_uri = request.build_absolute_uri(reverse("auth_social_callback", kwargs={"provider": provider}))
+    redirect_uri = request.build_absolute_uri(
+        reverse("auth_social_callback", kwargs={"provider": provider})
+    )
     raw_state = SocialAuthState.create_for_provider(
         provider=provider,
         mode=mode,
         user=current_user if mode == SocialAuthState.MODE_LINK else None,
         frontend_redirect_uri=frontend_redirect_uri,
-        expiration_minutes=getattr(settings, "SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", 10),
+        expiration_minutes=getattr(
+            settings, "SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", 10
+        ),
     )
     authorize_url = build_social_authorize_url(provider_config, raw_state, redirect_uri)
 
@@ -571,34 +634,55 @@ def social_callback(request: HttpRequest, provider: str):
         return JsonResponse({"msg": exc.message}, status=exc.status_code)
 
     if provider_error:
-        return JsonResponse({"msg": f"Erro retornado pelo provedor: {provider_error}"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": f"Erro retornado pelo provedor: {provider_error}"},
+            status=HTTPStatus.BAD_REQUEST,
+        )
 
     if not code or not state_raw:
-        return JsonResponse({"msg": "Parâmetros OAuth inválidos."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Parâmetros OAuth inválidos."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     state_hash = SocialAuthState.hash_state(state_raw)
-    state_obj = SocialAuthState.objects.select_related("user").filter(provider=provider, state_hash=state_hash).first()
+    state_obj = (
+        SocialAuthState.objects.select_related("user")
+        .filter(provider=provider, state_hash=state_hash)
+        .first()
+    )
     if not state_obj or not state_obj.is_valid():
-        return JsonResponse({"msg": "Estado OAuth inválido ou expirado."}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Estado OAuth inválido ou expirado."}, status=HTTPStatus.BAD_REQUEST
+        )
 
     try:
-        redirect_uri = request.build_absolute_uri(reverse("auth_social_callback", kwargs={"provider": provider}))
+        redirect_uri = request.build_absolute_uri(
+            reverse("auth_social_callback", kwargs={"provider": provider})
+        )
         token_data = exchange_social_code_for_token(provider_config, code, redirect_uri)
         profile = fetch_social_profile(provider_config, token_data)
     except SocialOAuthError as exc:
         state_obj.consume()
-        return _redirect_or_json(state_obj, {"status": "error", "msg": exc.message}, status_code=exc.status_code)
+        return _redirect_or_json(
+            state_obj,
+            {"status": "error", "msg": exc.message},
+            status_code=exc.status_code,
+        )
     except Exception:
         state_obj.consume()
         return _redirect_or_json(
-            state_obj, {"status": "error", "msg": "Falha ao concluir login social."}, status_code=400
+            state_obj,
+            {"status": "error", "msg": "Falha ao concluir login social."},
+            status_code=400,
         )
 
     provider_user_id = (profile.get("provider_user_id") or "").strip()
     if not provider_user_id:
         state_obj.consume()
         return _redirect_or_json(
-            state_obj, {"status": "error", "msg": "Perfil social sem identificador único."}, status_code=400
+            state_obj,
+            {"status": "error", "msg": "Perfil social sem identificador único."},
+            status_code=400,
         )
 
     with transaction.atomic():
@@ -617,7 +701,10 @@ def social_callback(request: HttpRequest, provider: str):
                 state_obj.consume()
                 return _redirect_or_json(
                     state_obj,
-                    {"status": "error", "msg": "Usuário autenticado inválido para vínculo."},
+                    {
+                        "status": "error",
+                        "msg": "Usuário autenticado inválido para vínculo.",
+                    },
                     status_code=HTTPStatus.FORBIDDEN,
                 )
 
@@ -626,7 +713,10 @@ def social_callback(request: HttpRequest, provider: str):
                 state_obj.consume()
                 return _redirect_or_json(
                     state_obj,
-                    {"status": "error", "msg": "Esta conta social já está vinculada a outro usuário."},
+                    {
+                        "status": "error",
+                        "msg": "Esta conta social já está vinculada a outro usuário.",
+                    },
                     status_code=HTTPStatus.CONFLICT,
                 )
         else:
@@ -658,12 +748,20 @@ def social_callback(request: HttpRequest, provider: str):
             "last_login_at": timezone.now(),
         }
 
-        user_provider_link = SocialAccount.objects.filter(user=target_user, provider=provider).first()
-        if user_provider_link and user_provider_link.provider_user_id != provider_user_id:
+        user_provider_link = SocialAccount.objects.filter(
+            user=target_user, provider=provider
+        ).first()
+        if (
+            user_provider_link
+            and user_provider_link.provider_user_id != provider_user_id
+        ):
             state_obj.consume()
             return _redirect_or_json(
                 state_obj,
-                {"status": "error", "msg": "Usuário já possui outra conta vinculada neste provedor."},
+                {
+                    "status": "error",
+                    "msg": "Usuário já possui outra conta vinculada neste provedor.",
+                },
                 status_code=HTTPStatus.CONFLICT,
             )
 
@@ -680,7 +778,11 @@ def social_callback(request: HttpRequest, provider: str):
                 **social_defaults,
             )
 
-        if social_defaults["is_email_verified"] and target_user.email and target_user.email.lower() == email:
+        if (
+            social_defaults["is_email_verified"]
+            and target_user.email
+            and target_user.email.lower() == email
+        ):
             verification, _ = EmailVerification.objects.get_or_create(user=target_user)
             if not verification.is_verified:
                 verification.is_verified = True
@@ -730,7 +832,9 @@ def social_accounts_list(request: HttpRequest, user: User) -> JsonResponse:
                 "full_name": account.full_name,
                 "avatar_url": account.avatar_url,
                 "linked_at": account.linked_at.isoformat(),
-                "last_login_at": account.last_login_at.isoformat() if account.last_login_at else None,
+                "last_login_at": (
+                    account.last_login_at.isoformat() if account.last_login_at else None
+                ),
             }
         )
     return JsonResponse({"accounts": payload})
@@ -739,11 +843,15 @@ def social_accounts_list(request: HttpRequest, user: User) -> JsonResponse:
 @require_POST
 @validate_user("user")
 @audit_log("social.accounts.unlink", CATEGORY_AUTH)
-def social_account_unlink(request: HttpRequest, user: User, provider: str) -> JsonResponse:
+def social_account_unlink(
+    request: HttpRequest, user: User, provider: str
+) -> JsonResponse:
     provider = (provider or "").strip().lower()
     account = SocialAccount.objects.filter(user=user, provider=provider).first()
     if not account:
-        return JsonResponse({"msg": "Conta social não encontrada."}, status=HTTPStatus.NOT_FOUND)
+        return JsonResponse(
+            {"msg": "Conta social não encontrada."}, status=HTTPStatus.NOT_FOUND
+        )
 
     has_password_login = user.has_usable_password()
     social_count = SocialAccount.objects.filter(user=user).count()

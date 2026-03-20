@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 
 # Create your models here.
 
@@ -7,9 +7,7 @@ from django.contrib.auth.models import User
 class Facetexture(models.Model):
 
     def characteres_json_default(self):
-        return {
-            'characters': []
-        }
+        return {"characters": []}
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     characters = models.JSONField(default=characteres_json_default)
@@ -18,14 +16,14 @@ class Facetexture(models.Model):
 class BDOClass(models.Model):
     name = models.CharField(max_length=64, unique=True)
     abbreviation = models.CharField(max_length=32, unique=True)
-    image = models.ImageField(upload_to='bdoclass/')
-    class_image = models.ImageField(upload_to='classimage/', null=True)
+    image = models.ImageField(upload_to="bdoclass/")
+    class_image = models.ImageField(upload_to="classimage/", null=True)
     color = models.CharField(max_length=7, null=True)
     class_order = models.IntegerField(default=1)
 
 
 class PreviewBackground(models.Model):
-    image = models.ImageField(upload_to='background/')
+    image = models.ImageField(upload_to="background/")
 
 
 class Character(models.Model):

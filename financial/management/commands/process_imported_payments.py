@@ -1,19 +1,20 @@
-from datetime import timedelta
-from decimal import Decimal
 import hashlib
 import json
 import re
 import time
+from datetime import timedelta
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from django.utils import timezone
+
 from financial.utils import generate_payments, update_invoice_value
 from invoice.models import Invoice
 from invoice.utils import validate_invoice_data
 from payment.ai_assist import suggest_payment_normalization
 from payment.models import ImportedPayment, Payment
 from payment.utils import generate_payment_installments_by_name
-from django.core.management.base import BaseCommand
-from django.db import transaction
-from django.utils import timezone
-
 from tag.models import Tag
 
 
@@ -37,7 +38,9 @@ class Command(BaseCommand):
             print(f"Recovered {count} stuck processing payments")
 
     def is_processing_running(self) -> bool:
-        return ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_PROCESSING).exists()
+        return ImportedPayment.objects.filter(
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING
+        ).exists()
 
     def list_to_process(self, limit=100):
         return (
@@ -74,7 +77,9 @@ class Command(BaseCommand):
     def is_auxiliary_payment(self, name: str) -> bool:
         return any(k in name.lower() for k in self.INVALID_KEYWORDS)
 
-    def get_main_payment(self, payments_to_process: list[ImportedPayment]) -> ImportedPayment:
+    def get_main_payment(
+        self, payments_to_process: list[ImportedPayment]
+    ) -> ImportedPayment:
 
         for payment in payments_to_process:
             if not self.is_auxiliary_payment(payment.raw_name):
@@ -110,7 +115,9 @@ class Command(BaseCommand):
 
         return merged
 
-    def finish_with_error(self, error_description: str, payments_to_process: list[ImportedPayment]):
+    def finish_with_error(
+        self, error_description: str, payments_to_process: list[ImportedPayment]
+    ):
         for payment in payments_to_process:
             payment.status = ImportedPayment.IMPORT_STATUS_FAILED
             payment.status_description = error_description
@@ -131,9 +138,15 @@ class Command(BaseCommand):
             raise Exception("Pagamento merge sem pagamento selecionado")
 
         main_payment = self.get_main_payment(payments_to_process)
-        normalized_description = None if normalization is None else normalization.get("normalized_description")
+        normalized_description = (
+            None
+            if normalization is None
+            else normalization.get("normalized_description")
+        )
 
-        payment_description = self.get_payment_description(payments_to_process, normalized_description=normalized_description)
+        payment_description = self.get_payment_description(
+            payments_to_process, normalized_description=normalized_description
+        )
         payment.description = payment_description
 
         if not payment.reference:
@@ -151,12 +164,22 @@ class Command(BaseCommand):
         # Recalculate invoice totals
         update_invoice_value(payment.invoice)
 
-    def process_payment_by_merge(self, payments_to_process: list[ImportedPayment], normalization: dict | None = None):
+    def process_payment_by_merge(
+        self,
+        payments_to_process: list[ImportedPayment],
+        normalization: dict | None = None,
+    ):
         payment = next(
-            (payment.matched_payment for payment in payments_to_process if payment.matched_payment is not None),
+            (
+                payment.matched_payment
+                for payment in payments_to_process
+                if payment.matched_payment is not None
+            ),
             None,
         )
-        self.update_invoice_by_imported_payment(payment, payments_to_process, normalization=normalization)
+        self.update_invoice_by_imported_payment(
+            payment, payments_to_process, normalization=normalization
+        )
 
     def normalize_invoice_name(self, name: str) -> str:
         if not name:
@@ -172,7 +195,9 @@ class Command(BaseCommand):
 
         return re.sub(r"\s{2,}", " ", name).strip()
 
-    def get_invoice_name(self, payment: ImportedPayment, normalized_name: str | None = None) -> str:
+    def get_invoice_name(
+        self, payment: ImportedPayment, normalized_name: str | None = None
+    ) -> str:
         if normalized_name:
             return str(normalized_name).strip()[:255]
 
@@ -181,7 +206,9 @@ class Command(BaseCommand):
         if name:
             return name
 
-        payment_name_fallback = f"Pagamento {payment.raw_description} {payment.reference}"
+        payment_name_fallback = (
+            f"Pagamento {payment.raw_description} {payment.reference}"
+        )
 
         return payment_name_fallback[:255]
 
@@ -192,17 +219,29 @@ class Command(BaseCommand):
     ):
         main_payment = self.get_main_payment(payments_to_process)
         current_installments = max(
-            generate_payment_installments_by_name(payment.raw_name)[0] for payment in payments_to_process
+            generate_payment_installments_by_name(payment.raw_name)[0]
+            for payment in payments_to_process
         )
         total_installments = max(
-            generate_payment_installments_by_name(payment.raw_name)[1] for payment in payments_to_process
+            generate_payment_installments_by_name(payment.raw_name)[1]
+            for payment in payments_to_process
         )
-        if normalization is not None and isinstance(normalization.get("installments_total"), int):
-            total_installments = max(total_installments, normalization.get("installments_total"))
+        if normalization is not None and isinstance(
+            normalization.get("installments_total"), int
+        ):
+            total_installments = max(
+                total_installments, normalization.get("installments_total")
+            )
         installments_to_import = total_installments - current_installments + 1
-        normalized_name = None if normalization is None else normalization.get("normalized_name")
-        invoice_name = self.get_invoice_name(main_payment, normalized_name=normalized_name)
-        invoice_value = (sum(payment.raw_value for payment in payments_to_process)) * installments_to_import
+        normalized_name = (
+            None if normalization is None else normalization.get("normalized_name")
+        )
+        invoice_name = self.get_invoice_name(
+            main_payment, normalized_name=normalized_name
+        )
+        invoice_value = (
+            sum(payment.raw_value for payment in payments_to_process)
+        ) * installments_to_import
         invoice = Invoice(
             status=Invoice.STATUS_OPEN,
             type=main_payment.raw_type,
@@ -223,28 +262,48 @@ class Command(BaseCommand):
 
         if normalization and normalization.get("tag_names"):
             for tag_name in normalization.get("tag_names"):
-                suggested_tag = Tag.objects.filter(user=main_payment.user, name__iexact=tag_name).first()
+                suggested_tag = Tag.objects.filter(
+                    user=main_payment.user, name__iexact=tag_name
+                ).first()
                 if suggested_tag:
                     invoice_tags = self.merge_tags([suggested_tag], invoice_tags)
 
         invoice.tags.set(invoice_tags)
         return invoice
 
-    def process_payment_by_new(self, payments_to_process: list[ImportedPayment], normalization: dict | None = None):
-        invoice = self.create_invoice_by_imported_payment(payments_to_process, normalization=normalization)
-        normalized_description = None if normalization is None else normalization.get("normalized_description")
-        payment_description = self.get_payment_description(payments_to_process, normalized_description=normalized_description)
-        generate_payments(invoice, payment_description, payments_to_process[0].reference)
+    def process_payment_by_new(
+        self,
+        payments_to_process: list[ImportedPayment],
+        normalization: dict | None = None,
+    ):
+        invoice = self.create_invoice_by_imported_payment(
+            payments_to_process, normalization=normalization
+        )
+        normalized_description = (
+            None
+            if normalization is None
+            else normalization.get("normalized_description")
+        )
+        payment_description = self.get_payment_description(
+            payments_to_process, normalized_description=normalized_description
+        )
+        generate_payments(
+            invoice, payment_description, payments_to_process[0].reference
+        )
         update_invoice_value(invoice)
         validate_invoice_data(invoice)
 
     def check_payment_is_merge(self, payment_to_process: ImportedPayment):
-        has_merge_strategy = payment_to_process.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE
+        has_merge_strategy = (
+            payment_to_process.import_strategy == ImportedPayment.IMPORT_STRATEGY_MERGE
+        )
         has_payment_matched = payment_to_process.matched_payment is not None
 
         return has_merge_strategy or has_payment_matched
 
-    def get_ai_normalization(self, payments_to_process: list[ImportedPayment]) -> dict | None:
+    def get_ai_normalization(
+        self, payments_to_process: list[ImportedPayment]
+    ) -> dict | None:
         if not payments_to_process:
             return None
         try:
@@ -253,7 +312,9 @@ class Command(BaseCommand):
             return None
 
         signature = self._build_normalization_signature(payments_to_process)
-        cached = self._load_cached_normalization(payments_to_process, signature=signature)
+        cached = self._load_cached_normalization(
+            payments_to_process, signature=signature
+        )
         if cached is not None:
             return cached
 
@@ -262,10 +323,18 @@ class Command(BaseCommand):
             for payment in payments_to_process:
                 payment.normalization_signature = signature
                 payment.normalization_data = normalization
-                payment.save(update_fields=["normalization_signature", "normalization_data", "updated_at"])
+                payment.save(
+                    update_fields=[
+                        "normalization_signature",
+                        "normalization_data",
+                        "updated_at",
+                    ]
+                )
         return normalization
 
-    def _build_normalization_signature(self, payments_to_process: list[ImportedPayment]) -> str:
+    def _build_normalization_signature(
+        self, payments_to_process: list[ImportedPayment]
+    ) -> str:
         payload = [
             {
                 "id": payment.id,
@@ -275,7 +344,11 @@ class Command(BaseCommand):
                 "raw_value": str(payment.raw_value),
                 "reference": payment.reference,
                 "raw_date": payment.raw_date.isoformat() if payment.raw_date else "",
-                "raw_payment_date": payment.raw_payment_date.isoformat() if payment.raw_payment_date else "",
+                "raw_payment_date": (
+                    payment.raw_payment_date.isoformat()
+                    if payment.raw_payment_date
+                    else ""
+                ),
             }
             for payment in sorted(payments_to_process, key=lambda item: item.id)
         ]
@@ -293,22 +366,32 @@ class Command(BaseCommand):
                 return None
             if not payment.normalization_data:
                 return None
-        return payments_to_process[0].normalization_data if payments_to_process else None
+        return (
+            payments_to_process[0].normalization_data if payments_to_process else None
+        )
 
     def process_payment(self, payments_to_process: list[ImportedPayment]):
         with transaction.atomic():
             normalization = self.get_ai_normalization(payments_to_process)
-            has_merge = any(self.check_payment_is_merge(payment) for payment in payments_to_process)
+            has_merge = any(
+                self.check_payment_is_merge(payment) for payment in payments_to_process
+            )
             if has_merge:
-                self.process_payment_by_merge(payments_to_process, normalization=normalization)
+                self.process_payment_by_merge(
+                    payments_to_process, normalization=normalization
+                )
             else:
-                self.process_payment_by_new(payments_to_process, normalization=normalization)
+                self.process_payment_by_new(
+                    payments_to_process, normalization=normalization
+                )
             self.finish_with_success(payments_to_process)
 
     def check_existing_payments(self, payments: list[ImportedPayment]):
         references = {p.reference for p in payments if p.reference}
         user = {p.user for p in payments}
-        return Payment.objects.filter(reference__in=references, user__in=user, active=True).exists()
+        return Payment.objects.filter(
+            reference__in=references, user__in=user, active=True
+        ).exists()
 
     def run_command(self):
         self.recover_stuck_processing()
@@ -326,15 +409,24 @@ class Command(BaseCommand):
 
                 payments_to_process = [payment_to_process]
                 if payment_to_process.merge_group:
-                    others = self.claim_merge_group_payments(payment_to_process.merge_group)
+                    others = self.claim_merge_group_payments(
+                        payment_to_process.merge_group
+                    )
                     payments_to_process.extend(others)
                 if self.check_existing_payments(payments_to_process):
-                    raise Exception("Já existe pagamento cadastrado com a mesma referência")
+                    raise Exception(
+                        "Já existe pagamento cadastrado com a mesma referência"
+                    )
                 self.process_payment(payments_to_process)
             except Exception as e:
                 print(e)
                 self.finish_with_error(
-                    e.__str__(), payments_to_process if payments_to_process else [payment_to_process]
+                    e.__str__(),
+                    (
+                        payments_to_process
+                        if payments_to_process
+                        else [payment_to_process]
+                    ),
                 )
 
     def handle(self, *args, **options):

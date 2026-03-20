@@ -1,7 +1,8 @@
+from django.views.decorators.http import require_POST
+
 from audit.decorators import audit_log, audit_log_auth
 from audit.models import CATEGORY_PUSHER
 from kawori.decorators import validate_user
-from django.views.decorators.http import require_POST
 from lib import pusher
 
 

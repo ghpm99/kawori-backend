@@ -49,7 +49,9 @@ def enqueue_password_reset(user, raw_token):
             "user": user,
             "token": raw_token,
             "reset_url": reset_url,
-            "expiry_minutes": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_PASSWORD_RESET],
+            "expiry_minutes": UserToken.EXPIRY_CONFIG[
+                UserToken.TOKEN_TYPE_PASSWORD_RESET
+            ],
         },
         email_type=EmailQueue.TYPE_PASSWORD_RESET,
         category=EmailQueue.CATEGORY_TRANSACTIONAL,
@@ -70,7 +72,10 @@ def enqueue_email_verification(user, raw_token):
         context={
             "user": user,
             "verify_url": verify_url,
-            "expiry_hours": UserToken.EXPIRY_CONFIG[UserToken.TOKEN_TYPE_EMAIL_VERIFICATION] // 60,
+            "expiry_hours": UserToken.EXPIRY_CONFIG[
+                UserToken.TOKEN_TYPE_EMAIL_VERIFICATION
+            ]
+            // 60,
         },
         email_type=EmailQueue.TYPE_EMAIL_VERIFICATION,
         category=EmailQueue.CATEGORY_TRANSACTIONAL,
@@ -81,7 +86,9 @@ def enqueue_email_verification(user, raw_token):
 
 def enqueue_payment_notification(user, payments, final_date):
     total_value = sum(float(p["value"]) for p in payments)
-    ai_copy = suggest_payment_notification_copy(user, payments, final_date, channel="email")
+    ai_copy = suggest_payment_notification_copy(
+        user, payments, final_date, channel="email"
+    )
     subject_prefix = "Notificação de Pagamentos"
     if ai_copy and ai_copy.get("subject_prefix"):
         subject_prefix = ai_copy["subject_prefix"]

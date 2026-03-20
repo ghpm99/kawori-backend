@@ -2,7 +2,6 @@ from pathlib import Path
 
 from kawori.settings.base import *  # noqa: F403, F401
 
-
 DEBUG = False
 SECRET_KEY = "sqlite-test-secret-key"
 

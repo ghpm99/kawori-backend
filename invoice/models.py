@@ -1,7 +1,8 @@
 from decimal import Decimal
-from django.db import models
-from django.db.models import Sum, Case, When, F
+
 from django.contrib.auth.models import User
+from django.db import models
+from django.db.models import Case, F, Sum, When
 
 from contract.models import Contract
 from tag.models import Tag
@@ -38,9 +39,15 @@ class Invoice(models.Model):
     fixed = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
-    value_open = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
-    value_closed = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, null=True, blank=True)
+    value_open = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal(0.0)
+    )
+    value_closed = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal(0.0)
+    )
+    contract = models.ForeignKey(
+        Contract, on_delete=models.CASCADE, null=True, blank=True
+    )
     tags = models.ManyToManyField(Tag, related_name="invoices", blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 

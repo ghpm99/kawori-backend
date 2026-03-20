@@ -25,7 +25,14 @@ class MailerAIAssistTestCase(SimpleTestCase):
         with patch("mailer.ai_assist.safe_execute_ai_task", return_value=ai_response):
             result = suggest_payment_notification_copy(
                 user=SimpleNamespace(username="financeiro"),
-                payments=[{"name": "Internet", "value": 100.0, "payment_date": "20/03/2026", "type": "Boleto"}],
+                payments=[
+                    {
+                        "name": "Internet",
+                        "value": 100.0,
+                        "payment_date": "20/03/2026",
+                        "type": "Boleto",
+                    }
+                ],
                 final_date=date(2026, 3, 20),
                 channel="email",
             )

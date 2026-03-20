@@ -1,5 +1,5 @@
-import json
 import inspect
+import json
 from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
-from financial import views
 from contract.models import Contract
+from financial import views
 from invoice.models import Invoice
 from payment.models import Payment
 from tag.models import Tag
@@ -41,11 +41,15 @@ class FinancialViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=payload, content_type="application/json")
+            request = request_factory_method(
+                "/", data=payload, content_type="application/json"
+            )
         return inspect.unwrap(fn)(request, user=self.user)
 
     def test_report_count_and_amount_views(self):
-        ctx, _ = self._mock_cursor(fetchone_side_effect=[(3,), (120.5,), (20.0,), (10.0,)])
+        ctx, _ = self._mock_cursor(
+            fetchone_side_effect=[(3,), (120.5,), (20.0,), (10.0,)]
+        )
         with patch("financial.views.connection.cursor", return_value=ctx):
             count_res = self._call(views.report_count_payment_view)
             amount_res = self._call(views.report_amount_payment_view)
@@ -58,7 +62,9 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(json.loads(open_res.content)["data"], 20.0)
         self.assertEqual(json.loads(closed_res.content)["data"], 10.0)
 
-    def test_report_count_payment_view_counts_all_active_payments_without_default_period(self):
+    def test_report_count_payment_view_counts_all_active_payments_without_default_period(
+        self,
+    ):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(7,)])
 
         with patch("financial.views.connection.cursor", return_value=ctx):
@@ -85,10 +91,16 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
-            {"user_id": self.user.id, "begin": datetime(2026, 2, 1), "end": datetime(2026, 2, 28)},
+            {
+                "user_id": self.user.id,
+                "begin": datetime(2026, 2, 1),
+                "end": datetime(2026, 2, 28),
+            },
         )
 
-    def test_report_amount_payment_view_sums_all_active_payments_without_default_period(self):
+    def test_report_amount_payment_view_sums_all_active_payments_without_default_period(
+        self,
+    ):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(180.5,)])
 
         with patch("financial.views.connection.cursor", return_value=ctx):
@@ -115,10 +127,16 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
-            {"user_id": self.user.id, "begin": datetime(2026, 3, 1), "end": datetime(2026, 3, 31)},
+            {
+                "user_id": self.user.id,
+                "begin": datetime(2026, 3, 1),
+                "end": datetime(2026, 3, 31),
+            },
         )
 
-    def test_report_amount_payment_open_view_sums_all_open_payments_without_default_period(self):
+    def test_report_amount_payment_open_view_sums_all_open_payments_without_default_period(
+        self,
+    ):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(35.0,)])
 
         with patch("financial.views.connection.cursor", return_value=ctx):
@@ -145,10 +163,16 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
-            {"user_id": self.user.id, "begin": datetime(2026, 4, 1), "end": datetime(2026, 4, 30)},
+            {
+                "user_id": self.user.id,
+                "begin": datetime(2026, 4, 1),
+                "end": datetime(2026, 4, 30),
+            },
         )
 
-    def test_report_amount_payment_closed_view_sums_all_closed_payments_without_default_period(self):
+    def test_report_amount_payment_closed_view_sums_all_closed_payments_without_default_period(
+        self,
+    ):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(78.0,)])
 
         with patch("financial.views.connection.cursor", return_value=ctx):
@@ -175,7 +199,11 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertIn("BETWEEN %(begin)s AND %(end)s", query)
         self.assertEqual(
             params,
-            {"user_id": self.user.id, "begin": datetime(2026, 5, 1), "end": datetime(2026, 5, 31)},
+            {
+                "user_id": self.user.id,
+                "begin": datetime(2026, 5, 1),
+                "end": datetime(2026, 5, 31),
+            },
         )
 
     def test_report_amount_invoice_by_tag_view(self):
@@ -192,10 +220,14 @@ class FinancialViewsRegressionTestCase(TestCase):
         query, params = cursor.execute.call_args.args
         self.assertIn("fp.type=%(payment_type)s", query)
         self.assertNotIn("BETWEEN %(begin)s AND %(end)s", query)
-        self.assertEqual(params, {"user_id": self.user.id, "payment_type": Payment.TYPE_DEBIT})
+        self.assertEqual(
+            params, {"user_id": self.user.id, "payment_type": Payment.TYPE_DEBIT}
+        )
 
     def test_report_amount_invoice_by_tag_view_applies_date_range_when_provided(self):
-        ctx, cursor = self._mock_cursor(fetchall_side_effect=[[(1, "Moradia", "#1677ff", 2300)]])
+        ctx, cursor = self._mock_cursor(
+            fetchall_side_effect=[[(1, "Moradia", "#1677ff", 2300)]]
+        )
         with patch("financial.views.connection.cursor", return_value=ctx):
             response = self._call(
                 views.report_amount_invoice_by_tag_view,
@@ -226,7 +258,9 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertNotIn("BETWEEN %(begin)s", empty_query)
         self.assertEqual(empty_params, {"user_id": self.user.id})
 
-        values_ctx, values_cursor = self._mock_cursor(fetchall_side_effect=[[(10,), (20,), (40,), (100,)]])
+        values_ctx, values_cursor = self._mock_cursor(
+            fetchall_side_effect=[[(10,), (20,), (40,), (100,)]]
+        )
         with patch("financial.views.connection.cursor", return_value=values_ctx):
             response = self._call(
                 views.report_forecast_amount_value,
@@ -239,12 +273,21 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertIn("BETWEEN %(begin)s", query)
         self.assertEqual(
             params,
-            {"user_id": self.user.id, "begin": datetime(2026, 7, 1), "end": datetime(2026, 7, 31)},
+            {
+                "user_id": self.user.id,
+                "begin": datetime(2026, 7, 1),
+                "end": datetime(2026, 7, 31),
+            },
         )
 
     def test_report_payment_view_builds_summary_payload(self):
-        payments_rows = [("2026-01-01", 10, 5, 5, 5, 15), ("2026-02-01", 20, 10, 10, 10, 25)]
-        ctx, cursor = self._mock_cursor(fetchall_side_effect=[payments_rows], fetchone_side_effect=[(33,), (12,)])
+        payments_rows = [
+            ("2026-01-01", 10, 5, 5, 5, 15),
+            ("2026-02-01", 20, 10, 10, 10, 25),
+        ]
+        ctx, cursor = self._mock_cursor(
+            fetchall_side_effect=[payments_rows], fetchone_side_effect=[(33,), (12,)]
+        )
         with patch("financial.views.connection.cursor", return_value=ctx):
             response = self._call(views.report_payment_view)
 
@@ -253,20 +296,32 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(len(data["payments"]), 2)
         self.assertEqual(data["fixed_debit"], 33.0)
         self.assertEqual(data["fixed_credit"], 12.0)
-        self.assertEqual(cursor.execute.call_args_list[0].args[1], {"user_id": self.user.id})
-        self.assertEqual(cursor.execute.call_args_list[1].args[1], {"user_id": self.user.id})
-        self.assertEqual(cursor.execute.call_args_list[2].args[1], {"user_id": self.user.id})
+        self.assertEqual(
+            cursor.execute.call_args_list[0].args[1], {"user_id": self.user.id}
+        )
+        self.assertEqual(
+            cursor.execute.call_args_list[1].args[1], {"user_id": self.user.id}
+        )
+        self.assertEqual(
+            cursor.execute.call_args_list[2].args[1], {"user_id": self.user.id}
+        )
 
     def test_report_payment_view_applies_period_to_summary_and_fixed_totals(self):
         payments_rows = [("2026-01-01", 10, 5, 5, 5, 15)]
-        ctx, cursor = self._mock_cursor(fetchall_side_effect=[payments_rows], fetchone_side_effect=[(11,), (7,)])
+        ctx, cursor = self._mock_cursor(
+            fetchall_side_effect=[payments_rows], fetchone_side_effect=[(11,), (7,)]
+        )
         filters = {"date_from": "2026-01-01", "date_to": "2026-01-31"}
 
         with patch("financial.views.connection.cursor", return_value=ctx):
             response = self._call(views.report_payment_view, data=filters)
 
         self.assertEqual(response.status_code, 200)
-        expected_params = {"user_id": self.user.id, "begin": datetime(2026, 1, 1), "end": datetime(2026, 1, 31)}
+        expected_params = {
+            "user_id": self.user.id,
+            "begin": datetime(2026, 1, 1),
+            "end": datetime(2026, 1, 31),
+        }
         self.assertEqual(cursor.execute.call_args_list[0].args[1], expected_params)
         self.assertEqual(cursor.execute.call_args_list[1].args[1], expected_params)
         self.assertEqual(cursor.execute.call_args_list[2].args[1], expected_params)
@@ -274,7 +329,9 @@ class FinancialViewsRegressionTestCase(TestCase):
     def test_get_total_payment_from_date_reads_current_and_last_month(self):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(200,), (50,)])
         with patch("financial.views.connection.cursor", return_value=ctx):
-            current, previous = views.get_total_payment_from_date(date(2026, 3, 1), date(2026, 3, 31), self.user.id, 1)
+            current, previous = views.get_total_payment_from_date(
+                date(2026, 3, 1), date(2026, 3, 31), self.user.id, 1
+            )
 
         self.assertEqual(current, 200.0)
         self.assertEqual(previous, 50.0)
@@ -289,7 +346,10 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(cursor.execute.call_count, 1)
 
     def test_get_metrics_view_uses_payment_totals(self):
-        with patch("financial.views.get_total_payment_from_date", side_effect=[(1000.0, 500.0), (600.0, 400.0)]):
+        with patch(
+            "financial.views.get_total_payment_from_date",
+            side_effect=[(1000.0, 500.0), (600.0, 400.0)],
+        ):
             response = self._call(
                 views.get_metrics_view,
                 data={"date_from": "2026-03-01", "date_to": "2026-03-31"},
@@ -306,7 +366,10 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(data["growth"]["value"], 300.0)
 
     def test_get_metrics_view_handles_zero_last_month(self):
-        with patch("financial.views.get_total_payment_from_date", side_effect=[(100.0, 0.0), (10.0, 0.0)]):
+        with patch(
+            "financial.views.get_total_payment_from_date",
+            side_effect=[(100.0, 0.0), (10.0, 0.0)],
+        ):
             response = self._call(
                 views.get_metrics_view,
                 data={"date_from": "2026-03-01", "date_to": "2026-03-31"},
@@ -319,7 +382,9 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(data["growth"]["value"], 0)
 
     def test_get_metrics_view_uses_full_history_when_period_is_missing(self):
-        with patch("financial.views.get_total_payment", side_effect=[300.0, 120.0]) as mocked_total:
+        with patch(
+            "financial.views.get_total_payment", side_effect=[300.0, 120.0]
+        ) as mocked_total:
             response = self._call(views.get_metrics_view)
 
         self.assertEqual(response.status_code, 200)
@@ -334,25 +399,41 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(mocked_total.call_count, 2)
 
     def test_contract_views_list_detail_and_create(self):
-        c1 = Contract.objects.create(name="C1", user=self.user, value=10, value_open=8, value_closed=2)
+        c1 = Contract.objects.create(
+            name="C1", user=self.user, value=10, value_open=8, value_closed=2
+        )
         Contract.objects.create(name="C2", user=self.user)
 
-        list_response = self._call(views.get_all_contract_view, method="get", data={"page": 1, "page_size": 10})
+        list_response = self._call(
+            views.get_all_contract_view, method="get", data={"page": 1, "page_size": 10}
+        )
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(json.loads(list_response.content)["data"]["data"]), 2)
 
-        filtered_response = self._call(views.get_all_contract_view, method="get", data={"id": c1.id, "page_size": 10})
+        filtered_response = self._call(
+            views.get_all_contract_view,
+            method="get",
+            data={"id": c1.id, "page_size": 10},
+        )
         self.assertEqual(len(json.loads(filtered_response.content)["data"]["data"]), 1)
 
-        detail_response = inspect.unwrap(views.detail_contract_view)(self.rf.get("/"), id=c1.id, user=self.user)
+        detail_response = inspect.unwrap(views.detail_contract_view)(
+            self.rf.get("/"), id=c1.id, user=self.user
+        )
         self.assertEqual(detail_response.status_code, 200)
 
-        not_found = inspect.unwrap(views.detail_contract_view)(self.rf.get("/"), id=99999, user=self.user)
+        not_found = inspect.unwrap(views.detail_contract_view)(
+            self.rf.get("/"), id=99999, user=self.user
+        )
         self.assertEqual(not_found.status_code, 404)
 
-        create_response = self._call(views.save_new_contract_view, method="post", data={"name": "Created"})
+        create_response = self._call(
+            views.save_new_contract_view, method="post", data={"name": "Created"}
+        )
         self.assertEqual(create_response.status_code, 200)
-        self.assertTrue(Contract.objects.filter(name="Created", user=self.user).exists())
+        self.assertTrue(
+            Contract.objects.filter(name="Created", user=self.user).exists()
+        )
 
     def test_invoice_views_list_detail_and_payments(self):
         contract = Contract.objects.create(name="IC", user=self.user)
@@ -386,24 +467,34 @@ class FinancialViewsRegressionTestCase(TestCase):
             user=self.user,
         )
 
-        list_response = self._call(views.get_all_invoice_view, method="get", data={"page": 1, "page_size": 10})
+        list_response = self._call(
+            views.get_all_invoice_view, method="get", data={"page": 1, "page_size": 10}
+        )
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(json.loads(list_response.content)["data"]["data"]), 1)
 
         contract_invoices = inspect.unwrap(views.detail_contract_invoices_view)(
-            self.rf.get("/", data={"page": 1, "page_size": 10}), id=contract.id, user=self.user
+            self.rf.get("/", data={"page": 1, "page_size": 10}),
+            id=contract.id,
+            user=self.user,
         )
         self.assertEqual(contract_invoices.status_code, 200)
         self.assertEqual(len(json.loads(contract_invoices.content)["data"]["data"]), 1)
 
-        detail_response = inspect.unwrap(views.detail_invoice_view)(self.rf.get("/"), id=invoice.id, user=self.user)
+        detail_response = inspect.unwrap(views.detail_invoice_view)(
+            self.rf.get("/"), id=invoice.id, user=self.user
+        )
         self.assertEqual(detail_response.status_code, 200)
 
-        not_found = inspect.unwrap(views.detail_invoice_view)(self.rf.get("/"), id=99999, user=self.user)
+        not_found = inspect.unwrap(views.detail_invoice_view)(
+            self.rf.get("/"), id=99999, user=self.user
+        )
         self.assertEqual(not_found.status_code, 404)
 
         payments_response = inspect.unwrap(views.detail_invoice_payments_view)(
-            self.rf.get("/", data={"page": 1, "page_size": 10}), id=invoice.id, user=self.user
+            self.rf.get("/", data={"page": 1, "page_size": 10}),
+            id=invoice.id,
+            user=self.user,
         )
         self.assertEqual(payments_response.status_code, 200)
         self.assertEqual(len(json.loads(payments_response.content)["data"]["data"]), 1)
@@ -446,7 +537,9 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(float(contract.value_open), 50.0)
 
         not_found = inspect.unwrap(views.include_new_invoice_view)(
-            self.rf.post("/", data=json.dumps({"name": "x"}), content_type="application/json"),
+            self.rf.post(
+                "/", data=json.dumps({"name": "x"}), content_type="application/json"
+            ),
             id=99999,
             user=self.user,
         )
@@ -471,7 +564,11 @@ class FinancialViewsRegressionTestCase(TestCase):
 
         with patch("financial.views.update_contract_value") as mocked_update:
             response = inspect.unwrap(views.merge_contract_view)(
-                self.rf.post("/", data=json.dumps({"contracts": [old.id]}), content_type="application/json"),
+                self.rf.post(
+                    "/",
+                    data=json.dumps({"contracts": [old.id]}),
+                    content_type="application/json",
+                ),
                 id=main.id,
                 user=self.user,
             )
@@ -482,7 +579,9 @@ class FinancialViewsRegressionTestCase(TestCase):
         mocked_update.assert_called_once()
 
         not_found = inspect.unwrap(views.merge_contract_view)(
-            self.rf.post("/", data=json.dumps({"contracts": []}), content_type="application/json"),
+            self.rf.post(
+                "/", data=json.dumps({"contracts": []}), content_type="application/json"
+            ),
             id=99999,
             user=self.user,
         )
@@ -508,15 +607,23 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(all_tags.status_code, 200)
         self.assertEqual(len(json.loads(all_tags.content)["data"]), 1)
 
-        filtered_tags = self._call(views.get_all_tag_view, method="get", data={"name__icontains": "alp"})
+        filtered_tags = self._call(
+            views.get_all_tag_view, method="get", data={"name__icontains": "alp"}
+        )
         self.assertEqual(len(json.loads(filtered_tags.content)["data"]), 1)
 
-        create_tag = self._call(views.include_new_tag_view, method="post", data={"name": "Beta", "color": "#222"})
+        create_tag = self._call(
+            views.include_new_tag_view,
+            method="post",
+            data={"name": "Beta", "color": "#222"},
+        )
         self.assertEqual(create_tag.status_code, 200)
         self.assertTrue(Tag.objects.filter(name="Beta", user=self.user).exists())
 
         save_tags = inspect.unwrap(views.save_tag_invoice_view)(
-            self.rf.post("/", data=json.dumps([tag1.id]), content_type="application/json"),
+            self.rf.post(
+                "/", data=json.dumps([tag1.id]), content_type="application/json"
+            ),
             id=invoice.id,
             user=self.user,
         )
@@ -564,15 +671,24 @@ class FinancialViewsRegressionTestCase(TestCase):
         listing = self._call(
             views.get_all_view,
             method="get",
-            data={"status": Payment.STATUS_OPEN, "page": 1, "page_size": 10, "invoice": "Payment"},
+            data={
+                "status": Payment.STATUS_OPEN,
+                "page": 1,
+                "page_size": 10,
+                "invoice": "Payment",
+            },
         )
         self.assertEqual(listing.status_code, 200)
         self.assertEqual(len(json.loads(listing.content)["data"]["data"]), 1)
 
-        detail = inspect.unwrap(views.detail_view)(self.rf.get("/"), id=payment.id, user=self.user)
+        detail = inspect.unwrap(views.detail_view)(
+            self.rf.get("/"), id=payment.id, user=self.user
+        )
         self.assertEqual(detail.status_code, 200)
 
-        not_found = inspect.unwrap(views.detail_view)(self.rf.get("/"), id=99999, user=self.user)
+        not_found = inspect.unwrap(views.detail_view)(
+            self.rf.get("/"), id=99999, user=self.user
+        )
         self.assertEqual(not_found.status_code, 404)
 
     def test_get_all_view_and_get_all_invoice_view_with_all_filters(self):
@@ -670,9 +786,13 @@ class FinancialViewsRegressionTestCase(TestCase):
             },
         )
         self.assertEqual(create_response.status_code, 200)
-        self.assertEqual(Payment.objects.filter(user=self.user, name="Created payment").count(), 2)
+        self.assertEqual(
+            Payment.objects.filter(user=self.user, name="Created payment").count(), 2
+        )
 
-        contract = Contract.objects.create(name="SD", user=self.user, value_open=0, value=0)
+        contract = Contract.objects.create(
+            name="SD", user=self.user, value_open=0, value=0
+        )
         invoice = Invoice.objects.create(
             type=Invoice.Type.DEBIT,
             name="SDI",
@@ -741,21 +861,27 @@ class FinancialViewsRegressionTestCase(TestCase):
             user=self.user,
         )
         done_response = inspect.unwrap(views.save_detail_view)(
-            self.rf.post("/", data=json.dumps({"name": "no"}), content_type="application/json"),
+            self.rf.post(
+                "/", data=json.dumps({"name": "no"}), content_type="application/json"
+            ),
             id=done.id,
             user=self.user,
         )
         self.assertEqual(done_response.status_code, 500)
 
         not_found = inspect.unwrap(views.save_detail_view)(
-            self.rf.post("/", data=json.dumps({"name": "x"}), content_type="application/json"),
+            self.rf.post(
+                "/", data=json.dumps({"name": "x"}), content_type="application/json"
+            ),
             id=99999,
             user=self.user,
         )
         self.assertEqual(not_found.status_code, 404)
 
     def test_payoff_detail_view_branches(self):
-        contract = Contract.objects.create(name="PO", user=self.user, value=0, value_open=0, value_closed=0)
+        contract = Contract.objects.create(
+            name="PO", user=self.user, value=0, value_open=0, value_closed=0
+        )
         invoice = Invoice.objects.create(
             type=Invoice.Type.DEBIT,
             name="POI",
@@ -784,16 +910,24 @@ class FinancialViewsRegressionTestCase(TestCase):
             invoice=invoice,
             user=self.user,
         )
-        success = inspect.unwrap(views.payoff_detail_view)(self.rf.post("/"), id=payment.id, user=self.user)
+        success = inspect.unwrap(views.payoff_detail_view)(
+            self.rf.post("/"), id=payment.id, user=self.user
+        )
         self.assertEqual(success.status_code, 200)
 
-        already_done = inspect.unwrap(views.payoff_detail_view)(self.rf.post("/"), id=payment.id, user=self.user)
+        already_done = inspect.unwrap(views.payoff_detail_view)(
+            self.rf.post("/"), id=payment.id, user=self.user
+        )
         self.assertEqual(already_done.status_code, 400)
 
-        not_found = inspect.unwrap(views.payoff_detail_view)(self.rf.post("/"), id=99999, user=self.user)
+        not_found = inspect.unwrap(views.payoff_detail_view)(
+            self.rf.post("/"), id=99999, user=self.user
+        )
         self.assertEqual(not_found.status_code, 400)
 
-        fixed_contract = Contract.objects.create(name="PO2", user=self.user, value=0, value_open=0, value_closed=0)
+        fixed_contract = Contract.objects.create(
+            name="PO2", user=self.user, value=0, value_open=0, value_closed=0
+        )
         fixed_invoice = Invoice.objects.create(
             type=Invoice.Type.DEBIT,
             name="Fixed",

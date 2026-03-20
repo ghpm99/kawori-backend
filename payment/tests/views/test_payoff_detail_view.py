@@ -17,12 +17,16 @@ class PayoffDetailViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar tags para testes
         cls.tag1 = Tag.objects.create(name="Tag Payoff 1", color="#FF0000", user=user)
@@ -37,7 +41,7 @@ class PayoffDetailViewTestCase(TestCase):
             fixed=False,
             value=Decimal("1000.00"),
             value_open=Decimal("1000.00"),
-            user=user
+            user=user,
         )
         cls.invoice_non_fixed.tags.add(cls.tag1)
 
@@ -50,7 +54,7 @@ class PayoffDetailViewTestCase(TestCase):
             fixed=True,
             value=Decimal("2000.00"),
             value_open=Decimal("2000.00"),
-            user=user
+            user=user,
         )
         cls.invoice_fixed.tags.add(cls.tag1, cls.tag2)
 
@@ -68,7 +72,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("150.50"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice_non_fixed
+            invoice=cls.invoice_non_fixed,
         )
 
         # Criar pagamento aberto em invoice fixa
@@ -84,7 +88,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("300.00"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice_fixed
+            invoice=cls.invoice_fixed,
         )
 
         # Criar pagamento já concluído (não deve ser baixado novamente)
@@ -100,7 +104,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_DONE,
             user=user,
-            invoice=cls.invoice_non_fixed
+            invoice=cls.invoice_non_fixed,
         )
 
         # Criar pagamento para usuário normal (não deve ser acessível)
@@ -116,7 +120,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("200.00"),
             status=Payment.STATUS_OPEN,
             user=normal_user,
-            invoice=cls.invoice_non_fixed
+            invoice=cls.invoice_non_fixed,
         )
 
         # Obter token de autenticação
@@ -143,10 +147,12 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_success_non_fixed_invoice(self):
         """Testa sucesso da view com pagamento em invoice não fixa - deve baixar pagamento"""
         initial_invoice_value_open = self.invoice_non_fixed.value_open
-        initial_payment_status = self.payment_non_fixed.status
+        self.payment_non_fixed.status
 
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -160,15 +166,20 @@ class PayoffDetailViewTestCase(TestCase):
         self.invoice_non_fixed.refresh_from_db()
 
         self.assertEqual(self.payment_non_fixed.status, Payment.STATUS_DONE)
-        self.assertEqual(self.invoice_non_fixed.value_open, initial_invoice_value_open - self.payment_non_fixed.value)
+        self.assertEqual(
+            self.invoice_non_fixed.value_open,
+            initial_invoice_value_open - self.payment_non_fixed.value,
+        )
 
     def test_payoff_detail_view_success_fixed_invoice(self):
         """Testa sucesso da view com pagamento em invoice fixa - deve baixar e criar nova invoice"""
         initial_invoice_count = Invoice.objects.filter(user__username="test").count()
-        initial_payment_status = self.payment_fixed.status
+        self.payment_fixed.status
 
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -186,10 +197,11 @@ class PayoffDetailViewTestCase(TestCase):
         self.assertEqual(final_invoice_count, initial_invoice_count + 1)
 
         # Verificar dados da nova invoice
-        new_invoice = Invoice.objects.filter(
-            user__username="test",
-            name=self.invoice_fixed.name
-        ).exclude(id=self.invoice_fixed.id).first()
+        new_invoice = (
+            Invoice.objects.filter(user__username="test", name=self.invoice_fixed.name)
+            .exclude(id=self.invoice_fixed.id)
+            .first()
+        )
 
         self.assertIsNotNone(new_invoice)
         self.assertEqual(new_invoice.type, self.invoice_fixed.type)
@@ -202,14 +214,19 @@ class PayoffDetailViewTestCase(TestCase):
         # Verificar se as tags foram copiadas
         original_tags = list(self.invoice_fixed.tags.all())
         new_tags = list(new_invoice.tags.all())
-        
+
         self.assertEqual(len(new_tags), len(original_tags))
         for original_tag in original_tags:
             self.assertIn(original_tag, new_tags)
 
         # Verificar se a data de pagamento foi incrementada
-        expected_payment_date = self.payment_fixed.payment_date + timedelta(days=32)  # Aproximadamente 1 mês
-        self.assertEqual(new_invoice.payment_date.strftime("%Y-%m-%d"), expected_payment_date.strftime("%Y-%m-%d"))
+        expected_payment_date = self.payment_fixed.payment_date + timedelta(
+            days=32
+        )  # Aproximadamente 1 mês
+        self.assertEqual(
+            new_invoice.payment_date.strftime("%Y-%m-%d"),
+            expected_payment_date.strftime("%Y-%m-%d"),
+        )
 
         # Verificar se novos pagamentos foram gerados
         new_payments = Payment.objects.filter(invoice=new_invoice)
@@ -218,7 +235,9 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_success_credit_payment(self):
         """Testa sucesso da view com pagamento de crédito - deve baixar normalmente"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -234,7 +253,9 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_success_debit_payment(self):
         """Testa sucesso da view com pagamento de débito - deve baixar normalmente"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -274,7 +295,10 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_error_payment_from_other_user(self):
         """Testa erro da view tentando baixar pagamento de outro usuário - deve retornar erro 400"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_normal_user.id})
+            reverse(
+                "financial_payoff_detail_view",
+                kwargs={"id": self.payment_normal_user.id},
+            )
         )
 
         self.assertEqual(response.status_code, 400)
@@ -285,19 +309,31 @@ class PayoffDetailViewTestCase(TestCase):
 
     def test_payoff_detail_view_error_wrong_method_get(self):
         """Testa erro da view com método GET - deve retornar erro 405"""
-        response = self.client.get(reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}))
+        response = self.client.get(
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
+        )
 
         self.assertEqual(response.status_code, 405)
 
     def test_payoff_detail_view_error_wrong_method_put(self):
         """Testa erro da view com método PUT - deve retornar erro 405"""
-        response = self.client.put(reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}))
+        response = self.client.put(
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
+        )
 
         self.assertEqual(response.status_code, 405)
 
     def test_payoff_detail_view_error_wrong_method_delete(self):
         """Testa erro da view com método DELETE - deve retornar erro 405"""
-        response = self.client.delete(reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}))
+        response = self.client.delete(
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
+        )
 
         self.assertEqual(response.status_code, 405)
 
@@ -308,7 +344,9 @@ class PayoffDetailViewTestCase(TestCase):
             self.client.cookies[key] = morsel.value
 
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         # Deve retornar erro 401 ou 403
@@ -320,7 +358,9 @@ class PayoffDetailViewTestCase(TestCase):
         self.client.cookies.clear()
 
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         # Deve retornar erro 401 ou 403
@@ -340,7 +380,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("0.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice_non_fixed
+            invoice=self.invoice_non_fixed,
         )
 
         response = self.client.post(
@@ -371,7 +411,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("-100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice_non_fixed
+            invoice=self.invoice_non_fixed,
         )
 
         initial_invoice_value_open = self.invoice_non_fixed.value_open
@@ -392,7 +432,10 @@ class PayoffDetailViewTestCase(TestCase):
 
         self.assertEqual(payment_negative.status, Payment.STATUS_DONE)
         # Valor negativo deve aumentar o value_open
-        self.assertEqual(self.invoice_non_fixed.value_open, initial_invoice_value_open - payment_negative.value)
+        self.assertEqual(
+            self.invoice_non_fixed.value_open,
+            initial_invoice_value_open - payment_negative.value,
+        )
 
     def test_payoff_detail_view_edge_case_very_large_value_payment(self):
         """Testa edge case baixando pagamento de valor muito grande - deve funcionar normalmente"""
@@ -408,7 +451,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("999999.99"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice_non_fixed
+            invoice=self.invoice_non_fixed,
         )
 
         response = self.client.post(
@@ -438,7 +481,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("100.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice_non_fixed
+            invoice=self.invoice_non_fixed,
         )
 
         response = self.client.post(
@@ -451,7 +494,9 @@ class PayoffDetailViewTestCase(TestCase):
         payment_inactive.refresh_from_db()
         self.assertEqual(payment_inactive.status, Payment.STATUS_OPEN)
 
-    def test_payoff_detail_view_edge_case_fixed_invoice_with_multiple_installments(self):
+    def test_payoff_detail_view_edge_case_fixed_invoice_with_multiple_installments(
+        self,
+    ):
         """Testa edge case baixando pagamento de invoice fixa com múltiplas parcelas"""
         # Criar invoice fixa com múltiplas parcelas
         invoice_multi = Invoice.objects.create(
@@ -462,7 +507,7 @@ class PayoffDetailViewTestCase(TestCase):
             fixed=True,
             value=Decimal("3000.00"),
             value_open=Decimal("3000.00"),
-            user=User.objects.get(username="test")
+            user=User.objects.get(username="test"),
         )
 
         # Criar pagamento para baixar
@@ -477,7 +522,7 @@ class PayoffDetailViewTestCase(TestCase):
             value=Decimal("1000.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=invoice_multi
+            invoice=invoice_multi,
         )
 
         initial_invoice_count = Invoice.objects.filter(user__username="test").count()
@@ -496,10 +541,11 @@ class PayoffDetailViewTestCase(TestCase):
         final_invoice_count = Invoice.objects.filter(user__username="test").count()
         self.assertEqual(final_invoice_count, initial_invoice_count + 1)
 
-        new_invoice = Invoice.objects.filter(
-            user__username="test",
-            name="Fatura Fixa Múltipla"
-        ).exclude(id=invoice_multi.id).first()
+        new_invoice = (
+            Invoice.objects.filter(user__username="test", name="Fatura Fixa Múltipla")
+            .exclude(id=invoice_multi.id)
+            .first()
+        )
 
         self.assertIsNotNone(new_invoice)
         self.assertEqual(new_invoice.installments, 3)
@@ -510,9 +556,7 @@ class PayoffDetailViewTestCase(TestCase):
 
     def test_payoff_detail_view_edge_case_invalid_id_format(self):
         """Testa edge case com formato de ID inválido - deve retornar erro 400"""
-        response = self.client.post(
-            "/financial/payment/invalid_id/payoff"
-        )
+        response = self.client.post("/financial/payment/invalid_id/payoff")
 
         self.assertEqual(response.status_code, 404)  # Django trata como não encontrado
 
@@ -526,9 +570,7 @@ class PayoffDetailViewTestCase(TestCase):
 
     def test_payoff_detail_view_edge_case_negative_id(self):
         """Testa edge case com ID negativo - deve retornar erro 400"""
-        response = self.client.post(
-            "/financial/payment/-1/payoff"
-        )
+        response = self.client.post("/financial/payment/-1/payoff")
 
         self.assertEqual(response.status_code, 404)
 
@@ -536,14 +578,18 @@ class PayoffDetailViewTestCase(TestCase):
         """Testa edge case tentativas concorrentes de baixar mesmo pagamento - segunda deve falhar"""
         # Primeira baixa
         response1 = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response1.status_code, 200)
 
         # Segunda baixa do mesmo pagamento
         response2 = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response2.status_code, 400)
@@ -553,7 +599,9 @@ class PayoffDetailViewTestCase(TestCase):
     def test_payoff_detail_view_response_structure(self):
         """Testa estrutura da resposta da view"""
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)
@@ -571,7 +619,9 @@ class PayoffDetailViewTestCase(TestCase):
         expected_value_open = initial_value_open - payment_value
 
         response = self.client.post(
-            reverse("financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id})
+            reverse(
+                "financial_payoff_detail_view", kwargs={"id": self.payment_non_fixed.id}
+            )
         )
 
         self.assertEqual(response.status_code, 200)

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('classification', '0002_question_text_alter_answer_dislike_count_and_more'),
+        ("classification", "0002_question_text_alter_answer_dislike_count_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='question',
-            name='question_details',
-            field=models.TextField(default=''),
+            model_name="question",
+            name="question_details",
+            field=models.TextField(default=""),
         ),
     ]

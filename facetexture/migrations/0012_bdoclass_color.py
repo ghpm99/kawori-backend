@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0011_character_active'),
+        ("facetexture", "0011_character_active"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='bdoclass',
-            name='color',
+            model_name="bdoclass",
+            name="color",
             field=models.CharField(max_length=7, null=True),
         ),
     ]

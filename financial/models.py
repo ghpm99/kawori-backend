@@ -10,10 +10,10 @@ class Month(models.Model):
     MONTH_ACCOUNTED = 3
 
     STATUS = [
-        (MONTH_EMPTY, 'empty'),
-        (MONTH_PROJECTION, 'projection'),
-        (MONTH_CALCULATED, 'calculated'),
-        (MONTH_ACCOUNTED, 'accounted')
+        (MONTH_EMPTY, "empty"),
+        (MONTH_PROJECTION, "projection"),
+        (MONTH_CALCULATED, "calculated"),
+        (MONTH_ACCOUNTED, "accounted"),
     ]
     status = models.IntegerField(default=MONTH_EMPTY, choices=STATUS)
     month = models.IntegerField()

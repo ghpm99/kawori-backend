@@ -15,7 +15,9 @@ class AIResponseCache:
         self._lock = threading.Lock()
         self._store: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    def build_cache_key(self, request: AITaskRequest, *, provider: str, model: str) -> str:
+    def build_cache_key(
+        self, request: AITaskRequest, *, provider: str, model: str
+    ) -> str:
         relevant_metadata = {
             key: value
             for key, value in (request.metadata or {}).items()
@@ -37,7 +39,9 @@ class AIResponseCache:
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
         }
-        payload_str = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+        payload_str = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, default=str
+        )
         return hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
 
     def get(self, key: str) -> AITaskResponse | None:
@@ -56,7 +60,10 @@ class AIResponseCache:
         if ttl_seconds <= 0:
             return
         with self._lock:
-            self._store[key] = (time.time() + ttl_seconds, _serialize_task_response(value))
+            self._store[key] = (
+                time.time() + ttl_seconds,
+                _serialize_task_response(value),
+            )
 
 
 _CACHE = AIResponseCache()
@@ -75,7 +82,9 @@ def _serialize_task_response(response: AITaskResponse) -> dict[str, Any]:
 def _deserialize_task_response(payload: dict[str, Any]) -> AITaskResponse:
     from ai.dto import ExecutionTraceEntry
 
-    trace_entries = [ExecutionTraceEntry(**item) for item in payload.get("execution_trace", [])]
+    trace_entries = [
+        ExecutionTraceEntry(**item) for item in payload.get("execution_trace", [])
+    ]
     data = dict(payload)
     data["execution_trace"] = trace_entries
     return AITaskResponse(**data)

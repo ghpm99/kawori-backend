@@ -13,7 +13,6 @@ from django.db.models.functions import Coalesce
 from budget.models import Budget
 from payment.models import Payment
 
-
 ESSENTIAL_KEYWORDS = {
     "moradia",
     "aluguel",
@@ -72,7 +71,9 @@ def _normalize_allocations(raw_allocations: dict[int, float]) -> dict[int, float
         equal_share = 100.0 / len(raw_allocations)
         return {key: round(equal_share, 2) for key in raw_allocations.keys()}
 
-    normalized = {key: (max(value, 0.0) / total) * 100 for key, value in raw_allocations.items()}
+    normalized = {
+        key: (max(value, 0.0) / total) * 100 for key, value in raw_allocations.items()
+    }
 
     rounded = {key: round(value, 2) for key, value in normalized.items()}
     diff = round(100.0 - sum(rounded.values()), 2)
@@ -87,7 +88,9 @@ def _scenario_multiplier(tag_name: str, scenario: str) -> float:
     normalized_name = _normalize_text(tag_name)
 
     is_essential = any(keyword in normalized_name for keyword in ESSENTIAL_KEYWORDS)
-    is_discretionary = any(keyword in normalized_name for keyword in DISCRETIONARY_KEYWORDS)
+    is_discretionary = any(
+        keyword in normalized_name for keyword in DISCRETIONARY_KEYWORDS
+    )
 
     if scenario == "conservative":
         if is_essential:
@@ -122,7 +125,9 @@ def _build_tag_reason(current: float, historical: float, scenario: str) -> str:
     return "alocacao alinhada com comportamento recente"
 
 
-def build_budget_allocation_suggestions(user, period: str | None = None) -> dict[str, Any]:
+def build_budget_allocation_suggestions(
+    user, period: str | None = None
+) -> dict[str, Any]:
     begin, end, period_label = _parse_period(period)
 
     budgets = list(
@@ -153,10 +158,14 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
         .annotate(total=Coalesce(Sum("value"), Decimal("0")))
     )
 
-    historical_totals = {row["invoice__tags"]: float(row["total"] or 0) for row in debit_rows}
+    historical_totals = {
+        row["invoice__tags"]: float(row["total"] or 0) for row in debit_rows
+    }
     total_historical = sum(historical_totals.values())
 
-    current_allocations = {budget.tag_id: float(budget.allocation_percentage) for budget in budgets}
+    current_allocations = {
+        budget.tag_id: float(budget.allocation_percentage) for budget in budgets
+    }
 
     historical_percentages = {}
     for budget in budgets:
@@ -164,7 +173,9 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
         if total_historical > 0:
             historical_percentages[budget.tag_id] = (tag_total / total_historical) * 100
         else:
-            historical_percentages[budget.tag_id] = current_allocations.get(budget.tag_id, 0.0)
+            historical_percentages[budget.tag_id] = current_allocations.get(
+                budget.tag_id, 0.0
+            )
 
     base_raw = {}
     for budget in budgets:
@@ -182,8 +193,12 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
         tag_id = budget.tag_id
         base_value = base_allocations.get(tag_id, 0.0)
 
-        conservative_raw[tag_id] = base_value * _scenario_multiplier(budget.tag.name, "conservative")
-        aggressive_raw[tag_id] = base_value * _scenario_multiplier(budget.tag.name, "aggressive")
+        conservative_raw[tag_id] = base_value * _scenario_multiplier(
+            budget.tag.name, "conservative"
+        )
+        aggressive_raw[tag_id] = base_value * _scenario_multiplier(
+            budget.tag.name, "aggressive"
+        )
 
     scenario_allocations = {
         "conservative": _normalize_allocations(conservative_raw),
@@ -210,8 +225,12 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
         for budget in budgets:
             tag_id = budget.tag_id
             current_value = round(current_allocations.get(tag_id, 0.0), 2)
-            suggested_value = round(scenario_allocations[scenario_id].get(tag_id, 0.0), 2)
-            historical_value = round(historical_percentages.get(tag_id, current_value), 2)
+            suggested_value = round(
+                scenario_allocations[scenario_id].get(tag_id, 0.0), 2
+            )
+            historical_value = round(
+                historical_percentages.get(tag_id, current_value), 2
+            )
 
             allocations.append(
                 {
@@ -221,7 +240,9 @@ def build_budget_allocation_suggestions(user, period: str | None = None) -> dict
                     "current_percentage": current_value,
                     "suggested_percentage": suggested_value,
                     "delta": round(suggested_value - current_value, 2),
-                    "reason": _build_tag_reason(current_value, historical_value, scenario_id),
+                    "reason": _build_tag_reason(
+                        current_value, historical_value, scenario_id
+                    ),
                 }
             )
 

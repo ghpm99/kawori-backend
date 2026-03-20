@@ -1,15 +1,17 @@
 import json
+import os
+
+from django.conf import settings
+from django.core.files import File
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from lib import pusher
-from remote.models import Config, Screenshot
+from django.views.decorators.http import require_GET, require_POST
+
 from audit.decorators import audit_log
 from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
-from django.views.decorators.http import require_POST, require_GET
-from django.core.files import File
-from django.conf import settings
-import os
+from lib import pusher
+from remote.models import Config, Screenshot
 
 
 @require_POST

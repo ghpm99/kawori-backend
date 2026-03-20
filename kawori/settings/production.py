@@ -1,7 +1,8 @@
 import os
-import sentry_sdk
-from kawori.settings.base import *  # noqa: F403, F401
 
+import sentry_sdk
+
+from kawori.settings.base import *  # noqa: F403, F401
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False

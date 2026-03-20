@@ -49,9 +49,13 @@ class Command(BaseCommand):
                     "id": item[0],
                     "type": type[1],
                     "name": item[2],
-                    "payment_date": datetime.strptime(str(item[3]), "%Y-%m-%d").strftime("%d/%m/%Y"),
+                    "payment_date": datetime.strptime(
+                        str(item[3]), "%Y-%m-%d"
+                    ).strftime("%d/%m/%Y"),
                     "value": float(item[4]),
-                    "payment": settings.BASE_URL_FRONTEND + "/admin/financial/payments/details/" + str(item[0]),
+                    "payment": settings.BASE_URL_FRONTEND
+                    + "/admin/financial/payments/details/"
+                    + str(item[0]),
                 }
             )
 

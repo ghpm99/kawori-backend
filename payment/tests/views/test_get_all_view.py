@@ -17,17 +17,23 @@ class GetAllViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar tags para testes
         cls.tag1 = Tag.objects.create(name="Tag Teste 1", color="#FF0000", user=user)
         cls.tag2 = Tag.objects.create(name="Tag Teste 2", color="#00FF00", user=user)
-        cls.budget_tag = Tag.objects.create(name="Budget Tag", color="#0000FF", user=user)
+        cls.budget_tag = Tag.objects.create(
+            name="Budget Tag", color="#0000FF", user=user
+        )
 
         # Criar faturas para testes
         cls.invoice1 = Invoice.objects.create(
@@ -38,7 +44,7 @@ class GetAllViewTestCase(TestCase):
             fixed=False,
             value=Decimal("1000.00"),
             value_open=Decimal("1000.00"),
-            user=user
+            user=user,
         )
         cls.invoice1.tags.add(cls.tag1, cls.budget_tag)
 
@@ -50,7 +56,7 @@ class GetAllViewTestCase(TestCase):
             fixed=True,
             value=Decimal("2000.00"),
             value_open=Decimal("2000.00"),
-            user=user
+            user=user,
         )
         cls.invoice2.tags.add(cls.tag2)
 
@@ -68,7 +74,7 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("100.50"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice1
+            invoice=cls.invoice1,
         )
 
         cls.payment_2 = Payment.objects.create(
@@ -82,7 +88,7 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("200.75"),
             status=Payment.STATUS_DONE,
             user=user,
-            invoice=cls.invoice2
+            invoice=cls.invoice2,
         )
 
         cls.payment_3 = Payment.objects.create(
@@ -96,7 +102,7 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("150.00"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice1
+            invoice=cls.invoice1,
         )
 
         cls.payment_4 = Payment.objects.create(
@@ -110,7 +116,7 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("75.25"),
             status=Payment.STATUS_OPEN,
             user=user,
-            invoice=cls.invoice2
+            invoice=cls.invoice2,
         )
 
         # Payment para usuário normal (não deve aparecer nos resultados do usuário test)
@@ -125,7 +131,7 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("50.00"),
             status=Payment.STATUS_OPEN,
             user=normal_user,
-            invoice=cls.invoice1
+            invoice=cls.invoice1,
         )
 
         # Obter token de autenticação
@@ -167,8 +173,20 @@ class GetAllViewTestCase(TestCase):
 
         # Verificar estrutura dos dados retornados
         payment_data = data["data"]["data"][0]
-        expected_fields = ["id", "status", "type", "name", "date", "installments",
-                          "payment_date", "fixed", "value", "invoice_id", "invoice_name", "tags"]
+        expected_fields = [
+            "id",
+            "status",
+            "type",
+            "name",
+            "date",
+            "installments",
+            "payment_date",
+            "fixed",
+            "value",
+            "invoice_id",
+            "invoice_name",
+            "tags",
+        ]
         for field in expected_fields:
             self.assertIn(field, payment_data)
 
@@ -205,7 +223,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_type_filter_debit(self):
         """Testa filtro por tipo 'debit' - deve retornar apenas débitos"""
-        response = self.client.get(reverse("financial_get_all"), {"type": Payment.TYPE_DEBIT})
+        response = self.client.get(
+            reverse("financial_get_all"), {"type": Payment.TYPE_DEBIT}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -218,7 +238,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_type_filter_credit(self):
         """Testa filtro por tipo 'credit' - deve retornar apenas créditos"""
-        response = self.client.get(reverse("financial_get_all"), {"type": Payment.TYPE_CREDIT})
+        response = self.client.get(
+            reverse("financial_get_all"), {"type": Payment.TYPE_CREDIT}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -231,7 +253,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_name_filter(self):
         """Testa filtro por nome (case insensitive) - deve retornar pagamentos com o termo"""
-        response = self.client.get(reverse("financial_get_all"), {"name__icontains": "teste"})
+        response = self.client.get(
+            reverse("financial_get_all"), {"name__icontains": "teste"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -244,7 +268,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_invoice_id_filter(self):
         """Testa filtro por invoice_id - deve retornar apenas pagamentos da invoice especificada"""
-        response = self.client.get(reverse("financial_get_all"), {"invoice_id": self.invoice1.id})
+        response = self.client.get(
+            reverse("financial_get_all"), {"invoice_id": self.invoice1.id}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -274,10 +300,10 @@ class GetAllViewTestCase(TestCase):
         filter_date_gte = (base_date - timedelta(days=7)).strftime("%Y-%m-%d")
         filter_date_lte = (base_date + timedelta(days=7)).strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all"), {
-            "date__gte": filter_date_gte,
-            "date__lte": filter_date_lte
-        })
+        response = self.client.get(
+            reverse("financial_get_all"),
+            {"date__gte": filter_date_gte, "date__lte": filter_date_lte},
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -291,10 +317,13 @@ class GetAllViewTestCase(TestCase):
         filter_date_gte = (base_date + timedelta(days=5)).strftime("%Y-%m-%d")
         filter_date_lte = (base_date + timedelta(days=20)).strftime("%Y-%m-%d")
 
-        response = self.client.get(reverse("financial_get_all"), {
-            "payment_date__gte": filter_date_gte,
-            "payment_date__lte": filter_date_lte
-        })
+        response = self.client.get(
+            reverse("financial_get_all"),
+            {
+                "payment_date__gte": filter_date_gte,
+                "payment_date__lte": filter_date_lte,
+            },
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -356,12 +385,15 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_multiple_filters(self):
         """Testa combinação de múltiplos filtros"""
-        response = self.client.get(reverse("financial_get_all"), {
-            "status": "open",
-            "type": Payment.TYPE_DEBIT,
-            "fixed": "false",
-            "active": "true"
-        })
+        response = self.client.get(
+            reverse("financial_get_all"),
+            {
+                "status": "open",
+                "type": Payment.TYPE_DEBIT,
+                "fixed": "false",
+                "active": "true",
+            },
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -377,7 +409,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_with_pagination(self):
         """Testa paginação dos resultados"""
-        response = self.client.get(reverse("financial_get_all"), {"page": "1", "page_size": "2"})
+        response = self.client.get(
+            reverse("financial_get_all"), {"page": "1", "page_size": "2"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -459,7 +493,9 @@ class GetAllViewTestCase(TestCase):
 
     def test_get_all_view_edge_case_invalid_date_filter(self):
         """Testa filtro com data inválida - deve usar data padrão"""
-        response = self.client.get(reverse("financial_get_all"), {"date__gte": "data-invalida"})
+        response = self.client.get(
+            reverse("financial_get_all"), {"date__gte": "data-invalida"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -481,10 +517,12 @@ class GetAllViewTestCase(TestCase):
             value=Decimal("10.00"),
             status=Payment.STATUS_OPEN,
             user=User.objects.get(username="test"),
-            invoice=self.invoice1
+            invoice=self.invoice1,
         )
 
-        response = self.client.get(reverse("financial_get_all"), {"name__icontains": "ñ"})
+        response = self.client.get(
+            reverse("financial_get_all"), {"name__icontains": "ñ"}
+        )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)

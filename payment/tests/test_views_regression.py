@@ -10,8 +10,8 @@ from django.urls import reverse
 from budget.models import Budget
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
-from tag.models import Tag
 from payment.views import get_status_filter
+from tag.models import Tag
 
 
 class PaymentViewsRegressionTestCase(TestCase):
@@ -19,7 +19,9 @@ class PaymentViewsRegressionTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        cls.user = User.objects.create_superuser(username="regression", email="regression@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="regression", email="regression@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(cls.user)
 
@@ -47,7 +49,9 @@ class PaymentViewsRegressionTestCase(TestCase):
             active=kwargs.get("active", True),
         )
 
-    def _create_imported_payment(self, reference="import-ref", status=ImportedPayment.IMPORT_STATUS_PENDING):
+    def _create_imported_payment(
+        self, reference="import-ref", status=ImportedPayment.IMPORT_STATUS_PENDING
+    ):
         return ImportedPayment.objects.create(
             user=self.user,
             reference=reference,
@@ -81,7 +85,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Payment.objects.filter(user=self.user, name="String value").count(), 2)
+        self.assertEqual(
+            Payment.objects.filter(user=self.user, name="String value").count(), 2
+        )
 
     def test_save_detail_view_updates_type_zero_and_string_value(self):
         invoice = self._create_invoice(value_open=Decimal("200.00"))
@@ -155,7 +161,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(aggregated["total"], 30.0)
         self.assertIn("dateTimestamp", aggregated)
 
-    def test_csv_resolve_imports_view_handles_invalid_match_and_missing_optional_fields(self):
+    def test_csv_resolve_imports_view_handles_invalid_match_and_missing_optional_fields(
+        self,
+    ):
         response = self.client.post(
             reverse("financial_csv_resolve_imports_view"),
             data=json.dumps(
@@ -178,7 +186,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertEqual(len(payload["data"]), 1)
-        self.assertEqual(payload["data"][0]["action"], ImportedPayment.IMPORT_STRATEGY_NEW)
+        self.assertEqual(
+            payload["data"][0]["action"], ImportedPayment.IMPORT_STRATEGY_NEW
+        )
         self.assertIsNone(payload["data"][0]["payment_id"])
 
         imported = ImportedPayment.objects.get(reference="csv-minimal", user=self.user)
@@ -195,9 +205,13 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_csv_import_view_queues_only_items_with_budget_tags(self):
-        regular_tag = Tag.objects.create(name="Regular", color="#111111", user=self.user)
+        regular_tag = Tag.objects.create(
+            name="Regular", color="#111111", user=self.user
+        )
         budget_tag = Tag.objects.create(name="Budget", color="#222222", user=self.user)
-        Budget.objects.create(user=self.user, tag=budget_tag, allocation_percentage=Decimal("20.00"))
+        Budget.objects.create(
+            user=self.user, tag=budget_tag, allocation_percentage=Decimal("20.00")
+        )
 
         queued_target = self._create_imported_payment(reference="queue-me")
         skip_target = self._create_imported_payment(reference="skip-me")
@@ -207,7 +221,10 @@ class PaymentViewsRegressionTestCase(TestCase):
             data=json.dumps(
                 {
                     "data": [
-                        {"import_payment_id": queued_target.id, "tags": [regular_tag.id, budget_tag.id]},
+                        {
+                            "import_payment_id": queued_target.id,
+                            "tags": [regular_tag.id, budget_tag.id],
+                        },
                         {"import_payment_id": skip_target.id, "tags": [regular_tag.id]},
                     ]
                 }
@@ -248,7 +265,10 @@ class PaymentViewsRegressionTestCase(TestCase):
             def to_dict(self):
                 return {"value": self.value}
 
-        with patch("payment.views.process_csv_row", side_effect=[DummyProcessed(1), DummyProcessed(2)]) as mocked:
+        with patch(
+            "payment.views.process_csv_row",
+            side_effect=[DummyProcessed(1), DummyProcessed(2)],
+        ) as mocked:
             response = self.client.post(
                 reverse("financial_process_csv_upload"),
                 data=json.dumps(
@@ -296,7 +316,9 @@ class PaymentViewsRegressionTestCase(TestCase):
             invoice=invoice,
         )
 
-        response = self.client.get(reverse("financial_get_all_scheduled"), {"page_size": 1})
+        response = self.client.get(
+            reverse("financial_get_all_scheduled"), {"page_size": 1}
+        )
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
         self.assertEqual(payload["current_page"], 1)
@@ -349,7 +371,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(len(payload["data"][0]["tags"]), 1)
 
     def test_detail_view_returns_404_for_missing_payment(self):
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": 99999}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": 99999})
+        )
         self.assertEqual(response.status_code, 404)
 
     def test_detail_view_returns_payment_data(self):
@@ -368,7 +392,9 @@ class PaymentViewsRegressionTestCase(TestCase):
             invoice=invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment.id})
+        )
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
         self.assertEqual(payload["id"], payment.id)
@@ -391,7 +417,9 @@ class PaymentViewsRegressionTestCase(TestCase):
             invoice=invoice,
         )
 
-        response = self.client.get(reverse("financial_detail_view", kwargs={"id": payment.id}))
+        response = self.client.get(
+            reverse("financial_detail_view", kwargs={"id": payment.id})
+        )
         self.assertEqual(response.status_code, 404)
 
     def test_save_detail_view_handles_not_found_and_done_payment(self):
@@ -441,7 +469,14 @@ class PaymentViewsRegressionTestCase(TestCase):
 
         response = self.client.post(
             reverse("financial_save_detail_view", kwargs={"id": payment.id}),
-            data=json.dumps({"name": "Updated", "payment_date": "2027-01-01", "fixed": True, "active": False}),
+            data=json.dumps(
+                {
+                    "name": "Updated",
+                    "payment_date": "2027-01-01",
+                    "fixed": True,
+                    "active": False,
+                }
+            ),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
@@ -452,7 +487,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertFalse(payment.active)
 
     def test_payoff_detail_view_fixed_invoice_creates_new_invoice(self):
-        original_invoice = self._create_invoice(name="Fixed invoice", fixed=True, payment_date=date.today())
+        original_invoice = self._create_invoice(
+            name="Fixed invoice", fixed=True, payment_date=date.today()
+        )
         payment = Payment.objects.create(
             type=Payment.TYPE_DEBIT,
             name="Payoff me",
@@ -466,19 +503,28 @@ class PaymentViewsRegressionTestCase(TestCase):
             user=self.user,
             invoice=original_invoice,
         )
-        before_count = Invoice.objects.filter(user=self.user, name="Fixed invoice").count()
+        before_count = Invoice.objects.filter(
+            user=self.user, name="Fixed invoice"
+        ).count()
 
         with patch("payment.views.generate_payments") as mocked_generate:
-            response = self.client.post(reverse("financial_payoff_detail_view", kwargs={"id": payment.id}))
+            response = self.client.post(
+                reverse("financial_payoff_detail_view", kwargs={"id": payment.id})
+            )
 
         self.assertEqual(response.status_code, 200)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.STATUS_DONE)
-        self.assertEqual(Invoice.objects.filter(user=self.user, name="Fixed invoice").count(), before_count + 1)
+        self.assertEqual(
+            Invoice.objects.filter(user=self.user, name="Fixed invoice").count(),
+            before_count + 1,
+        )
         mocked_generate.assert_called_once()
 
     def test_payoff_detail_view_handles_not_found_and_already_done(self):
-        not_found = self.client.post(reverse("financial_payoff_detail_view", kwargs={"id": 99999}))
+        not_found = self.client.post(
+            reverse("financial_payoff_detail_view", kwargs={"id": 99999})
+        )
         self.assertEqual(not_found.status_code, 400)
 
         invoice = self._create_invoice(name="Done payoff")
@@ -495,7 +541,9 @@ class PaymentViewsRegressionTestCase(TestCase):
             user=self.user,
             invoice=invoice,
         )
-        done_response = self.client.post(reverse("financial_payoff_detail_view", kwargs={"id": done_payment.id}))
+        done_response = self.client.post(
+            reverse("financial_payoff_detail_view", kwargs={"id": done_payment.id})
+        )
         self.assertEqual(done_response.status_code, 400)
 
     def test_get_all_scheduled_view_applies_all_filters(self):
@@ -531,7 +579,9 @@ class PaymentViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(json.loads(response.content)["data"]["data"]), 1)
 
-    def test_csv_resolve_imports_view_skips_missing_mapped_payment_and_non_editable_existing(self):
+    def test_csv_resolve_imports_view_skips_missing_mapped_payment_and_non_editable_existing(
+        self,
+    ):
         non_editable = self._create_imported_payment(
             reference="non-editable",
             status=ImportedPayment.IMPORT_STATUS_PROCESSING,
@@ -559,7 +609,9 @@ class PaymentViewsRegressionTestCase(TestCase):
 
     def test_csv_import_view_skips_non_editable(self):
         budget_tag = Tag.objects.create(name="B2", color="#abcdef", user=self.user)
-        Budget.objects.create(user=self.user, tag=budget_tag, allocation_percentage=Decimal("10.00"))
+        Budget.objects.create(
+            user=self.user, tag=budget_tag, allocation_percentage=Decimal("10.00")
+        )
         non_editable = self._create_imported_payment(
             reference="queue-skip",
             status=ImportedPayment.IMPORT_STATUS_PROCESSING,
@@ -567,7 +619,13 @@ class PaymentViewsRegressionTestCase(TestCase):
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
-            data=json.dumps({"data": [{"import_payment_id": non_editable.id, "tags": [budget_tag.id]}]}),
+            data=json.dumps(
+                {
+                    "data": [
+                        {"import_payment_id": non_editable.id, "tags": [budget_tag.id]}
+                    ]
+                }
+            ),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)

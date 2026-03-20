@@ -24,10 +24,14 @@ def _normalize_list(value: Any, limit: int = 6) -> list[str]:
     return normalized
 
 
-def _build_candidates(summary: dict, failures_by_action: list[dict], by_user: list[dict]) -> list[dict[str, Any]]:
+def _build_candidates(
+    summary: dict, failures_by_action: list[dict], by_user: list[dict]
+) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     total = int(summary.get("total_events", 0) or 0)
-    failures = int(summary.get("failure_events", 0) or 0) + int(summary.get("error_events", 0) or 0)
+    failures = int(summary.get("failure_events", 0) or 0) + int(
+        summary.get("error_events", 0) or 0
+    )
 
     if total > 0 and (failures / total) >= 0.25:
         candidates.append(
@@ -75,11 +79,15 @@ def build_audit_ai_insights(
 ) -> dict[str, Any] | None:
     anomaly_candidates = _build_candidates(summary, failures_by_action, by_user)
     total_events = int(summary.get("total_events", 0) or 0)
-    total_failures = int(summary.get("failure_events", 0) or 0) + int(summary.get("error_events", 0) or 0)
+    total_failures = int(summary.get("failure_events", 0) or 0) + int(
+        summary.get("error_events", 0) or 0
+    )
 
     min_events = int(getattr(settings, "AI_AUDIT_MIN_EVENTS", 25))
     min_failures = int(getattr(settings, "AI_AUDIT_MIN_FAILURE_EVENTS", 3))
-    min_anomaly_candidates = int(getattr(settings, "AI_AUDIT_MIN_ANOMALY_CANDIDATES", 1))
+    min_anomaly_candidates = int(
+        getattr(settings, "AI_AUDIT_MIN_ANOMALY_CANDIDATES", 1)
+    )
 
     has_enough_signal = (
         total_events >= min_events
@@ -122,8 +130,12 @@ def build_audit_ai_insights(
     result = {
         "summary": str(output.get("summary", "")).strip(),
         "incident_clusters": _normalize_list(output.get("incident_clusters"), limit=6),
-        "probable_root_causes": _normalize_list(output.get("probable_root_causes"), limit=6),
-        "recommended_actions": _normalize_list(output.get("recommended_actions"), limit=8),
+        "probable_root_causes": _normalize_list(
+            output.get("probable_root_causes"), limit=6
+        ),
+        "recommended_actions": _normalize_list(
+            output.get("recommended_actions"), limit=8
+        ),
         "anomaly_candidates": anomaly_candidates,
         "trace_id": response.trace_id,
         "provider": response.provider,
@@ -134,7 +146,11 @@ def build_audit_ai_insights(
         "prompt_hash": built_request.prompt_resolution.content_hash,
     }
 
-    if not result["summary"] and not result["incident_clusters"] and not result["recommended_actions"]:
+    if (
+        not result["summary"]
+        and not result["incident_clusters"]
+        and not result["recommended_actions"]
+    ):
         return None
 
     return result

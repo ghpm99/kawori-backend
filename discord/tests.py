@@ -11,7 +11,9 @@ from discord.views import guild, user
 class DiscordViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.admin = User.objects.create_superuser(username="discord-admin", email="discord-admin@test.com", password="123")
+        cls.admin = User.objects.create_superuser(
+            username="discord-admin", email="discord-admin@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -29,7 +31,9 @@ class DiscordViewsRegressionTestCase(TestCase):
 
     def test_get_all_users(self):
         rows = [(1, False, "1234", "uid-1", "2026-01-01", "Alice")]
-        with patch("discord.views.user.connection.cursor", return_value=self._cursor_cm(rows)):
+        with patch(
+            "discord.views.user.connection.cursor", return_value=self._cursor_cm(rows)
+        ):
             response = self._call(user.get_all_users, data={"page": 1})
 
         self.assertEqual(response.status_code, 200)
@@ -39,7 +43,9 @@ class DiscordViewsRegressionTestCase(TestCase):
 
     def test_get_all_guilds(self):
         rows = [(7, True, False, "gid-1", "owner-1", "2026-01-02", "Guild X")]
-        with patch("discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)):
+        with patch(
+            "discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)
+        ):
             response = self._call(guild.get_all_guilds, data={"page": 1})
 
         self.assertEqual(response.status_code, 200)
@@ -49,7 +55,9 @@ class DiscordViewsRegressionTestCase(TestCase):
 
     def test_get_all_members(self):
         rows = [(9, False, "mid-1", "gid-1", "uid-1", "Nick")]
-        with patch("discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)):
+        with patch(
+            "discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)
+        ):
             response = self._call(guild.get_all_members, data={"page": 1})
 
         self.assertEqual(response.status_code, 200)
@@ -59,7 +67,9 @@ class DiscordViewsRegressionTestCase(TestCase):
 
     def test_get_all_roles(self):
         rows = [(11, True)]
-        with patch("discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)):
+        with patch(
+            "discord.views.guild.connection.cursor", return_value=self._cursor_cm(rows)
+        ):
             response = self._call(guild.get_all_roles, data={"page": 1})
 
         self.assertEqual(response.status_code, 200)

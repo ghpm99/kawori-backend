@@ -12,9 +12,8 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 import os
 import sys
-from pathlib import Path
 from datetime import timedelta
-
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -92,7 +91,8 @@ WSGI_APPLICATION = "kawori.wsgi.application"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation." "UserAttributeSimilarityValidator",
+        "NAME": "django.contrib.auth.password_validation."
+        "UserAttributeSimilarityValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation." "MinimumLengthValidator",
@@ -109,7 +109,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
 }
 
 # JWT
@@ -170,22 +172,24 @@ CSRF_COOKIE_SAMESITE = "Lax"
 CORS_ALLOW_CREDENTIALS = True
 
 # ========== EMAIL CONFIGURATION ==========
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Email para receber notificações
-NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', EMAIL_HOST_USER)
+NOTIFICATION_EMAIL = os.environ.get("NOTIFICATION_EMAIL", EMAIL_HOST_USER)
 
 # ========== MAILER ==========
 MAILER_GLOBAL_ENABLED = True
 
 # ========== SOCIAL AUTH ==========
-SOCIAL_AUTH_STATE_EXPIRATION_MINUTES = int(os.environ.get("SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", "10"))
+SOCIAL_AUTH_STATE_EXPIRATION_MINUTES = int(
+    os.environ.get("SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", "10")
+)
 SOCIAL_AUTH_PROVIDERS = {
     "google": {
         "client_id": os.environ.get("SOCIAL_GOOGLE_CLIENT_ID", ""),
@@ -218,33 +222,63 @@ AI_ASSIST_ENABLED = os.environ.get("AI_ASSIST_ENABLED", "true").lower() == "true
 AI_PROMPT_ENVIRONMENT = os.environ.get("AI_PROMPT_ENVIRONMENT", ENVIRONMENT_NAME)
 AI_PROMPT_REGISTRY_PATH = BASE_DIR / "ai" / "prompts" / "registry.yaml"
 AI_PROMPT_TEMPLATES_ROOT = BASE_DIR / "ai" / "prompts"
-AI_PROMPT_DB_OVERRIDE_ENABLED = os.environ.get("AI_PROMPT_DB_OVERRIDE_ENABLED", "false").lower() == "true"
-AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS = int(os.environ.get("AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS", "60"))
-AI_IMPORT_SUGGESTION_MAX_ITEMS = int(os.environ.get("AI_IMPORT_SUGGESTION_MAX_ITEMS", "20"))
-AI_IMPORT_SUGGESTION_MAX_PER_REQUEST = int(os.environ.get("AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", "12"))
-AI_IMPORT_SUGGESTION_DAILY_PER_USER = int(os.environ.get("AI_IMPORT_SUGGESTION_DAILY_PER_USER", "60"))
-AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE = float(os.environ.get("AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE", "0.82"))
-AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE = float(os.environ.get("AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", "0.58"))
+AI_PROMPT_DB_OVERRIDE_ENABLED = (
+    os.environ.get("AI_PROMPT_DB_OVERRIDE_ENABLED", "false").lower() == "true"
+)
+AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS = int(
+    os.environ.get("AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS", "60")
+)
+AI_IMPORT_SUGGESTION_MAX_ITEMS = int(
+    os.environ.get("AI_IMPORT_SUGGESTION_MAX_ITEMS", "20")
+)
+AI_IMPORT_SUGGESTION_MAX_PER_REQUEST = int(
+    os.environ.get("AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", "12")
+)
+AI_IMPORT_SUGGESTION_DAILY_PER_USER = int(
+    os.environ.get("AI_IMPORT_SUGGESTION_DAILY_PER_USER", "60")
+)
+AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE = float(
+    os.environ.get("AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE", "0.82")
+)
+AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE = float(
+    os.environ.get("AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", "0.58")
+)
 
 AI_CACHE_ENABLED = os.environ.get("AI_CACHE_ENABLED", "true").lower() == "true"
-AI_CACHE_DEFAULT_TTL_SECONDS = int(os.environ.get("AI_CACHE_DEFAULT_TTL_SECONDS", "600"))
+AI_CACHE_DEFAULT_TTL_SECONDS = int(
+    os.environ.get("AI_CACHE_DEFAULT_TTL_SECONDS", "600")
+)
 AI_CACHE_FEATURE_FLAGS = {
     "audit_insights": os.environ.get("AI_CACHE_FEATURE_AUDIT_INSIGHTS", "true"),
-    "communication_notifications": os.environ.get("AI_CACHE_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"),
+    "communication_notifications": os.environ.get(
+        "AI_CACHE_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"
+    ),
     "release_compliance": os.environ.get("AI_CACHE_FEATURE_RELEASE_COMPLIANCE", "true"),
-    "payment_reconciliation": os.environ.get("AI_CACHE_FEATURE_PAYMENT_RECONCILIATION", "false"),
-    "payment_normalization": os.environ.get("AI_CACHE_FEATURE_PAYMENT_NORMALIZATION", "true"),
+    "payment_reconciliation": os.environ.get(
+        "AI_CACHE_FEATURE_PAYMENT_RECONCILIATION", "false"
+    ),
+    "payment_normalization": os.environ.get(
+        "AI_CACHE_FEATURE_PAYMENT_NORMALIZATION", "true"
+    ),
 }
 AI_CACHE_TTL_SECONDS = {
     "audit_insights": int(os.environ.get("AI_CACHE_TTL_AUDIT_INSIGHTS", "900")),
-    "communication_notifications": int(os.environ.get("AI_CACHE_TTL_COMMUNICATION_NOTIFICATIONS", "86400")),
-    "release_compliance": int(os.environ.get("AI_CACHE_TTL_RELEASE_COMPLIANCE", "7200")),
-    "payment_normalization": int(os.environ.get("AI_CACHE_TTL_PAYMENT_NORMALIZATION", "1800")),
+    "communication_notifications": int(
+        os.environ.get("AI_CACHE_TTL_COMMUNICATION_NOTIFICATIONS", "86400")
+    ),
+    "release_compliance": int(
+        os.environ.get("AI_CACHE_TTL_RELEASE_COMPLIANCE", "7200")
+    ),
+    "payment_normalization": int(
+        os.environ.get("AI_CACHE_TTL_PAYMENT_NORMALIZATION", "1800")
+    ),
 }
 
 AI_RETRY_BACKOFF_SECONDS = float(os.environ.get("AI_RETRY_BACKOFF_SECONDS", "0.3"))
 AI_MAX_FALLBACK_ROUTES = int(os.environ.get("AI_MAX_FALLBACK_ROUTES", "1"))
-AI_PERSIST_EXECUTION_EVENTS = os.environ.get("AI_PERSIST_EXECUTION_EVENTS", "false").lower() == "true"
+AI_PERSIST_EXECUTION_EVENTS = (
+    os.environ.get("AI_PERSIST_EXECUTION_EVENTS", "false").lower() == "true"
+)
 
 AI_MODEL_PRICING = {
     "gpt-4o-mini": {
@@ -256,52 +290,100 @@ AI_MODEL_PRICING = {
         "output_per_1k": float(os.environ.get("AI_PRICE_GPT_4O_OUTPUT", "0.01")),
     },
     "claude-3-5-haiku-latest": {
-        "input_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_INPUT", "0.0008")),
-        "output_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_OUTPUT", "0.004")),
+        "input_per_1k": float(
+            os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_INPUT", "0.0008")
+        ),
+        "output_per_1k": float(
+            os.environ.get("AI_PRICE_CLAUDE_35_HAIKU_OUTPUT", "0.004")
+        ),
     },
     "claude-3-7-sonnet-latest": {
-        "input_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_37_SONNET_INPUT", "0.003")),
-        "output_per_1k": float(os.environ.get("AI_PRICE_CLAUDE_37_SONNET_OUTPUT", "0.015")),
+        "input_per_1k": float(
+            os.environ.get("AI_PRICE_CLAUDE_37_SONNET_INPUT", "0.003")
+        ),
+        "output_per_1k": float(
+            os.environ.get("AI_PRICE_CLAUDE_37_SONNET_OUTPUT", "0.015")
+        ),
     },
 }
 
 AI_FEATURE_MODEL_TIERS = {
     "payment_reconciliation": {
         "default_tier": "low_cost",
-        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_PAYMENT_RECONCILIATION", "0.55")),
+        "escalation_confidence_below": float(
+            os.environ.get("AI_TIER_ESCALATION_PAYMENT_RECONCILIATION", "0.55")
+        ),
         "low_cost": {
-            "provider": os.environ.get("AI_LOW_COST_PROVIDER_PAYMENT_RECONCILIATION", "openai"),
-            "model": os.environ.get("AI_LOW_COST_MODEL_PAYMENT_RECONCILIATION", "gpt-4o-mini"),
+            "provider": os.environ.get(
+                "AI_LOW_COST_PROVIDER_PAYMENT_RECONCILIATION", "openai"
+            ),
+            "model": os.environ.get(
+                "AI_LOW_COST_MODEL_PAYMENT_RECONCILIATION", "gpt-4o-mini"
+            ),
         },
         "high_quality": {
-            "provider": os.environ.get("AI_HIGH_QUALITY_PROVIDER_PAYMENT_RECONCILIATION", "openai"),
-            "model": os.environ.get("AI_HIGH_QUALITY_MODEL_PAYMENT_RECONCILIATION", "gpt-4o"),
+            "provider": os.environ.get(
+                "AI_HIGH_QUALITY_PROVIDER_PAYMENT_RECONCILIATION", "openai"
+            ),
+            "model": os.environ.get(
+                "AI_HIGH_QUALITY_MODEL_PAYMENT_RECONCILIATION", "gpt-4o"
+            ),
         },
     },
     "audit_insights": {
         "default_tier": "low_cost",
-        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_AUDIT_INSIGHTS", "0.45")),
-        "low_cost": {"provider": "openai", "model": os.environ.get("AI_LOW_COST_MODEL_AUDIT_INSIGHTS", "gpt-4o-mini")},
-        "high_quality": {"provider": "openai", "model": os.environ.get("AI_HIGH_QUALITY_MODEL_AUDIT_INSIGHTS", "gpt-4o")},
+        "escalation_confidence_below": float(
+            os.environ.get("AI_TIER_ESCALATION_AUDIT_INSIGHTS", "0.45")
+        ),
+        "low_cost": {
+            "provider": "openai",
+            "model": os.environ.get("AI_LOW_COST_MODEL_AUDIT_INSIGHTS", "gpt-4o-mini"),
+        },
+        "high_quality": {
+            "provider": "openai",
+            "model": os.environ.get("AI_HIGH_QUALITY_MODEL_AUDIT_INSIGHTS", "gpt-4o"),
+        },
     },
     "communication_notifications": {
         "default_tier": "low_cost",
-        "escalation_confidence_below": float(os.environ.get("AI_TIER_ESCALATION_COMMUNICATION_NOTIFICATIONS", "0.35")),
-        "low_cost": {"provider": "openai", "model": os.environ.get("AI_LOW_COST_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o-mini")},
-        "high_quality": {"provider": "openai", "model": os.environ.get("AI_HIGH_QUALITY_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o")},
+        "escalation_confidence_below": float(
+            os.environ.get("AI_TIER_ESCALATION_COMMUNICATION_NOTIFICATIONS", "0.35")
+        ),
+        "low_cost": {
+            "provider": "openai",
+            "model": os.environ.get(
+                "AI_LOW_COST_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o-mini"
+            ),
+        },
+        "high_quality": {
+            "provider": "openai",
+            "model": os.environ.get(
+                "AI_HIGH_QUALITY_MODEL_COMMUNICATION_NOTIFICATIONS", "gpt-4o"
+            ),
+        },
     },
 }
 
 AI_MAX_TOKENS_BY_FEATURE = {
-    "payment_reconciliation": int(os.environ.get("AI_MAX_TOKENS_PAYMENT_RECONCILIATION", "350")),
-    "payment_normalization": int(os.environ.get("AI_MAX_TOKENS_PAYMENT_NORMALIZATION", "320")),
+    "payment_reconciliation": int(
+        os.environ.get("AI_MAX_TOKENS_PAYMENT_RECONCILIATION", "350")
+    ),
+    "payment_normalization": int(
+        os.environ.get("AI_MAX_TOKENS_PAYMENT_NORMALIZATION", "320")
+    ),
     "audit_insights": int(os.environ.get("AI_MAX_TOKENS_AUDIT_INSIGHTS", "380")),
-    "communication_notifications": int(os.environ.get("AI_MAX_TOKENS_COMMUNICATION_NOTIFICATIONS", "220")),
-    "release_compliance": int(os.environ.get("AI_MAX_TOKENS_RELEASE_COMPLIANCE", "420")),
+    "communication_notifications": int(
+        os.environ.get("AI_MAX_TOKENS_COMMUNICATION_NOTIFICATIONS", "220")
+    ),
+    "release_compliance": int(
+        os.environ.get("AI_MAX_TOKENS_RELEASE_COMPLIANCE", "420")
+    ),
 }
 AI_MAX_TOKENS_BY_TASK = {
     "classification": int(os.environ.get("AI_MAX_TOKENS_CLASSIFICATION", "220")),
-    "structured_extraction": int(os.environ.get("AI_MAX_TOKENS_STRUCTURED_EXTRACTION", "260")),
+    "structured_extraction": int(
+        os.environ.get("AI_MAX_TOKENS_STRUCTURED_EXTRACTION", "260")
+    ),
     "summarization": int(os.environ.get("AI_MAX_TOKENS_SUMMARIZATION", "360")),
     "simple_task": int(os.environ.get("AI_MAX_TOKENS_SIMPLE_TASK", "280")),
     "complex_task": int(os.environ.get("AI_MAX_TOKENS_COMPLEX_TASK", "520")),
@@ -309,14 +391,20 @@ AI_MAX_TOKENS_BY_TASK = {
 
 AI_AUDIT_MIN_EVENTS = int(os.environ.get("AI_AUDIT_MIN_EVENTS", "25"))
 AI_AUDIT_MIN_FAILURE_EVENTS = int(os.environ.get("AI_AUDIT_MIN_FAILURE_EVENTS", "3"))
-AI_AUDIT_MIN_ANOMALY_CANDIDATES = int(os.environ.get("AI_AUDIT_MIN_ANOMALY_CANDIDATES", "1"))
+AI_AUDIT_MIN_ANOMALY_CANDIDATES = int(
+    os.environ.get("AI_AUDIT_MIN_ANOMALY_CANDIDATES", "1")
+)
 AI_FEATURE_FLAGS = {
-    "payment_reconciliation": os.environ.get("AI_FEATURE_PAYMENT_RECONCILIATION", "true"),
+    "payment_reconciliation": os.environ.get(
+        "AI_FEATURE_PAYMENT_RECONCILIATION", "true"
+    ),
     "payment_normalization": os.environ.get("AI_FEATURE_PAYMENT_NORMALIZATION", "true"),
     "audit_insights": os.environ.get("AI_FEATURE_AUDIT_INSIGHTS", "true"),
     "release_compliance": os.environ.get("AI_FEATURE_RELEASE_COMPLIANCE", "true"),
     "regression_tests": os.environ.get("AI_FEATURE_REGRESSION_TESTS", "true"),
-    "communication_notifications": os.environ.get("AI_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"),
+    "communication_notifications": os.environ.get(
+        "AI_FEATURE_COMMUNICATION_NOTIFICATIONS", "true"
+    ),
 }
 
 AI_PROVIDERS = {
@@ -328,13 +416,17 @@ AI_PROVIDERS = {
     "anthropic": {
         "engine": "anthropic",
         "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "base_url": os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
+        "base_url": os.environ.get(
+            "ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"
+        ),
         "api_version": os.environ.get("ANTHROPIC_API_VERSION", "2023-06-01"),
     },
     "google_gemini": {
         "engine": "google_gemini",
         "api_key": os.environ.get("GOOGLE_GEMINI_API_KEY", ""),
-        "base_url": os.environ.get("GOOGLE_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
+        "base_url": os.environ.get(
+            "GOOGLE_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
+        ),
     },
     "cohere": {
         "engine": "cohere_chat",
@@ -354,7 +446,9 @@ AI_PROVIDERS = {
     "openrouter": {
         "engine": "openai_compatible",
         "api_key": os.environ.get("OPENROUTER_API_KEY", ""),
-        "base_url": os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        "base_url": os.environ.get(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        ),
     },
     "xai": {
         "engine": "openai_compatible",
@@ -374,7 +468,9 @@ AI_PROVIDERS = {
     "fireworks": {
         "engine": "openai_compatible",
         "api_key": os.environ.get("FIREWORKS_API_KEY", ""),
-        "base_url": os.environ.get("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"),
+        "base_url": os.environ.get(
+            "FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1"
+        ),
     },
 }
 
@@ -387,56 +483,106 @@ AI_TASK_ROUTES = {
         "fallbacks": [
             {
                 "provider": os.environ.get("AI_DEFAULT_FALLBACK_PROVIDER", "anthropic"),
-                "model": os.environ.get("AI_MODEL_DEFAULT_FALLBACK", "claude-3-5-haiku-latest"),
+                "model": os.environ.get(
+                    "AI_MODEL_DEFAULT_FALLBACK", "claude-3-5-haiku-latest"
+                ),
             }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "text_generation": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_TEXT_GENERATION", "gpt-4o-mini")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_TEXT_GENERATION", "gpt-4o-mini"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_TEXT_GENERATION_FALLBACK", "claude-3-5-haiku-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_TEXT_GENERATION_FALLBACK", "claude-3-5-haiku-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "summarization": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_SUMMARIZATION", "gpt-4o-mini")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_SUMMARIZATION", "gpt-4o-mini"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_SUMMARIZATION_FALLBACK", "claude-3-5-haiku-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_SUMMARIZATION_FALLBACK", "claude-3-5-haiku-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "classification": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_CLASSIFICATION", "gpt-4o-mini")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_CLASSIFICATION", "gpt-4o-mini"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_CLASSIFICATION_FALLBACK", "claude-3-5-haiku-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_CLASSIFICATION_FALLBACK", "claude-3-5-haiku-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "structured_extraction": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_EXTRACTION", "gpt-4o-mini")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_EXTRACTION", "gpt-4o-mini"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_EXTRACTION_FALLBACK", "claude-3-5-haiku-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_EXTRACTION_FALLBACK", "claude-3-5-haiku-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "simple_task": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_SIMPLE_TASK", "gpt-4o-mini")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_SIMPLE_TASK", "gpt-4o-mini"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_SIMPLE_TASK_FALLBACK", "claude-3-5-haiku-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_SIMPLE_TASK_FALLBACK", "claude-3-5-haiku-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,
     },
     "complex_task": {
-        "primary": {"provider": "openai", "model": os.environ.get("AI_MODEL_COMPLEX_TASK", "gpt-4o")},
+        "primary": {
+            "provider": "openai",
+            "model": os.environ.get("AI_MODEL_COMPLEX_TASK", "gpt-4o"),
+        },
         "fallbacks": [
-            {"provider": "anthropic", "model": os.environ.get("AI_MODEL_COMPLEX_TASK_FALLBACK", "claude-3-7-sonnet-latest")}
+            {
+                "provider": "anthropic",
+                "model": os.environ.get(
+                    "AI_MODEL_COMPLEX_TASK_FALLBACK", "claude-3-7-sonnet-latest"
+                ),
+            }
         ],
         "timeout_seconds": AI_DEFAULT_TIMEOUT_SECONDS,
         "max_retries": AI_DEFAULT_MAX_RETRIES,

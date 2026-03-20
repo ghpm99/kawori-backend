@@ -72,7 +72,9 @@ class PromptOverrideAdmin(admin.ModelAdmin):
         for override in queryset:
             with transaction.atomic():
                 if not str(override.change_reason or "").strip():
-                    override.change_reason = f"Ativado via admin por {request.user.username}."
+                    override.change_reason = (
+                        f"Ativado via admin por {request.user.username}."
+                    )
 
                 active_items = PromptOverride.objects.filter(
                     key=override.key,
@@ -83,7 +85,9 @@ class PromptOverrideAdmin(admin.ModelAdmin):
                 for active_item in active_items:
                     active_item.is_active = False
                     if not str(active_item.change_reason or "").strip():
-                        active_item.change_reason = f"Desativado por ativação de {override.version}."
+                        active_item.change_reason = (
+                            f"Desativado por ativação de {override.version}."
+                        )
                     active_item.updated_by = request.user
                     active_item.full_clean()
                     active_item.save()
@@ -95,7 +99,9 @@ class PromptOverrideAdmin(admin.ModelAdmin):
                     override.save()
                     activated += 1
 
-        self.message_user(request, f"{activated} override(s) ativado(s).", level=messages.SUCCESS)
+        self.message_user(
+            request, f"{activated} override(s) ativado(s).", level=messages.SUCCESS
+        )
 
     @admin.action(description="Desativar override")
     def deactivate_override(self, request, queryset):
@@ -103,13 +109,17 @@ class PromptOverrideAdmin(admin.ModelAdmin):
         for override in queryset.filter(is_active=True):
             override.is_active = False
             if not str(override.change_reason or "").strip():
-                override.change_reason = f"Desativado via admin por {request.user.username}."
+                override.change_reason = (
+                    f"Desativado via admin por {request.user.username}."
+                )
             override.updated_by = request.user
             override.full_clean()
             override.save()
             deactivated += 1
 
-        self.message_user(request, f"{deactivated} override(s) desativado(s).", level=messages.SUCCESS)
+        self.message_user(
+            request, f"{deactivated} override(s) desativado(s).", level=messages.SUCCESS
+        )
 
     @admin.action(description="Clonar versão")
     def clone_version(self, request, queryset):
@@ -134,7 +144,9 @@ class PromptOverrideAdmin(admin.ModelAdmin):
             clone.save()
             cloned += 1
 
-        self.message_user(request, f"{cloned} override(s) clonado(s).", level=messages.SUCCESS)
+        self.message_user(
+            request, f"{cloned} override(s) clonado(s).", level=messages.SUCCESS
+        )
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))

@@ -12,7 +12,6 @@ from django.views.decorators.http import require_GET
 from ai.models import AIExecutionEvent
 from kawori.decorators import validate_user
 
-
 DEFAULT_LOOKBACK_DAYS = 7
 
 
@@ -66,10 +65,19 @@ def metrics_overview(request, user):
             "cache_hit_rate": _ratio(cache_hits, total_calls),
         },
         "cardinality": {
-            "features": queryset.values("feature_name").exclude(feature_name="").distinct().count(),
-            "providers": queryset.values("provider").exclude(provider="").distinct().count(),
+            "features": queryset.values("feature_name")
+            .exclude(feature_name="")
+            .distinct()
+            .count(),
+            "providers": queryset.values("provider")
+            .exclude(provider="")
+            .distinct()
+            .count(),
             "models": queryset.values("model").exclude(model="").distinct().count(),
-            "task_types": queryset.values("task_type").exclude(task_type="").distinct().count(),
+            "task_types": queryset.values("task_type")
+            .exclude(task_type="")
+            .distinct()
+            .count(),
         },
     }
     return JsonResponse({"data": response})
@@ -80,7 +88,14 @@ def metrics_overview(request, user):
 def metrics_breakdown(request, user):
     queryset, period = _build_filtered_queryset(request)
     group_by = str(request.GET.get("group_by") or "feature_name").strip()
-    allowed_groups = {"feature_name", "provider", "model", "task_type", "cache_status", "success"}
+    allowed_groups = {
+        "feature_name",
+        "provider",
+        "model",
+        "task_type",
+        "cache_status",
+        "success",
+    }
     if group_by not in allowed_groups:
         return JsonResponse({"msg": "group_by inválido"}, status=400)
 
@@ -141,7 +156,9 @@ def metrics_timeseries(request, user):
     if interval not in {"day", "hour"}:
         return JsonResponse({"msg": "interval inválido"}, status=400)
 
-    bucket_fn = TruncHour("created_at") if interval == "hour" else TruncDate("created_at")
+    bucket_fn = (
+        TruncHour("created_at") if interval == "hour" else TruncDate("created_at")
+    )
     rows = (
         queryset.annotate(bucket=bucket_fn)
         .values("bucket")
@@ -184,7 +201,9 @@ def metrics_timeseries(request, user):
             }
         )
 
-    return JsonResponse({"data": {"interval": interval, "period": period, "rows": data}})
+    return JsonResponse(
+        {"data": {"interval": interval, "period": period, "rows": data}}
+    )
 
 
 @require_GET
@@ -246,7 +265,9 @@ def _build_filtered_queryset(request):
     if date_from is None:
         date_from = date_to - timedelta(days=DEFAULT_LOOKBACK_DAYS)
 
-    queryset = AIExecutionEvent.objects.filter(created_at__gte=date_from, created_at__lte=date_to)
+    queryset = AIExecutionEvent.objects.filter(
+        created_at__gte=date_from, created_at__lte=date_to
+    )
 
     feature_name = str(request.GET.get("feature_name") or "").strip()
     if feature_name:

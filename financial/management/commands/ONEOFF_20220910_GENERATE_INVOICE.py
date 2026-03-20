@@ -26,7 +26,12 @@ class Command(BaseCommand):
                 value_closed = payment.value
 
             if invoice is None:
-                contract = Contract(name=payment.name, value=payment.value, value_open=value_open, value_closed=value_closed)
+                contract = Contract(
+                    name=payment.name,
+                    value=payment.value,
+                    value_open=value_open,
+                    value_closed=value_closed,
+                )
                 contract.save()
                 invoice = Invoice(
                     status=payment.status,

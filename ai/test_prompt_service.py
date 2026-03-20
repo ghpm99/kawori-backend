@@ -25,7 +25,9 @@ class PromptServiceFileResolutionTestCase(SimpleTestCase):
         super().tearDown()
 
     def test_resolves_from_file_when_no_override(self):
-        resolution = PromptService().resolve("payment.reconciliation.v1", environment="development")
+        resolution = PromptService().resolve(
+            "payment.reconciliation.v1", environment="development"
+        )
 
         self.assertEqual(resolution.key, "payment.reconciliation.v1")
         self.assertEqual(resolution.source, "file")
@@ -35,13 +37,32 @@ class PromptServiceFileResolutionTestCase(SimpleTestCase):
 
     def test_strict_render_fails_when_variable_is_missing(self):
         with self.assertRaises(PromptRenderError):
-            render_prompt_template("Olá {{user.name}} - {{missing}}", {"user": {"name": "Kawori"}}, strict=True)
+            render_prompt_template(
+                "Olá {{user.name}} - {{missing}}",
+                {"user": {"name": "Kawori"}},
+                strict=True,
+            )
 
     def test_build_ai_request_uses_registry_schema_for_each_feature(self):
         cases = {
-            "payment.reconciliation.v1": {"import_strategy", "matched_payment_id", "merge_group", "confidence", "reason"},
-            "mailer.communication_notifications.v1": {"subject_prefix", "intro", "highlights"},
-            "audit.insights.v1": {"summary", "incident_clusters", "probable_root_causes", "recommended_actions"},
+            "payment.reconciliation.v1": {
+                "import_strategy",
+                "matched_payment_id",
+                "merge_group",
+                "confidence",
+                "reason",
+            },
+            "mailer.communication_notifications.v1": {
+                "subject_prefix",
+                "intro",
+                "highlights",
+            },
+            "audit.insights.v1": {
+                "summary",
+                "incident_clusters",
+                "probable_root_causes",
+                "recommended_actions",
+            },
             "release.compliance.v1": {
                 "release_compliance_notes",
                 "oneoff_required",
@@ -51,7 +72,9 @@ class PromptServiceFileResolutionTestCase(SimpleTestCase):
         }
 
         for prompt_key, expected_schema_keys in cases.items():
-            built = build_ai_request_from_prompt(prompt_key=prompt_key, payload={"ok": True}, feature_name="unit_test")
+            built = build_ai_request_from_prompt(
+                prompt_key=prompt_key, payload={"ok": True}, feature_name="unit_test"
+            )
             metadata = built.task_request.metadata
 
             self.assertEqual(built.task_request.task_type, "structured_extraction")
@@ -60,7 +83,9 @@ class PromptServiceFileResolutionTestCase(SimpleTestCase):
             self.assertIn("prompt_hash", metadata)
 
 
-@override_settings(AI_PROMPT_DB_OVERRIDE_ENABLED=True, AI_PROMPT_ENVIRONMENT="development")
+@override_settings(
+    AI_PROMPT_DB_OVERRIDE_ENABLED=True, AI_PROMPT_ENVIRONMENT="development"
+)
 class PromptServiceOverrideTestCase(TestCase):
     def setUp(self):
         super().setUp()
@@ -87,7 +112,9 @@ class PromptServiceOverrideTestCase(TestCase):
             change_reason="Teste de override ativo.",
         )
 
-        resolution = PromptService().resolve("payment.reconciliation.v1", environment="development")
+        resolution = PromptService().resolve(
+            "payment.reconciliation.v1", environment="development"
+        )
 
         self.assertEqual(resolution.source, "db")
         self.assertEqual(resolution.version, "v2")
@@ -112,7 +139,9 @@ class PromptServiceOverrideTestCase(TestCase):
             change_reason="Teste de expiração.",
         )
 
-        resolution = PromptService().resolve("payment.reconciliation.v1", environment="development")
+        resolution = PromptService().resolve(
+            "payment.reconciliation.v1", environment="development"
+        )
 
         self.assertEqual(resolution.source, "file")
         self.assertEqual(resolution.version, "v1")
@@ -131,7 +160,9 @@ class PromptServiceOverrideTestCase(TestCase):
             change_reason="Teste de override inválido.",
         )
 
-        resolution = PromptService().resolve("payment.reconciliation.v1", environment="development")
+        resolution = PromptService().resolve(
+            "payment.reconciliation.v1", environment="development"
+        )
 
         self.assertEqual(resolution.source, "file")
         self.assertEqual(resolution.version, "v1")

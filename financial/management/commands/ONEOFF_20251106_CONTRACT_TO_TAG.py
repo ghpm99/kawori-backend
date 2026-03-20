@@ -5,7 +5,6 @@ from django.core.management.base import BaseCommand
 
 from contract.models import Contract
 from invoice.models import Invoice
-from payment.models import Payment
 from tag.models import Tag
 
 
@@ -56,7 +55,11 @@ class Command(BaseCommand):
             tag, created = Tag.objects.get_or_create(
                 name=contract.name,
                 user=contract.user,
-                defaults={"color": self.colors[random.randint(0, self.colors.__len__())]},  # nosec B311
+                defaults={
+                    "color": self.colors[
+                        random.randint(0, self.colors.__len__())  # nosec
+                    ]
+                },
             )
 
             if created:

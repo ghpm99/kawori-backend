@@ -8,7 +8,9 @@ from ai.exceptions import AIConfigurationError
 
 class AIProviderGateway(ABC):
     @abstractmethod
-    def generate(self, request: ProviderCompletionRequest) -> ProviderCompletionResponse:
+    def generate(
+        self, request: ProviderCompletionRequest
+    ) -> ProviderCompletionResponse:
         raise NotImplementedError
 
 
@@ -19,5 +21,7 @@ class AIProviderRegistry:
     def get(self, provider_key: str) -> AIProviderGateway:
         provider = self._providers.get(provider_key)
         if provider is None:
-            raise AIConfigurationError(f"Provider '{provider_key}' não foi configurado.")
+            raise AIConfigurationError(
+                f"Provider '{provider_key}' não foi configurado."
+            )
         return provider

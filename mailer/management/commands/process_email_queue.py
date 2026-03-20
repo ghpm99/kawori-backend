@@ -13,9 +13,21 @@ class Command(BaseCommand):
     help = "Process pending emails from the queue"
 
     def add_arguments(self, parser):
-        parser.add_argument("--batch-size", type=int, default=20, help="Number of emails to process per cycle")
-        parser.add_argument("--once", action="store_true", help="Process one batch and exit")
-        parser.add_argument("--interval", type=int, default=30, help="Seconds between cycles in continuous mode")
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=20,
+            help="Number of emails to process per cycle",
+        )
+        parser.add_argument(
+            "--once", action="store_true", help="Process one batch and exit"
+        )
+        parser.add_argument(
+            "--interval",
+            type=int,
+            default=30,
+            help="Seconds between cycles in continuous mode",
+        )
 
     def check_user_preference(self, queued_email):
         if not queued_email.user:
@@ -73,11 +85,16 @@ class Command(BaseCommand):
     def process_single(self, email_id):
         with transaction.atomic():
             try:
-                queued_email = EmailQueue.objects.select_for_update(skip_locked=True).get(id=email_id)
+                queued_email = EmailQueue.objects.select_for_update(
+                    skip_locked=True
+                ).get(id=email_id)
             except EmailQueue.DoesNotExist:
                 return
 
-            if queued_email.status not in [EmailQueue.STATUS_PENDING, EmailQueue.STATUS_FAILED]:
+            if queued_email.status not in [
+                EmailQueue.STATUS_PENDING,
+                EmailQueue.STATUS_FAILED,
+            ]:
                 return
 
             if not getattr(settings, "MAILER_GLOBAL_ENABLED", True):
@@ -103,13 +120,17 @@ class Command(BaseCommand):
             queued_email.status = EmailQueue.STATUS_SENT
             queued_email.sent_at = timezone.now()
             queued_email.save(update_fields=["status", "sent_at", "updated_at"])
-            self.stdout.write(f"Sent: {queued_email.to_email} ({queued_email.email_type})")
+            self.stdout.write(
+                f"Sent: {queued_email.to_email} ({queued_email.email_type})"
+            )
 
         except Exception as e:
             queued_email.status = EmailQueue.STATUS_FAILED
             queued_email.retry_count += 1
             queued_email.last_error = str(e)[:1000]
-            queued_email.save(update_fields=["status", "retry_count", "last_error", "updated_at"])
+            queued_email.save(
+                update_fields=["status", "retry_count", "last_error", "updated_at"]
+            )
             self.stderr.write(f"Failed: {queued_email.to_email} - {e}")
 
     def handle(self, *args, **options):
@@ -117,7 +138,9 @@ class Command(BaseCommand):
         once = options["once"]
         interval = options["interval"]
 
-        self.stdout.write(f"Email queue worker started (batch_size={batch_size}, once={once})")
+        self.stdout.write(
+            f"Email queue worker started (batch_size={batch_size}, once={once})"
+        )
 
         while True:
             processed = self.process_batch(batch_size)

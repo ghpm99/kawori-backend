@@ -13,7 +13,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="importedpayment",
             name="ai_idempotency_key",
-            field=models.CharField(blank=True, db_index=True, default="", max_length=64),
+            field=models.CharField(
+                blank=True, db_index=True, default="", max_length=64
+            ),
         ),
         migrations.AddField(
             model_name="importedpayment",
@@ -23,7 +25,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="importedpayment",
             name="normalization_signature",
-            field=models.CharField(blank=True, db_index=True, default="", max_length=64),
+            field=models.CharField(
+                blank=True, db_index=True, default="", max_length=64
+            ),
         ),
         migrations.AddField(
             model_name="importedpayment",

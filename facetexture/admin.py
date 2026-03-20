@@ -1,21 +1,19 @@
 from django.contrib import admin
-from facetexture.models import Facetexture, BDOClass, PreviewBackground, Character
+
+from facetexture.models import BDOClass, Character, Facetexture, PreviewBackground
 
 
 # Register your models here.
 class FacetextureConfig(admin.ModelAdmin):
-    list_display = ('user', 'characters')
-    pass
+    list_display = ("user", "characters")
 
 
 class CharacterConfig(admin.ModelAdmin):
-    list_display = ('id', 'name', 'image')
-    pass
+    list_display = ("id", "name", "image")
 
 
 class BDOClassConfig(admin.ModelAdmin):
-    list_display = ('name', 'abbreviation')
-    pass
+    list_display = ("name", "abbreviation")
 
 
 class PreviewBackgroundConfig(admin.ModelAdmin):

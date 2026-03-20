@@ -18,9 +18,13 @@ from tag.models import Tag
 class InvoiceViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="invoice-reg", email="invoice-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="invoice-reg", email="invoice-reg@test.com", password="123"
+        )
         cls.other_user = User.objects.create_superuser(
-            username="invoice-reg-other", email="invoice-reg-other@test.com", password="123"
+            username="invoice-reg-other",
+            email="invoice-reg-other@test.com",
+            password="123",
         )
 
     def setUp(self):
@@ -32,7 +36,9 @@ class InvoiceViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=payload, content_type="application/json")
+            request = request_factory_method(
+                "/", data=payload, content_type="application/json"
+            )
 
         target = inspect.unwrap(fn)
         if id is None:
@@ -86,8 +92,12 @@ class InvoiceViewsRegressionTestCase(TestCase):
         self.assertIsNone(views.get_status_filter("x"))
 
     def test_get_all_invoice_view_with_filters(self):
-        invoice_open = self._create_invoice(name="Open Inv", installments=2, fixed=True, value_open=Decimal("10.00"))
-        invoice_done = self._create_invoice(name="Done Inv", installments=1, fixed=False, value_open=Decimal("0.00"))
+        invoice_open = self._create_invoice(
+            name="Open Inv", installments=2, fixed=True, value_open=Decimal("10.00")
+        )
+        invoice_done = self._create_invoice(
+            name="Done Inv", installments=1, fixed=False, value_open=Decimal("0.00")
+        )
         tag = Tag.objects.create(name="Tag", color="#111111", user=self.user)
         invoice_open.tags.add(tag)
 
@@ -138,8 +148,22 @@ class InvoiceViewsRegressionTestCase(TestCase):
 
     def test_detail_invoice_payments_view_with_filters(self):
         invoice = self._create_invoice(name="Inv payments")
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, type=Payment.TYPE_DEBIT, name="Pay Open", fixed=True, active=True)
-        self._create_payment(invoice, status=Payment.STATUS_DONE, type=Payment.TYPE_CREDIT, name="Pay Done", fixed=False, active=False)
+        self._create_payment(
+            invoice,
+            status=Payment.STATUS_OPEN,
+            type=Payment.TYPE_DEBIT,
+            name="Pay Open",
+            fixed=True,
+            active=True,
+        )
+        self._create_payment(
+            invoice,
+            status=Payment.STATUS_DONE,
+            type=Payment.TYPE_CREDIT,
+            name="Pay Done",
+            fixed=False,
+            active=False,
+        )
 
         response = self._call(
             views.detail_invoice_payments_view,
@@ -169,20 +193,31 @@ class InvoiceViewsRegressionTestCase(TestCase):
         invoice = self._create_invoice(name="Tag target")
         tag = Tag.objects.create(name="TagX", color="#fff", user=self.user)
 
-        success = self._call(views.save_tag_invoice_view, method="post", id=invoice.id, data=[tag.id])
+        success = self._call(
+            views.save_tag_invoice_view, method="post", id=invoice.id, data=[tag.id]
+        )
         self.assertEqual(success.status_code, 200)
         invoice.refresh_from_db()
         self.assertEqual(invoice.tags.count(), 1)
 
         null_payload = self.rf.post("/", data="null", content_type="application/json")
-        null_response = inspect.unwrap(views.save_tag_invoice_view)(null_payload, id=invoice.id, user=self.user)
+        null_response = inspect.unwrap(views.save_tag_invoice_view)(
+            null_payload, id=invoice.id, user=self.user
+        )
         self.assertEqual(null_response.status_code, 404)
 
     def test_save_tag_invoice_view_rejects_tag_from_other_user(self):
         invoice = self._create_invoice(name="Tag target foreign")
-        foreign_tag = Tag.objects.create(name="TagForeign", color="#000", user=self.other_user)
+        foreign_tag = Tag.objects.create(
+            name="TagForeign", color="#000", user=self.other_user
+        )
 
-        response = self._call(views.save_tag_invoice_view, method="post", id=invoice.id, data=[foreign_tag.id])
+        response = self._call(
+            views.save_tag_invoice_view,
+            method="post",
+            id=invoice.id,
+            data=[foreign_tag.id],
+        )
         self.assertEqual(response.status_code, 400)
         invoice.refresh_from_db()
         self.assertEqual(invoice.tags.count(), 0)
@@ -228,7 +263,9 @@ class InvoiceViewsRegressionTestCase(TestCase):
         mocked_generate.assert_called_once()
 
     def test_include_new_invoice_view_rejects_tag_from_other_user(self):
-        foreign_tag = Tag.objects.create(name="TG-Foreign", color="#123", user=self.other_user)
+        foreign_tag = Tag.objects.create(
+            name="TG-Foreign", color="#123", user=self.other_user
+        )
 
         response = self._call(
             views.include_new_invoice_view,
@@ -245,7 +282,9 @@ class InvoiceViewsRegressionTestCase(TestCase):
             },
         )
         self.assertEqual(response.status_code, 400)
-        self.assertFalse(Invoice.objects.filter(name="New Foreign Tag", user=self.user).exists())
+        self.assertFalse(
+            Invoice.objects.filter(name="New Foreign Tag", user=self.user).exists()
+        )
 
     def test_save_detail_view_success_and_not_found(self):
         invoice = self._create_invoice(name="Editable")
@@ -268,12 +307,16 @@ class InvoiceViewsRegressionTestCase(TestCase):
         self.assertFalse(invoice.active)
         self.assertEqual(invoice.tags.count(), 1)
 
-        not_found = self._call(views.save_detail_view, method="post", id=99999, data={"name": "x"})
+        not_found = self._call(
+            views.save_detail_view, method="post", id=99999, data={"name": "x"}
+        )
         self.assertEqual(not_found.status_code, 404)
 
     def test_save_detail_view_rejects_tag_from_other_user(self):
         invoice = self._create_invoice(name="Editable foreign")
-        foreign_tag = Tag.objects.create(name="T-Other", color="#999", user=self.other_user)
+        foreign_tag = Tag.objects.create(
+            name="T-Other", color="#999", user=self.other_user
+        )
 
         response = self._call(
             views.save_detail_view,
@@ -291,7 +334,9 @@ class InvoiceViewsRegressionTestCase(TestCase):
 class InvoiceUtilsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="invoice-utils", email="invoice-utils@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="invoice-utils", email="invoice-utils@test.com", password="123"
+        )
 
     def _build_invoice(self, **overrides):
         data = {
@@ -332,27 +377,45 @@ class InvoiceUtilsRegressionTestCase(TestCase):
             validate_invoice_data(invoice)
 
     def test_validate_invoice_data_rejects_negative_total_value(self):
-        invoice = self._build_invoice(value=Decimal("-1.00"), value_open=Decimal("-1.00"), value_closed=Decimal("0.00"))
+        invoice = self._build_invoice(
+            value=Decimal("-1.00"),
+            value_open=Decimal("-1.00"),
+            value_closed=Decimal("0.00"),
+        )
         with self.assertRaisesMessage(InvoiceValidationError, "valor total"):
             validate_invoice_data(invoice)
 
     def test_validate_invoice_data_rejects_negative_open_value(self):
-        invoice = self._build_invoice(value_open=Decimal("-1.00"), value_closed=Decimal("101.00"))
+        invoice = self._build_invoice(
+            value_open=Decimal("-1.00"), value_closed=Decimal("101.00")
+        )
         with self.assertRaisesMessage(InvoiceValidationError, "aberto"):
             validate_invoice_data(invoice)
 
     def test_validate_invoice_data_rejects_negative_closed_value(self):
-        invoice = self._build_invoice(value_open=Decimal("100.00"), value_closed=Decimal("-1.00"))
+        invoice = self._build_invoice(
+            value_open=Decimal("100.00"), value_closed=Decimal("-1.00")
+        )
         with self.assertRaisesMessage(InvoiceValidationError, "fechado"):
             validate_invoice_data(invoice)
 
     def test_validate_invoice_data_rejects_open_value_above_total(self):
-        invoice = self._build_invoice(value=Decimal("100.00"), value_open=Decimal("101.00"), value_closed=Decimal("0.00"))
-        with self.assertRaisesMessage(InvoiceValidationError, "maior que o valor total"):
+        invoice = self._build_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("101.00"),
+            value_closed=Decimal("0.00"),
+        )
+        with self.assertRaisesMessage(
+            InvoiceValidationError, "maior que o valor total"
+        ):
             validate_invoice_data(invoice)
 
     def test_validate_invoice_data_rejects_inconsistent_sum(self):
-        invoice = self._build_invoice(value=Decimal("100.00"), value_open=Decimal("40.00"), value_closed=Decimal("50.00"))
+        invoice = self._build_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("40.00"),
+            value_closed=Decimal("50.00"),
+        )
         with self.assertRaisesMessage(InvoiceValidationError, "A soma"):
             validate_invoice_data(invoice)
 
@@ -380,7 +443,9 @@ class InvoiceUtilsRegressionTestCase(TestCase):
 class InvoiceModelsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="invoice-models", email="invoice-models@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="invoice-models", email="invoice-models@test.com", password="123"
+        )
 
     def _create_invoice(self, **kwargs):
         return Invoice.objects.create(
@@ -416,7 +481,9 @@ class InvoiceModelsRegressionTestCase(TestCase):
         )
 
     def test_set_value_increases_total_and_open_value(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("100.00"))
+        invoice = self._create_invoice(
+            value=Decimal("100.00"), value_open=Decimal("100.00")
+        )
 
         invoice.set_value(Decimal("25.00"))
         invoice.refresh_from_db()
@@ -426,10 +493,21 @@ class InvoiceModelsRegressionTestCase(TestCase):
 
     def test_get_next_open_payment_date_returns_earliest_active_open(self):
         invoice = self._create_invoice()
-        self._create_payment(invoice, status=Payment.STATUS_DONE, payment_date=date(2026, 1, 3))
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 1, 10))
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 1, 5))
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 1, 1), active=False)
+        self._create_payment(
+            invoice, status=Payment.STATUS_DONE, payment_date=date(2026, 1, 3)
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 1, 10)
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 1, 5)
+        )
+        self._create_payment(
+            invoice,
+            status=Payment.STATUS_OPEN,
+            payment_date=date(2026, 1, 1),
+            active=False,
+        )
 
         self.assertEqual(invoice.get_next_open_payment_date(), date(2026, 1, 5))
 
@@ -440,9 +518,20 @@ class InvoiceModelsRegressionTestCase(TestCase):
 
         self.assertIsNone(invoice.get_next_open_payment_date())
 
-    def test_close_value_marks_done_when_open_reaches_zero_and_updates_next_payment_date(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("100.00"), payment_date=date(2026, 1, 2))
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, payment_date=date(2026, 2, 1), value=Decimal("40.00"))
+    def test_close_value_marks_done_when_open_reaches_zero_and_updates_next_payment_date(
+        self,
+    ):
+        invoice = self._create_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("100.00"),
+            payment_date=date(2026, 1, 2),
+        )
+        self._create_payment(
+            invoice,
+            status=Payment.STATUS_OPEN,
+            payment_date=date(2026, 2, 1),
+            value=Decimal("40.00"),
+        )
 
         invoice.close_value(Decimal("100.00"))
         invoice.refresh_from_db()
@@ -453,10 +542,20 @@ class InvoiceModelsRegressionTestCase(TestCase):
         self.assertEqual(invoice.payment_date, date(2026, 2, 1))
 
     def test_update_value_recomputes_totals_from_active_payments(self):
-        invoice = self._create_invoice(value=Decimal("0.00"), value_open=Decimal("0.00"), value_closed=Decimal("0.00"))
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, value=Decimal("30.00"), active=True)
-        self._create_payment(invoice, status=Payment.STATUS_DONE, value=Decimal("70.00"), active=True)
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, value=Decimal("999.00"), active=False)
+        invoice = self._create_invoice(
+            value=Decimal("0.00"),
+            value_open=Decimal("0.00"),
+            value_closed=Decimal("0.00"),
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_OPEN, value=Decimal("30.00"), active=True
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_DONE, value=Decimal("70.00"), active=True
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_OPEN, value=Decimal("999.00"), active=False
+        )
 
         invoice.update_value()
         invoice.refresh_from_db()
@@ -466,30 +565,65 @@ class InvoiceModelsRegressionTestCase(TestCase):
         self.assertEqual(invoice.value_closed, Decimal("70.00"))
 
     def test_validate_invoice_returns_value_mismatch(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("10.00"), value_closed=Decimal("80.00"))
-        self.assertEqual(invoice.validate_invoice(), Invoice.ValidationStatus.VALUE_MISMATCH)
+        invoice = self._create_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("10.00"),
+            value_closed=Decimal("80.00"),
+        )
+        self.assertEqual(
+            invoice.validate_invoice(), Invoice.ValidationStatus.VALUE_MISMATCH
+        )
 
     def test_validate_invoice_returns_empty_payment_date(self):
-        invoice = self._create_invoice(payment_date=None, value=Decimal("100.00"), value_open=Decimal("40.00"), value_closed=Decimal("60.00"))
-        self.assertEqual(invoice.validate_invoice(), Invoice.ValidationStatus.EMPTY_PAYMENT_DATE)
+        invoice = self._create_invoice(
+            payment_date=None,
+            value=Decimal("100.00"),
+            value_open=Decimal("40.00"),
+            value_closed=Decimal("60.00"),
+        )
+        self.assertEqual(
+            invoice.validate_invoice(), Invoice.ValidationStatus.EMPTY_PAYMENT_DATE
+        )
 
     def test_validate_invoice_returns_budget_tag_not_found(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("40.00"), value_closed=Decimal("60.00"))
-        self.assertEqual(invoice.validate_invoice(), Invoice.ValidationStatus.BUDGET_TAG_NOT_FOUND)
+        invoice = self._create_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("40.00"),
+            value_closed=Decimal("60.00"),
+        )
+        self.assertEqual(
+            invoice.validate_invoice(), Invoice.ValidationStatus.BUDGET_TAG_NOT_FOUND
+        )
 
     def test_validate_invoice_returns_payments_not_found(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("40.00"), value_closed=Decimal("60.00"))
+        invoice = self._create_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("40.00"),
+            value_closed=Decimal("60.00"),
+        )
         tag = Tag.objects.create(name="Budgetless", color="#fff000", user=self.user)
         invoice.tags.add(tag)
-        Budget.objects.create(tag=tag, allocation_percentage=Decimal("10.00"), user=self.user)
+        Budget.objects.create(
+            tag=tag, allocation_percentage=Decimal("10.00"), user=self.user
+        )
 
-        self.assertEqual(invoice.validate_invoice(), Invoice.ValidationStatus.PAYMENTS_NOT_FOUND)
+        self.assertEqual(
+            invoice.validate_invoice(), Invoice.ValidationStatus.PAYMENTS_NOT_FOUND
+        )
 
     def test_validate_invoice_returns_valid(self):
-        invoice = self._create_invoice(value=Decimal("100.00"), value_open=Decimal("40.00"), value_closed=Decimal("60.00"))
+        invoice = self._create_invoice(
+            value=Decimal("100.00"),
+            value_open=Decimal("40.00"),
+            value_closed=Decimal("60.00"),
+        )
         tag = Tag.objects.create(name="Budget tag", color="#00ff00", user=self.user)
         invoice.tags.add(tag)
-        Budget.objects.create(tag=tag, allocation_percentage=Decimal("15.00"), user=self.user)
-        self._create_payment(invoice, status=Payment.STATUS_OPEN, value=Decimal("40.00"), active=True)
+        Budget.objects.create(
+            tag=tag, allocation_percentage=Decimal("15.00"), user=self.user
+        )
+        self._create_payment(
+            invoice, status=Payment.STATUS_OPEN, value=Decimal("40.00"), active=True
+        )
 
         self.assertEqual(invoice.validate_invoice(), Invoice.ValidationStatus.VALID)

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facetexture', '0012_bdoclass_color'),
+        ("facetexture", "0012_bdoclass_color"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='bdoclass',
-            name='class_order',
+            model_name="bdoclass",
+            name="class_order",
             field=models.IntegerField(default=1),
         ),
     ]

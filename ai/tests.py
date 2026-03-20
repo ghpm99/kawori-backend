@@ -4,7 +4,12 @@ from unittest.mock import Mock, patch
 from django.test import SimpleTestCase, override_settings
 
 from ai.cache import get_ai_response_cache
-from ai.dto import AITaskRequest, AITaskType, ProviderCompletionRequest, ProviderCompletionResponse
+from ai.dto import (
+    AITaskRequest,
+    AITaskType,
+    ProviderCompletionRequest,
+    ProviderCompletionResponse,
+)
 from ai.exceptions import AIExecutionError, AIProviderError, AIProviderTimeoutError
 from ai.orchestrator import AIOrchestrator
 from ai.providers.anthropic import AnthropicMessagesProvider
@@ -20,7 +25,9 @@ class SequenceProvider(AIProviderGateway):
         self._sequence = list(sequence)
         self.calls: list[ProviderCompletionRequest] = []
 
-    def generate(self, request: ProviderCompletionRequest) -> ProviderCompletionResponse:
+    def generate(
+        self, request: ProviderCompletionRequest
+    ) -> ProviderCompletionResponse:
         self.calls.append(request)
         if not self._sequence:
             raise AssertionError("SequenceProvider sem respostas configuradas.")
@@ -44,10 +51,14 @@ class SequenceProvider(AIProviderGateway):
 
 
 class AIOrchestratorTestCase(SimpleTestCase):
-    def _build_orchestrator(self, providers: dict[str, AIProviderGateway], routes: dict) -> AIOrchestrator:
+    def _build_orchestrator(
+        self, providers: dict[str, AIProviderGateway], routes: dict
+    ) -> AIOrchestrator:
         return AIOrchestrator(
             provider_registry=AIProviderRegistry(providers),
-            task_router=AITaskRouter(task_routes=routes, default_timeout_seconds=5, default_max_retries=0),
+            task_router=AITaskRouter(
+                task_routes=routes, default_timeout_seconds=5, default_max_retries=0
+            ),
             strategy_registry=build_default_task_strategy_registry(),
             enable_fallback=True,
         )
@@ -67,7 +78,10 @@ class AIOrchestratorTestCase(SimpleTestCase):
         )
 
         response = orchestrator.execute(
-            AITaskRequest(task_type=AITaskType.TEXT_GENERATION.value, input_text="Gere um texto sobre arquitetura.")
+            AITaskRequest(
+                task_type=AITaskType.TEXT_GENERATION.value,
+                input_text="Gere um texto sobre arquitetura.",
+            )
         )
 
         self.assertEqual(response.output, "Texto final")
@@ -96,7 +110,10 @@ class AIOrchestratorTestCase(SimpleTestCase):
         )
 
         response = orchestrator.execute(
-            AITaskRequest(task_type=AITaskType.SUMMARIZATION.value, input_text="Conteúdo longo para resumir.")
+            AITaskRequest(
+                task_type=AITaskType.SUMMARIZATION.value,
+                input_text="Conteúdo longo para resumir.",
+            )
         )
 
         self.assertEqual(response.output, "Resposta após retry")
@@ -109,13 +126,17 @@ class AIOrchestratorTestCase(SimpleTestCase):
             "openai",
             sequence=[AIProviderError("falha no provider primário", transient=True)],
         )
-        fallback_provider = SequenceProvider("anthropic", sequence=["Resposta do fallback"])
+        fallback_provider = SequenceProvider(
+            "anthropic", sequence=["Resposta do fallback"]
+        )
         orchestrator = self._build_orchestrator(
             providers={"openai": primary_provider, "anthropic": fallback_provider},
             routes={
                 "simple_task": {
                     "primary": {"provider": "openai", "model": "gpt-4o-mini"},
-                    "fallbacks": [{"provider": "anthropic", "model": "claude-3-5-haiku-latest"}],
+                    "fallbacks": [
+                        {"provider": "anthropic", "model": "claude-3-5-haiku-latest"}
+                    ],
                     "timeout_seconds": 5,
                     "max_retries": 0,
                 }
@@ -123,7 +144,10 @@ class AIOrchestratorTestCase(SimpleTestCase):
         )
 
         response = orchestrator.execute(
-            AITaskRequest(task_type=AITaskType.SIMPLE_TASK.value, input_text="Responda de forma curta.")
+            AITaskRequest(
+                task_type=AITaskType.SIMPLE_TASK.value,
+                input_text="Responda de forma curta.",
+            )
         )
 
         self.assertEqual(response.provider, "anthropic")
@@ -136,15 +160,21 @@ class AIOrchestratorTestCase(SimpleTestCase):
     def test_non_transient_provider_error_does_not_trigger_fallback(self):
         primary_provider = SequenceProvider(
             "openai",
-            sequence=[AIProviderError("erro de validação", status_code=400, transient=False)],
+            sequence=[
+                AIProviderError("erro de validação", status_code=400, transient=False)
+            ],
         )
-        fallback_provider = SequenceProvider("anthropic", sequence=["não deveria chamar fallback"])
+        fallback_provider = SequenceProvider(
+            "anthropic", sequence=["não deveria chamar fallback"]
+        )
         orchestrator = self._build_orchestrator(
             providers={"openai": primary_provider, "anthropic": fallback_provider},
             routes={
                 "simple_task": {
                     "primary": {"provider": "openai", "model": "gpt-4o-mini"},
-                    "fallbacks": [{"provider": "anthropic", "model": "claude-3-5-haiku-latest"}],
+                    "fallbacks": [
+                        {"provider": "anthropic", "model": "claude-3-5-haiku-latest"}
+                    ],
                     "timeout_seconds": 5,
                     "max_retries": 1,
                 }
@@ -152,7 +182,9 @@ class AIOrchestratorTestCase(SimpleTestCase):
         )
 
         with self.assertRaises(AIExecutionError):
-            orchestrator.execute(AITaskRequest(task_type=AITaskType.SIMPLE_TASK.value, input_text="foo"))
+            orchestrator.execute(
+                AITaskRequest(task_type=AITaskType.SIMPLE_TASK.value, input_text="foo")
+            )
 
         self.assertEqual(len(primary_provider.calls), 1)
         self.assertEqual(len(fallback_provider.calls), 0)
@@ -195,7 +227,13 @@ class AIOrchestratorTestCase(SimpleTestCase):
     def test_classification_strategy_parses_json_response(self):
         provider = SequenceProvider(
             "openai",
-            sequence=[{"label": "positive", "confidence": 0.91, "reason": "sentimento favorável"}],
+            sequence=[
+                {
+                    "label": "positive",
+                    "confidence": 0.91,
+                    "reason": "sentimento favorável",
+                }
+            ],
         )
         orchestrator = self._build_orchestrator(
             providers={"openai": provider},
@@ -240,7 +278,13 @@ class AIOrchestratorTestCase(SimpleTestCase):
                 AITaskRequest(
                     task_type=AITaskType.STRUCTURED_EXTRACTION.value,
                     input_text="Pedido #123 total R$50,00 em 2026-01-01.",
-                    metadata={"schema": {"order_id": "string", "amount": "number", "date": "string"}},
+                    metadata={
+                        "schema": {
+                            "order_id": "string",
+                            "amount": "number",
+                            "date": "string",
+                        }
+                    },
                 )
             )
 
@@ -263,7 +307,10 @@ class AIOrchestratorTestCase(SimpleTestCase):
         )
 
         response = orchestrator.execute(
-            AITaskRequest(task_type=AITaskType.COMPLEX_TASK.value, input_text="Analise impacto arquitetural.")
+            AITaskRequest(
+                task_type=AITaskType.COMPLEX_TASK.value,
+                input_text="Analise impacto arquitetural.",
+            )
         )
 
         self.assertEqual(response.model, "gpt-4o-mini")

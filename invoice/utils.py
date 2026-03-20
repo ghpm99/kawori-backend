@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 from invoice.models import Invoice
 
 
@@ -8,7 +9,9 @@ class InvoiceValidationError(Exception):
 
 def validate_invoice_data(invoice: Invoice) -> None:
     if invoice.installments < 1:
-        raise InvoiceValidationError("O número de parcelas deve ser maior ou igual a 1.")
+        raise InvoiceValidationError(
+            "O número de parcelas deve ser maior ou igual a 1."
+        )
 
     if not invoice.user_id:
         raise InvoiceValidationError("A fatura deve estar vinculada a um usuário.")
@@ -20,13 +23,17 @@ def validate_invoice_data(invoice: Invoice) -> None:
         raise InvoiceValidationError("O valor total da fatura não pode ser negativo.")
 
     if invoice.value_open < Decimal("0.00"):
-        raise InvoiceValidationError("O valor em aberto da fatura não pode ser negativo.")
+        raise InvoiceValidationError(
+            "O valor em aberto da fatura não pode ser negativo."
+        )
 
     if invoice.value_closed < Decimal("0.00"):
         raise InvoiceValidationError("O valor fechado da fatura não pode ser negativo.")
 
     if invoice.value_open > invoice.value:
-        raise InvoiceValidationError("O valor em aberto não pode ser maior que o valor total da fatura.")
+        raise InvoiceValidationError(
+            "O valor em aberto não pode ser maior que o valor total da fatura."
+        )
 
     if invoice.value_open + invoice.value_closed != invoice.value:
         raise InvoiceValidationError(
@@ -34,7 +41,11 @@ def validate_invoice_data(invoice: Invoice) -> None:
         )
 
     if invoice.status == Invoice.STATUS_DONE and invoice.value_open != Decimal("0.00"):
-        raise InvoiceValidationError("Uma fatura finalizada não pode possuir valor em aberto.")
+        raise InvoiceValidationError(
+            "Uma fatura finalizada não pode possuir valor em aberto."
+        )
 
     if invoice.status == Invoice.STATUS_OPEN and invoice.value_open == Decimal("0.00"):
-        raise InvoiceValidationError("Uma fatura em aberto não pode ter valor em aberto igual a zero.")
+        raise InvoiceValidationError(
+            "Uma fatura em aberto não pode ter valor em aberto igual a zero."
+        )

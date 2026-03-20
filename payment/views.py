@@ -1,20 +1,21 @@
-from http import HTTPStatus
 import hashlib
 import json
 from datetime import datetime, timedelta
-
-from django.conf import settings
-from django.utils import timezone
+from http import HTTPStatus
 from math import ceil
 from typing import List
 
 from dateutil.relativedelta import relativedelta
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Case, Count, DecimalField, Q, Sum, Value, When
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
@@ -35,8 +36,6 @@ from payment.utils import (
     csv_header_mapping,
     process_csv_row,
 )
-from audit.decorators import audit_log
-from audit.models import CATEGORY_FINANCIAL
 from tag.models import Tag
 
 MONTHS_PT_BR = [
@@ -60,7 +59,9 @@ def _candidate_confidence_score(parsed_row) -> float:
     if not candidates:
         return 0.0
     top_score = float(candidates[0].get("score") or 0.0)
-    second_score = float(candidates[1].get("score") or 0.0) if len(candidates) > 1 else 0.0
+    second_score = (
+        float(candidates[1].get("score") or 0.0) if len(candidates) > 1 else 0.0
+    )
     spread = max(top_score - second_score, 0.0)
     confidence = top_score * 0.8 + spread * 0.2
     return max(0.0, min(1.0, confidence))
@@ -73,7 +74,11 @@ def _is_uncertain_confidence(score: float) -> bool:
 
 
 def _build_import_ai_idempotency_key(user_id: int, import_type: str, parsed_row) -> str:
-    mapped = parsed_row.mapped_data.to_dict() if getattr(parsed_row, "mapped_data", None) else {}
+    mapped = (
+        parsed_row.mapped_data.to_dict()
+        if getattr(parsed_row, "mapped_data", None)
+        else {}
+    )
     candidates = parsed_row.possibly_matched_payment_list or []
     payload = {
         "user_id": user_id,
@@ -132,13 +137,19 @@ def get_all_view(request, user):
     if req.get("date__gte"):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(
+            req.get("date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("installments"):
         filters["installments"] = req.get("installments")
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(
+            req.get("payment_date__gte")
+        ) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(
+            req.get("payment_date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("fixed"):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
@@ -148,7 +159,9 @@ def get_all_view(request, user):
     if req.get("invoice"):
         filters["invoice__name__icontains"] = req.get("invoice")
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
+    payments_query = Payment.objects.filter(**filters, user=user).order_by(
+        "payment_date", "id"
+    )
     page_size = req.get("page_size", 10)
 
     data = paginate(payments_query, req.get("page", 1), page_size)
@@ -203,7 +216,10 @@ def save_new_view(request, user):
         value = float(value)
 
     if installments is None:
-        return JsonResponse({"msg": "Erro ao incluir pagamento"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        return JsonResponse(
+            {"msg": "Erro ao incluir pagamento"},
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
     if installments <= 0:
         return JsonResponse({"msg": "Pagamento incluso com sucesso"})
@@ -230,7 +246,10 @@ def save_new_view(request, user):
                 future_payment = date_obj + relativedelta(months=1)
                 payment_date = future_payment.strftime(date_format)
     except Exception:
-        return JsonResponse({"msg": "Erro ao incluir pagamento"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        return JsonResponse(
+            {"msg": "Erro ao incluir pagamento"},
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
     return JsonResponse({"msg": "Pagamento incluso com sucesso"})
 
@@ -238,13 +257,23 @@ def save_new_view(request, user):
 @require_GET
 @validate_user("financial")
 def get_payments_month(request, user):
-    date_from = format_date(request.GET.get("date_from")) if request.GET.get("date_from") else None
-    date_to = format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
+    date_from = (
+        format_date(request.GET.get("date_from"))
+        if request.GET.get("date_from")
+        else None
+    )
+    date_to = (
+        format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
+    )
 
     if date_from and date_to and date_from > date_to:
-        return JsonResponse({"msg": "date_from must be less than or equal to date_to"}, status=400)
+        return JsonResponse(
+            {"msg": "date_from must be less than or equal to date_to"}, status=400
+        )
 
-    invoices_query = Payment.objects.filter(invoice__active=True, invoice__user=user, active=True)
+    invoices_query = Payment.objects.filter(
+        invoice__active=True, invoice__user=user, active=True
+    )
     if date_from:
         invoices_query = invoices_query.filter(payment_date__gte=date_from)
     if date_to:
@@ -289,7 +318,11 @@ def get_payments_month(request, user):
 
     payments = []
     for index, row in enumerate(invoices, start=1):
-        month_date = row["payment_month"].date() if hasattr(row["payment_month"], "date") else row["payment_month"]
+        month_date = (
+            row["payment_month"].date()
+            if hasattr(row["payment_month"], "date")
+            else row["payment_month"]
+        )
         total_value_credit = float(row["total_value_credit"] or 0)
         total_value_debit = float(row["total_value_debit"] or 0)
         total_value_open = float(row["total_value_open"] or 0)
@@ -301,7 +334,9 @@ def get_payments_month(request, user):
                 "id": index,
                 "name": MONTHS_PT_BR[month_date.month - 1],
                 "date": month_date,
-                "dateTimestamp": int(datetime.combine(month_date, datetime.min.time()).timestamp()),
+                "dateTimestamp": int(
+                    datetime.combine(month_date, datetime.min.time()).timestamp()
+                ),
                 "total": total_value_credit + total_value_debit,
                 "total_value_credit": total_value_credit,
                 "total_value_debit": total_value_debit,
@@ -374,10 +409,16 @@ def save_detail_view(request, id, user):
         if data.get("payment_date"):
             payment.payment_date = payment_date
         if data.get("fixed") is not None:
-            payment.fixed = boolean(data.get("fixed")) if not isinstance(data.get("fixed"), bool) else data.get("fixed")
+            payment.fixed = (
+                boolean(data.get("fixed"))
+                if not isinstance(data.get("fixed"), bool)
+                else data.get("fixed")
+            )
         if data.get("active") is not None:
             payment.active = (
-                boolean(data.get("active")) if not isinstance(data.get("active"), bool) else data.get("active")
+                boolean(data.get("active"))
+                if not isinstance(data.get("active"), bool)
+                else data.get("active")
             )
         if data.get("value") is not None:
             old_value = payment.value
@@ -459,19 +500,27 @@ def get_all_scheduled_view(request, user):
     if req.get("date__gte"):
         filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
     if req.get("date__lte"):
-        filters["date__lte"] = format_date(req.get("date__lte")) or datetime.now() + timedelta(days=1)
+        filters["date__lte"] = format_date(
+            req.get("date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("installments"):
         filters["installments"] = req.get("installments")
     if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(req.get("payment_date__gte")) or datetime(2018, 1, 1)
+        filters["payment_date__gte"] = format_date(
+            req.get("payment_date__gte")
+        ) or datetime(2018, 1, 1)
     if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(req.get("payment_date__lte")) or datetime.now() + timedelta(days=1)
+        filters["payment_date__lte"] = format_date(
+            req.get("payment_date__lte")
+        ) or datetime.now() + timedelta(days=1)
     if req.get("fixed"):
         filters["fixed"] = boolean(req.get("fixed"))
     if req.get("active"):
         filters["active"] = boolean(req.get("active"))
 
-    payments_query = Payment.objects.filter(**filters, user=user).order_by("payment_date", "id")
+    payments_query = Payment.objects.filter(**filters, user=user).order_by(
+        "payment_date", "id"
+    )
     page_param = req.get("page", 1)
     page_size_param = req.get("page_size")
     page_size = int(page_size_param) if page_size_param else 10
@@ -511,7 +560,9 @@ def get_all_scheduled_view(request, user):
         for payment in data.get("data")
     ]
 
-    data["page_size"] = page_size if page_size_param == "2" else (page_size_param or "10")
+    data["page_size"] = (
+        page_size if page_size_param == "2" else (page_size_param or "10")
+    )
     data["page"] = data["current_page"]
     data["pages"] = pages
     data["total"] = total
@@ -544,7 +595,9 @@ def statement_view(request, user):
     base_filter = Q(user=user, status=Payment.STATUS_DONE)
 
     # Opening balance: sum of all credits - debits with payment_date < date_from
-    prior_payments = Payment.objects.filter(base_filter, payment_date__lt=date_from_parsed)
+    prior_payments = Payment.objects.filter(
+        base_filter, payment_date__lt=date_from_parsed
+    )
     prior_agg = prior_payments.aggregate(
         credits=Sum(
             Case(
@@ -593,14 +646,19 @@ def statement_view(request, user):
         tags = []
         if payment.invoice:
             invoice_name = payment.invoice.name
-            tags = [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in payment.invoice.tags.all()]
+            tags = [
+                {"id": tag.id, "name": tag.name, "color": tag.color}
+                for tag in payment.invoice.tags.all()
+            ]
 
         transactions.append(
             {
                 "id": payment.id,
                 "name": payment.name,
                 "description": payment.description,
-                "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+                "payment_date": (
+                    payment.payment_date.isoformat() if payment.payment_date else None
+                ),
                 "date": payment.date.isoformat() if payment.date else None,
                 "type": payment.type,
                 "value": value,
@@ -678,14 +736,20 @@ def csv_ai_map_view(request, user):
 
     headers = data.get("headers")
     if not isinstance(headers, list) or len(headers) == 0:
-        return JsonResponse({"msg": "headers is required"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "headers is required"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     sample_rows = data.get("sample_rows")
     if not isinstance(sample_rows, list):
         sample_rows = []
 
-    import_type = str(data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS))
-    result = suggest_csv_mapping(headers=headers, sample_rows=sample_rows, import_type=import_type)
+    import_type = str(
+        data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
+    )
+    result = suggest_csv_mapping(
+        headers=headers, sample_rows=sample_rows, import_type=import_type
+    )
     return JsonResponse(result)
 
 
@@ -703,7 +767,9 @@ def csv_ai_normalize_view(request, user):
         transactions = data.get("data")
 
     if not isinstance(transactions, list):
-        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     result = normalize_csv_transactions(transactions)
     return JsonResponse(result)
@@ -723,10 +789,16 @@ def csv_ai_reconcile_view(request, user):
         transactions = data.get("import")
 
     if not isinstance(transactions, list):
-        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
+        )
 
-    import_type = str(data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS))
-    matches = suggest_reconciliation_matches(user=user, transactions=transactions, import_type=import_type)
+    import_type = str(
+        data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
+    )
+    matches = suggest_reconciliation_matches(
+        user=user, transactions=transactions, import_type=import_type
+    )
 
     return JsonResponse({"matches": matches})
 
@@ -747,7 +819,9 @@ def ai_tag_suggestions_view(request, user):
         transactions = data.get("import")
 
     if not isinstance(transactions, list):
-        return JsonResponse({"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     result = suggest_tag_suggestions(user=user, transactions=transactions)
     return JsonResponse(result)
@@ -767,7 +841,10 @@ def get_csv_mapping(request, user):
     if not csv_headers:
         return JsonResponse({"msg": "CSV mapping is required"}, status=400)
 
-    csv_mapping = [{"csv_column": col, "system_field": csv_header_mapping(col)} for col in csv_headers]
+    csv_mapping = [
+        {"csv_column": col, "system_field": csv_header_mapping(col)}
+        for col in csv_headers
+    ]
 
     return JsonResponse({"data": csv_mapping})
 
@@ -789,34 +866,50 @@ def process_csv_upload(request, user):
     processed_payments = []
     global_cap = max(int(getattr(settings, "AI_IMPORT_SUGGESTION_MAX_ITEMS", 20)), 0)
     request_cap = max(
-        int(data.get("ai_suggestion_limit") or getattr(settings, "AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", global_cap)),
+        int(
+            data.get("ai_suggestion_limit")
+            or getattr(settings, "AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", global_cap)
+        ),
         0,
     )
     request_cap = min(request_cap, global_cap) if global_cap > 0 else request_cap
 
-    user_daily_cap = max(int(getattr(settings, "AI_IMPORT_SUGGESTION_DAILY_PER_USER", 60)), 0)
+    user_daily_cap = max(
+        int(getattr(settings, "AI_IMPORT_SUGGESTION_DAILY_PER_USER", 60)), 0
+    )
     today = timezone.now().date()
-    used_today = ImportedPayment.objects.filter(
-        user=user,
-        updated_at__date=today,
-        ai_suggestion_data__isnull=False,
-    ).exclude(ai_suggestion_data={}).count()
+    used_today = (
+        ImportedPayment.objects.filter(
+            user=user,
+            updated_at__date=today,
+            ai_suggestion_data__isnull=False,
+        )
+        .exclude(ai_suggestion_data={})
+        .count()
+    )
     daily_remaining = max(user_daily_cap - used_today, 0)
-    max_ai_suggestions = min(request_cap, daily_remaining) if user_daily_cap > 0 else request_cap
+    max_ai_suggestions = (
+        min(request_cap, daily_remaining) if user_daily_cap > 0 else request_cap
+    )
     ai_attempts_left = max_ai_suggestions
     request_idempotency_cache: dict[str, dict] = {}
 
     for row in csv_body:
-        processed_row = process_csv_row(user, import_type, csv_headers, row, payment_date)
+        processed_row = process_csv_row(
+            user, import_type, csv_headers, row, payment_date
+        )
+        is_valid_row = getattr(processed_row, "is_valid", True)
+        matched_payment = getattr(processed_row, "matched_payment", None)
+        possible_matches = getattr(processed_row, "possibly_matched_payment_list", [])
         has_candidates = (
-            processed_row.is_valid
-            and processed_row.matched_payment is None
-            and bool(processed_row.possibly_matched_payment_list)
+            is_valid_row and matched_payment is None and bool(possible_matches)
         )
         if has_candidates and ai_attempts_left > 0:
             confidence = _candidate_confidence_score(processed_row)
             if _is_uncertain_confidence(confidence):
-                idempotency_key = _build_import_ai_idempotency_key(user.id, import_type, processed_row)
+                idempotency_key = _build_import_ai_idempotency_key(
+                    user.id, import_type, processed_row
+                )
                 suggestion_payload = request_idempotency_cache.get(idempotency_key)
 
                 if suggestion_payload is None:
@@ -864,7 +957,9 @@ def csv_resolve_imports_view(request, user):
     created_imported_payment = []
 
     if import_type not in dict(ImportedPayment.IMPORT_SOURCES):
-        return JsonResponse({"msg": "Tipo de importação invalido"}, status=HTTPStatus.BAD_REQUEST)
+        return JsonResponse(
+            {"msg": "Tipo de importação invalido"}, status=HTTPStatus.BAD_REQUEST
+        )
 
     def _build_tag_list(tags_qs):
         return [
@@ -878,7 +973,10 @@ def csv_resolve_imports_view(request, user):
         ]
 
     def _has_budget_tag(tags_qs):
-        return tags_qs.filter(budget__isnull=False).exists() or tags_qs.filter(name__icontains="budget").exists()
+        return (
+            tags_qs.filter(budget__isnull=False).exists()
+            or tags_qs.filter(name__icontains="budget").exists()
+        )
 
     with transaction.atomic():
         for transaction_data in csv_payments:
@@ -899,10 +997,14 @@ def csv_resolve_imports_view(request, user):
                 except (TypeError, ValueError):
                     matched_payment_id = None
 
-            existing = ImportedPayment.objects.filter(
-                reference=reference,
-                user=user,
-            ).prefetch_related("raw_tags").first()
+            existing = (
+                ImportedPayment.objects.filter(
+                    reference=reference,
+                    user=user,
+                )
+                .prefetch_related("raw_tags")
+                .first()
+            )
 
             if existing and not existing.is_editable():
                 if existing.status == ImportedPayment.IMPORT_STATUS_COMPLETED:
@@ -929,7 +1031,9 @@ def csv_resolve_imports_view(request, user):
             has_budget_tag_flag = False
 
             import_strategy = ImportedPayment.IMPORT_STRATEGY_NEW
-            suggested_strategy = str(ai_suggestion.get("import_strategy", "")).strip().lower()
+            suggested_strategy = (
+                str(ai_suggestion.get("import_strategy", "")).strip().lower()
+            )
             if suggested_strategy in dict(ImportedPayment.IMPORT_STRATEGIES):
                 import_strategy = suggested_strategy
 
@@ -973,7 +1077,9 @@ def csv_resolve_imports_view(request, user):
                     or mapped_payment.get("date")
                     or timezone.now().date(),
                     "raw_value": mapped_payment.get("value") or 0,
-                    "ai_idempotency_key": str(ai_suggestion.get("idempotency_key", "")).strip(),
+                    "ai_idempotency_key": str(
+                        ai_suggestion.get("idempotency_key", "")
+                    ).strip(),
                     "ai_suggestion_data": ai_suggestion if ai_suggestion else {},
                 },
             )
@@ -1037,7 +1143,9 @@ def csv_import_view(request, user):
     if items is None:
         return JsonResponse({"msg": "data is required"}, status=HTTPStatus.BAD_REQUEST)
 
-    imported_ids = [item.get("import_payment_id") for item in items if item.get("import_payment_id")]
+    imported_ids = [
+        item.get("import_payment_id") for item in items if item.get("import_payment_id")
+    ]
 
     imports = ImportedPayment.objects.filter(
         id__in=imported_ids,
@@ -1057,11 +1165,16 @@ def csv_import_view(request, user):
         for item in items:
             import_payment_id = item.get("import_payment_id")
             if not import_payment_id:
-                return JsonResponse({"msg": "import_payment_id is required"}, status=HTTPStatus.BAD_REQUEST)
+                return JsonResponse(
+                    {"msg": "import_payment_id is required"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
 
             tag_ids = item.get("tags")
             if tag_ids is None:
-                return JsonResponse({"msg": "tags is required"}, status=HTTPStatus.BAD_REQUEST)
+                return JsonResponse(
+                    {"msg": "tags is required"}, status=HTTPStatus.BAD_REQUEST
+                )
 
             item_tags[import_payment_id] = tag_ids
 
@@ -1074,7 +1187,9 @@ def csv_import_view(request, user):
 
             imported = imports_by_id.get(import_payment_id)
             if not imported or not imported.is_editable():
-                skipped.append({"import_payment_id": import_payment_id, "reason": "not_editable"})
+                skipped.append(
+                    {"import_payment_id": import_payment_id, "reason": "not_editable"}
+                )
                 continue
 
             tag_ids = item_tags.get(import_payment_id, [])
@@ -1084,7 +1199,9 @@ def csv_import_view(request, user):
                 tag_ids = merge_group_tags.get(imported.merge_group, [])
 
             if len(tag_ids) == 0:
-                skipped.append({"import_payment_id": import_payment_id, "reason": "no_tags"})
+                skipped.append(
+                    {"import_payment_id": import_payment_id, "reason": "no_tags"}
+                )
                 continue
 
             tags = Tag.objects.filter(
@@ -1092,10 +1209,13 @@ def csv_import_view(request, user):
                 user=user,
             )
             has_budget_tag = (
-                tags.filter(budget__isnull=False).exists() or tags.filter(name__icontains="budget").exists()
+                tags.filter(budget__isnull=False).exists()
+                or tags.filter(name__icontains="budget").exists()
             )
             if not has_budget_tag:
-                skipped.append({"import_payment_id": import_payment_id, "reason": "no_budget_tag"})
+                skipped.append(
+                    {"import_payment_id": import_payment_id, "reason": "no_budget_tag"}
+                )
                 continue
 
             imported.raw_tags.set(tags)
@@ -1103,4 +1223,6 @@ def csv_import_view(request, user):
             imported.save(update_fields=["status"])
             count_imports += 1
 
-    return JsonResponse({"msg": "Importação iniciada", "total": count_imports, "skipped": skipped})
+    return JsonResponse(
+        {"msg": "Importação iniciada", "total": count_imports, "skipped": skipped}
+    )

@@ -6,17 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('classification', '0010_answer_status_answersummary_answers'),
+        ("classification", "0010_answer_status_answersummary_answers"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='answersummary',
-            name='answers',
+            model_name="answersummary",
+            name="answers",
         ),
         migrations.AddField(
-            model_name='answer',
-            name='height',
+            model_name="answer",
+            name="height",
             field=models.FloatField(default=1),
         ),
     ]

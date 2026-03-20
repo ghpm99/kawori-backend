@@ -12,9 +12,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from PIL import Image, ImageOps
 
-from facetexture.models import BDOClass, Character, Facetexture
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FACETEXTURE
+from facetexture.models import BDOClass, Character, Facetexture
 from kawori.decorators import validate_user
 from kawori.utils import get_image_class, get_symbol_class
 
@@ -36,7 +36,9 @@ def verify_valid_symbol(symbol: str) -> bool:
 @validate_user("blackdesert")
 def get_facetexture_config(request, user):
 
-    characters = Character.objects.filter(user=user, active=True).all().order_by("order")
+    characters = (
+        Character.objects.filter(user=user, active=True).all().order_by("order")
+    )
 
     data = []
 
@@ -118,7 +120,9 @@ def preview_background(request, user):
     if not req_files.get("background"):
         return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
 
-    characters = Character.objects.filter(user=user, active=True).order_by("order").all()
+    characters = (
+        Character.objects.filter(user=user, active=True).order_by("order").all()
+    )
     if not characters:
         return JsonResponse({"msg": "Facetexture nao encontrado"}, status=400)
 
@@ -154,7 +158,9 @@ def preview_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style).convert("RGBA")
+            classImage = get_symbol_class(
+                character.bdoClass, symbol_style=icon_style
+            ).convert("RGBA")
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
@@ -177,7 +183,9 @@ def download_background(request, user):
     if not req_files.get("background"):
         return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
 
-    characters = Character.objects.filter(user=user, active=True).order_by("order").all()
+    characters = (
+        Character.objects.filter(user=user, active=True).order_by("order").all()
+    )
     if not characters:
         return JsonResponse({"msg": "Facetexture nao encontrado"}, status=404)
 
@@ -210,7 +218,9 @@ def download_background(request, user):
         imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
 
         if character.show is True:
-            classImage = get_symbol_class(character.bdoClass, symbol_style=icon_style).convert("RGBA")
+            classImage = get_symbol_class(
+                character.bdoClass, symbol_style=icon_style
+            ).convert("RGBA")
 
             imageCrop.paste(classImage, (10, 10), classImage)
 
@@ -247,7 +257,9 @@ def reorder_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado personagem com esse ID"}, status=404
+        )
 
     with transaction.atomic():
         query = """
@@ -262,7 +274,9 @@ def reorder_character(request, user, id):
         """
 
         with connection.cursor() as cursor:
-            cursor.execute(query, {"order": index_destination, "id": id, "user": user.id})
+            cursor.execute(
+                query, {"order": index_destination, "id": id, "user": user.id}
+            )
 
         query = """
             UPDATE
@@ -302,7 +316,9 @@ def reorder_character(request, user, id):
                 },
             )
 
-    characters = Character.objects.filter(user=user, active=True).all().order_by("order")
+    characters = (
+        Character.objects.filter(user=user, active=True).all().order_by("order")
+    )
 
     data = []
 
@@ -325,7 +341,9 @@ def change_class_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado personagem com esse ID"}, status=404
+        )
 
     bdo_class = BDOClass.objects.filter(id=new_class).first()
 
@@ -358,7 +376,9 @@ def change_character_name(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado personagem com esse ID"}, status=404
+        )
 
     character.name = new_name
     character.save()
@@ -374,7 +394,10 @@ def new_character(request, user):
     character_count = Character.objects.filter(user=user, active=True).count()
 
     if character_count >= MAXIMUM_FACETEXTURE_CHARACTERS:
-        return JsonResponse({"data": f"O limite de facetexture são {MAXIMUM_FACETEXTURE_CHARACTERS}!"}, status=400)
+        return JsonResponse(
+            {"data": f"O limite de facetexture são {MAXIMUM_FACETEXTURE_CHARACTERS}!"},
+            status=400,
+        )
 
     data = json.loads(request.body)
     name = data.get("name", "")
@@ -433,7 +456,9 @@ def change_show_class_icon(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado personagem com esse ID"}, status=404
+        )
 
     character.show = new_value
     character.save()
@@ -448,7 +473,9 @@ def delete_character(request, user, id):
     character = Character.objects.filter(id=id, user=user).first()
 
     if character is None:
-        return JsonResponse({"data": "Não foi encontrado personagem com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado personagem com esse ID"}, status=404
+        )
 
     character.active = False
     character.save()
@@ -464,7 +491,9 @@ def get_symbol_class_view(request, id):
     data = BDOClass.objects.filter(**filters).first()
 
     if data is None:
-        return JsonResponse({"data": "Não foi encontrado classe com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado classe com esse ID"}, status=404
+        )
 
     class_image = get_symbol_class(data)
 
@@ -485,7 +514,9 @@ def get_image_class_view(request, id):
     bdo_class_order = BDOClass.objects.filter(**filters).values("class_order")
 
     if bdo_class_order is None:
-        return JsonResponse({"data": "Não foi encontrado classe com esse ID"}, status=404)
+        return JsonResponse(
+            {"data": "Não foi encontrado classe com esse ID"}, status=404
+        )
 
     class_order = bdo_class_order[0].get("class_order", 1)
 

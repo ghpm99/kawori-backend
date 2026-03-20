@@ -15,8 +15,14 @@ from audit.models import (
 )
 from authentication.utils import get_client_ip
 
-
-SENSITIVE_FIELDS = {"password", "new_password", "token", "access_token", "refresh_token", "secret"}
+SENSITIVE_FIELDS = {
+    "password",
+    "new_password",
+    "token",
+    "access_token",
+    "refresh_token",
+    "secret",
+}
 
 
 def _sanitize_value(key, value):

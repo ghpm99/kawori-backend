@@ -10,7 +10,9 @@ from mailer.models import UserEmailPreference
 class EmailPreferencesViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="prefviewuser", email="pref@test.com", password="testpass123")
+        cls.user = User.objects.create_user(
+            username="prefviewuser", email="pref@test.com", password="testpass123"
+        )
         group = Group.objects.create(name="user")
         group.user_set.add(cls.user)
 

@@ -15,7 +15,9 @@ from tag.models import Tag
 class TagViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="tag-reg", email="tag-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="tag-reg", email="tag-reg@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -26,7 +28,9 @@ class TagViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=payload, content_type="application/json")
+            request = request_factory_method(
+                "/", data=payload, content_type="application/json"
+            )
 
         target = inspect.unwrap(fn)
         if id is None:
@@ -50,11 +54,23 @@ class TagViewsRegressionTestCase(TestCase):
         )
 
     def test_get_all_tag_view_returns_aggregates_and_budget_flag(self):
-        regular_tag = Tag.objects.create(name="Mercado", color="#111111", user=self.user)
-        budget_tag = Tag.objects.create(name="Conforto", color="#222222", user=self.user)
-        Budget.objects.create(user=self.user, tag=budget_tag, allocation_percentage=Decimal("20.00"))
+        regular_tag = Tag.objects.create(
+            name="Mercado", color="#111111", user=self.user
+        )
+        budget_tag = Tag.objects.create(
+            name="Conforto", color="#222222", user=self.user
+        )
+        Budget.objects.create(
+            user=self.user, tag=budget_tag, allocation_percentage=Decimal("20.00")
+        )
 
-        active_invoice = self._create_invoice(name="Ativa", active=True, value=Decimal("90.00"), value_open=Decimal("30.00"), value_closed=Decimal("60.00"))
+        active_invoice = self._create_invoice(
+            name="Ativa",
+            active=True,
+            value=Decimal("90.00"),
+            value_open=Decimal("30.00"),
+            value_closed=Decimal("60.00"),
+        )
         inactive_invoice = self._create_invoice(
             name="Inativa",
             active=False,
@@ -65,7 +81,9 @@ class TagViewsRegressionTestCase(TestCase):
         active_invoice.tags.add(regular_tag, budget_tag)
         inactive_invoice.tags.add(regular_tag)
 
-        response = self._call(views.get_all_tag_view, method="get", data={"name__icontains": "er"})
+        response = self._call(
+            views.get_all_tag_view, method="get", data={"name__icontains": "er"}
+        )
         self.assertEqual(response.status_code, 200)
 
         payload = json.loads(response.content)["data"]
@@ -96,30 +114,58 @@ class TagViewsRegressionTestCase(TestCase):
     def test_include_new_tag_view_validations_and_success(self):
         Tag.objects.create(name="Existing", color="#101010", user=self.user)
 
-        duplicate = self._call(views.include_new_tag_view, method="post", data={"name": "Existing", "color": "#202020"})
+        duplicate = self._call(
+            views.include_new_tag_view,
+            method="post",
+            data={"name": "Existing", "color": "#202020"},
+        )
         self.assertEqual(duplicate.status_code, 404)
 
-        missing_name = self._call(views.include_new_tag_view, method="post", data={"name": " ", "color": "#202020"})
+        missing_name = self._call(
+            views.include_new_tag_view,
+            method="post",
+            data={"name": " ", "color": "#202020"},
+        )
         self.assertEqual(missing_name.status_code, 400)
 
-        hash_name = self._call(views.include_new_tag_view, method="post", data={"name": "#invalid", "color": "#202020"})
+        hash_name = self._call(
+            views.include_new_tag_view,
+            method="post",
+            data={"name": "#invalid", "color": "#202020"},
+        )
         self.assertEqual(hash_name.status_code, 400)
 
-        missing_color = self._call(views.include_new_tag_view, method="post", data={"name": "Nova"})
+        missing_color = self._call(
+            views.include_new_tag_view, method="post", data={"name": "Nova"}
+        )
         self.assertEqual(missing_color.status_code, 400)
 
-        success = self._call(views.include_new_tag_view, method="post", data={"name": "Nova", "color": "#333333"})
+        success = self._call(
+            views.include_new_tag_view,
+            method="post",
+            data={"name": "Nova", "color": "#333333"},
+        )
         self.assertEqual(success.status_code, 200)
         self.assertTrue(Tag.objects.filter(name="Nova", user=self.user).exists())
 
     def test_save_tag_view_success_and_not_found(self):
         tag = Tag.objects.create(name="Old", color="#111111", user=self.user)
 
-        success = self._call(views.save_tag_view, method="post", id=tag.id, data={"name": "New", "color": "#222222"})
+        success = self._call(
+            views.save_tag_view,
+            method="post",
+            id=tag.id,
+            data={"name": "New", "color": "#222222"},
+        )
         self.assertEqual(success.status_code, 200)
         tag.refresh_from_db()
         self.assertEqual(tag.name, "New")
         self.assertEqual(tag.color, "#222222")
 
-        not_found = self._call(views.save_tag_view, method="post", id=99999, data={"name": "X", "color": "#000000"})
+        not_found = self._call(
+            views.save_tag_view,
+            method="post",
+            id=99999,
+            data={"name": "X", "color": "#000000"},
+        )
         self.assertEqual(not_found.status_code, 404)

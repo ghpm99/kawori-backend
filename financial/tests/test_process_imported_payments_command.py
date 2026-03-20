@@ -1,11 +1,11 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
-from django.core.management import call_command
-from django.contrib.auth import get_user_model
-from django.utils import timezone
 
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from invoice.models import Invoice
 from payment.models import ImportedPayment, Payment
@@ -42,8 +42,12 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         # Numéricos
         self.assertEqual(invoice.installments, expected.get("installments", 1))
         self.assertEqual(invoice.value, expected.get("value", Decimal("0.00")))
-        self.assertEqual(invoice.value_open, expected.get("value_open", Decimal("0.00")))
-        self.assertEqual(invoice.value_closed, expected.get("value_closed", Decimal("0.00")))
+        self.assertEqual(
+            invoice.value_open, expected.get("value_open", Decimal("0.00"))
+        )
+        self.assertEqual(
+            invoice.value_closed, expected.get("value_closed", Decimal("0.00"))
+        )
 
         # Flags
         self.assertEqual(invoice.fixed, expected.get("fixed", False))
@@ -98,7 +102,9 @@ class ProcessImportedPaymentsCommandTest(TestCase):
             self.assertEqual(payment.user, expected["user"])
 
     def setUp(self):
-        self.user = User.objects.create_user(username="test", email="test@test.com", password="123")
+        self.user = User.objects.create_user(
+            username="test", email="test@test.com", password="123"
+        )
 
     def test_command_runs_without_errors(self):
         call_command("process_imported_payments")
@@ -197,7 +203,10 @@ class ProcessImportedPaymentsCommandTest(TestCase):
         call_command("process_imported_payments")
 
         self.assertEqual(
-            ImportedPayment.objects.filter(merge_group="abc", status=ImportedPayment.IMPORT_STATUS_COMPLETED).count(), 2
+            ImportedPayment.objects.filter(
+                merge_group="abc", status=ImportedPayment.IMPORT_STATUS_COMPLETED
+            ).count(),
+            2,
         )
 
         self.assertEqual(Invoice.objects.count(), 1)
@@ -219,7 +228,12 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         call_command("process_imported_payments")
 
-        self.assertEqual(ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_COMPLETED).count(), 1)
+        self.assertEqual(
+            ImportedPayment.objects.filter(
+                status=ImportedPayment.IMPORT_STATUS_COMPLETED
+            ).count(),
+            1,
+        )
 
         self.assertEqual(Invoice.objects.count(), 1)
         self.assertEqual(Payment.objects.count(), 1)
@@ -309,7 +323,12 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         call_command("process_imported_payments")
 
-        self.assertEqual(ImportedPayment.objects.filter(status=ImportedPayment.IMPORT_STATUS_FAILED).count(), 1)
+        self.assertEqual(
+            ImportedPayment.objects.filter(
+                status=ImportedPayment.IMPORT_STATUS_FAILED
+            ).count(),
+            1,
+        )
 
         self.assertEqual(Invoice.objects.count(), 1)
         self.assertEqual(Payment.objects.count(), 1)
@@ -1177,11 +1196,17 @@ class ProcessImportedPaymentsCommandTest(TestCase):
 
         recent_payment.refresh_from_db()
         # Deve continuar PROCESSING (não foi recuperado)
-        self.assertEqual(recent_payment.status, ImportedPayment.IMPORT_STATUS_PROCESSING)
+        self.assertEqual(
+            recent_payment.status, ImportedPayment.IMPORT_STATUS_PROCESSING
+        )
 
-    @patch("financial.management.commands.process_imported_payments.suggest_payment_normalization")
+    @patch(
+        "financial.management.commands.process_imported_payments.suggest_payment_normalization"
+    )
     def test_uses_ai_normalization_when_available(self, mocked_normalization):
-        suggested_tag = Tag.objects.create(name="Mercado", color="#123456", user=self.user)
+        suggested_tag = Tag.objects.create(
+            name="Mercado", color="#123456", user=self.user
+        )
         mocked_normalization.return_value = {
             "normalized_name": "Mercado Central",
             "normalized_description": "Compra consolidada mercado.",

@@ -1,12 +1,9 @@
 import json
-from datetime import datetime, timedelta
-from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from payment.models import Payment
 
 class GetCSVMappingViewTestCase(TestCase):
     @classmethod
@@ -14,12 +11,16 @@ class GetCSVMappingViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Obter token de autenticação
         token = cls.client.post(
@@ -49,7 +50,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -63,7 +64,7 @@ class GetCSVMappingViewTestCase(TestCase):
             {"csv_column": "data", "system_field": "date"},
             {"csv_column": "valor", "system_field": "value"},
             {"csv_column": "identificador", "system_field": "reference"},
-            {"csv_column": "descrição", "system_field": "description"}
+            {"csv_column": "descrição", "system_field": "description"},
         ]
 
         self.assertEqual(data["data"], expected_mappings)
@@ -75,7 +76,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -86,7 +87,9 @@ class GetCSVMappingViewTestCase(TestCase):
         # Verificar se manteve o caso original mas mapeou corretamente
         for i, mapping in enumerate(data["data"]):
             self.assertEqual(mapping["csv_column"], headers[i])
-            self.assertIn(mapping["system_field"], ["date", "value", "reference", "description"])
+            self.assertIn(
+                mapping["system_field"], ["date", "value", "reference", "description"]
+            )
 
     def test_get_csv_mapping_success_with_headers_with_spaces(self):
         """Testa sucesso da view com cabeçalhos com espaços - deve remover espaços e mapear corretamente"""
@@ -95,7 +98,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -106,7 +109,9 @@ class GetCSVMappingViewTestCase(TestCase):
         # Verificar se manteve os espaços originais no csv_column mas mapeou corretamente
         for i, mapping in enumerate(data["data"]):
             self.assertEqual(mapping["csv_column"], headers[i])
-            self.assertIn(mapping["system_field"], ["date", "value", "reference", "description"])
+            self.assertIn(
+                mapping["system_field"], ["date", "value", "reference", "description"]
+            )
 
     def test_get_csv_mapping_success_with_unknown_headers(self):
         """Testa sucesso da view com cabeçalhos desconhecidos - deve mapear como 'ignore'"""
@@ -115,7 +120,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -135,7 +140,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -156,7 +161,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -168,7 +173,7 @@ class GetCSVMappingViewTestCase(TestCase):
         expected_mappings = [
             {"csv_column": "date", "system_field": "date"},
             {"csv_column": "title", "system_field": "description"},
-            {"csv_column": "amount", "system_field": "value"}
+            {"csv_column": "amount", "system_field": "value"},
         ]
 
         self.assertEqual(data["data"], expected_mappings)
@@ -178,7 +183,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -192,7 +197,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": []}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -206,7 +211,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": None}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -220,7 +225,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data="json_invalido",
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -236,7 +241,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.put(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": ["data"]}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 405)
@@ -250,7 +255,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": ["data"]}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -264,7 +269,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": ["data"]}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -277,23 +282,33 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
         self.assertEqual(len(data["data"]), 1)
-        self.assertEqual(data["data"][0], {"csv_column": "data", "system_field": "date"})
+        self.assertEqual(
+            data["data"][0], {"csv_column": "data", "system_field": "date"}
+        )
 
     def test_get_csv_mapping_edge_case_many_headers(self):
         """Testa edge case com muitos cabeçalhos"""
-        headers = ["data", "valor", "identificador", "descrição", "date", "title", "amount"] * 10
+        headers = [
+            "data",
+            "valor",
+            "identificador",
+            "descrição",
+            "date",
+            "title",
+            "amount",
+        ] * 10
 
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -304,7 +319,10 @@ class GetCSVMappingViewTestCase(TestCase):
         # Verificar se todos os cabeçalhos foram processados
         for i, mapping in enumerate(data["data"]):
             self.assertEqual(mapping["csv_column"], headers[i])
-            self.assertIn(mapping["system_field"], ["date", "value", "reference", "description", "ignore"])
+            self.assertIn(
+                mapping["system_field"],
+                ["date", "value", "reference", "description", "ignore"],
+            )
 
     def test_get_csv_mapping_edge_case_empty_string_headers(self):
         """Testa edge case com cabeçalhos sendo strings vazias"""
@@ -313,7 +331,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -327,7 +345,10 @@ class GetCSVMappingViewTestCase(TestCase):
             if headers[i].strip() == "":
                 self.assertEqual(mapping["system_field"], "ignore")
             else:
-                self.assertIn(mapping["system_field"], ["date", "value", "reference", "description", "ignore"])
+                self.assertIn(
+                    mapping["system_field"],
+                    ["date", "value", "reference", "description", "ignore"],
+                )
 
     def test_get_csv_mapping_edge_case_special_characters_headers(self):
         """Testa edge case com cabeçalhos contendo caracteres especiais"""
@@ -336,7 +357,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -356,7 +377,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -379,7 +400,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -401,7 +422,7 @@ class GetCSVMappingViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_get_csv_mapping"),
             data=json.dumps({"headers": headers}),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)

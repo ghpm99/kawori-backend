@@ -17,16 +17,24 @@ class BudgetAIAllocationViewTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        user = User.objects.create_superuser(username="budget-ai", email="budget-ai@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="budget-ai", email="budget-ai@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
         cls.user = user
 
         tag_home = Tag.objects.create(name="Moradia", color="#123456", user=user)
-        tag_transport = Tag.objects.create(name="Transporte", color="#654321", user=user)
+        tag_transport = Tag.objects.create(
+            name="Transporte", color="#654321", user=user
+        )
 
-        Budget.objects.create(user=user, tag=tag_home, allocation_percentage=Decimal("30.00"))
-        Budget.objects.create(user=user, tag=tag_transport, allocation_percentage=Decimal("15.00"))
+        Budget.objects.create(
+            user=user, tag=tag_home, allocation_percentage=Decimal("30.00")
+        )
+        Budget.objects.create(
+            user=user, tag=tag_transport, allocation_percentage=Decimal("15.00")
+        )
 
         invoice = Invoice.objects.create(
             name="Fatura Budget",

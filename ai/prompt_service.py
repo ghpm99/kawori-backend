@@ -77,35 +77,47 @@ class BuiltPromptRequest:
 
 
 @lru_cache(maxsize=4)
-def _load_prompt_definitions(registry_path: str, prompts_root: str) -> dict[str, PromptDefinition]:
+def _load_prompt_definitions(
+    registry_path: str, prompts_root: str
+) -> dict[str, PromptDefinition]:
     registry_file = Path(registry_path)
     templates_root = Path(prompts_root)
 
     if not registry_file.exists():
-        raise AIConfigurationError(f"Registry de prompts não encontrado em '{registry_file}'.")
+        raise AIConfigurationError(
+            f"Registry de prompts não encontrado em '{registry_file}'."
+        )
 
     try:
         payload = yaml.safe_load(registry_file.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        raise AIConfigurationError(f"Registry de prompts inválido em '{registry_file}'.") from exc
+        raise AIConfigurationError(
+            f"Registry de prompts inválido em '{registry_file}'."
+        ) from exc
 
     if isinstance(payload, dict):
         entries = payload.get("prompts") or []
     elif isinstance(payload, list):
         entries = payload
     else:
-        raise AIConfigurationError("Registry de prompts deve ser um objeto com 'prompts' ou uma lista de itens.")
+        raise AIConfigurationError(
+            "Registry de prompts deve ser um objeto com 'prompts' ou uma lista de itens."
+        )
 
     definitions: dict[str, PromptDefinition] = {}
     for raw_item in entries:
         if not isinstance(raw_item, dict):
-            raise AIConfigurationError("Cada entrada do registry de prompts precisa ser um objeto.")
+            raise AIConfigurationError(
+                "Cada entrada do registry de prompts precisa ser um objeto."
+            )
 
         key = str(raw_item.get("key", "")).strip()
         if not key:
             raise AIConfigurationError("Entrada do registry sem 'key'.")
         if key in definitions:
-            raise AIConfigurationError(f"Chave de prompt duplicada no registry: '{key}'.")
+            raise AIConfigurationError(
+                f"Chave de prompt duplicada no registry: '{key}'."
+            )
 
         template_file = str(raw_item.get("template_file", "")).strip()
         if not template_file:
@@ -113,20 +125,32 @@ def _load_prompt_definitions(registry_path: str, prompts_root: str) -> dict[str,
 
         task_type = normalize_task_type(str(raw_item.get("task_type", "")).strip())
         if task_type not in _ALLOWED_TASK_TYPES:
-            raise AIConfigurationError(f"Prompt '{key}' possui task_type inválido: '{task_type}'.")
+            raise AIConfigurationError(
+                f"Prompt '{key}' possui task_type inválido: '{task_type}'."
+            )
 
         raw_schema = raw_item.get("schema") or {}
         if not isinstance(raw_schema, dict):
-            raise AIConfigurationError(f"Prompt '{key}' possui schema inválido; esperado objeto JSON.")
+            raise AIConfigurationError(
+                f"Prompt '{key}' possui schema inválido; esperado objeto JSON."
+            )
 
-        temperature = _to_optional_float(raw_item.get("temperature"), key=key, field_name="temperature")
-        max_tokens = _to_optional_int(raw_item.get("max_tokens"), key=key, field_name="max_tokens")
+        temperature = _to_optional_float(
+            raw_item.get("temperature"), key=key, field_name="temperature"
+        )
+        max_tokens = _to_optional_int(
+            raw_item.get("max_tokens"), key=key, field_name="max_tokens"
+        )
         active = _to_bool(raw_item.get("active", True), default=True)
 
-        version = str(raw_item.get("version", "")).strip() or _infer_prompt_version_from_key(key)
+        version = str(
+            raw_item.get("version", "")
+        ).strip() or _infer_prompt_version_from_key(key)
         template_path = templates_root / template_file
         if not template_path.exists():
-            raise AIConfigurationError(f"Template de prompt '{template_file}' não encontrado para key '{key}'.")
+            raise AIConfigurationError(
+                f"Template de prompt '{template_file}' não encontrado para key '{key}'."
+            )
 
         definitions[key] = PromptDefinition(
             key=key,
@@ -156,20 +180,28 @@ class PromptService:
         prompts_root: Path | None = None,
         override_cache_ttl_seconds: int | None = None,
     ) -> None:
-        self._prompts_root = Path(prompts_root or getattr(settings, "AI_PROMPT_TEMPLATES_ROOT"))
-        self._registry_path = Path(registry_path or getattr(settings, "AI_PROMPT_REGISTRY_PATH"))
+        self._prompts_root = Path(
+            prompts_root or getattr(settings, "AI_PROMPT_TEMPLATES_ROOT")
+        )
+        self._registry_path = Path(
+            registry_path or getattr(settings, "AI_PROMPT_REGISTRY_PATH")
+        )
         self._override_cache_ttl_seconds = int(
             override_cache_ttl_seconds
             if override_cache_ttl_seconds is not None
             else getattr(settings, "AI_PROMPT_OVERRIDE_CACHE_TTL_SECONDS", 60)
         )
 
-    def resolve(self, prompt_key: str, environment: str | None = None) -> PromptResolution:
+    def resolve(
+        self, prompt_key: str, environment: str | None = None
+    ) -> PromptResolution:
         normalized_key = str(prompt_key or "").strip()
         if not normalized_key:
             raise PromptNotFoundError("Prompt key não pode ser vazio.")
 
-        prompt_environment = _normalize_environment(environment or self._resolve_default_environment())
+        prompt_environment = _normalize_environment(
+            environment or self._resolve_default_environment()
+        )
         file_definition = self._load_file_prompt(normalized_key)
 
         if self._is_db_override_enabled():
@@ -193,13 +225,17 @@ class PromptService:
                 return override_resolution
 
         self._record_stat(normalized_key, "file_resolutions")
-        return self._definition_to_resolution(file_definition, source="file", environment=prompt_environment)
+        return self._definition_to_resolution(
+            file_definition, source="file", environment=prompt_environment
+        )
 
     def render(self, template: str, context: dict[str, Any] | None = None) -> str:
         return render_prompt_template(template, context=context, strict=True)
 
     @classmethod
-    def invalidate_override_cache(cls, *, prompt_key: str | None = None, environment: str | None = None) -> None:
+    def invalidate_override_cache(
+        cls, *, prompt_key: str | None = None, environment: str | None = None
+    ) -> None:
         with cls._cache_lock:
             if prompt_key is None:
                 cls._override_cache.clear()
@@ -211,7 +247,11 @@ class PromptService:
                 return
 
             if environment is None:
-                keys_to_drop = [cache_key for cache_key in cls._override_cache if cache_key[0] == normalized_key]
+                keys_to_drop = [
+                    cache_key
+                    for cache_key in cls._override_cache
+                    if cache_key[0] == normalized_key
+                ]
                 for cache_key in keys_to_drop:
                     cls._override_cache.pop(cache_key, None)
                 return
@@ -271,9 +311,13 @@ class PromptService:
         override = queryset.first()
         resolution: PromptResolution | None = None
         if override is not None:
-            override_definition = self._build_definition_from_override(override, fallback_definition=fallback_definition)
+            override_definition = self._build_definition_from_override(
+                override, fallback_definition=fallback_definition
+            )
             if override_definition is not None:
-                resolution = self._definition_to_resolution(override_definition, source="db", environment=environment)
+                resolution = self._definition_to_resolution(
+                    override_definition, source="db", environment=environment
+                )
 
         expires_at = now_epoch + max(self._override_cache_ttl_seconds, 1)
         with self._cache_lock:
@@ -295,10 +339,16 @@ class PromptService:
     ) -> PromptDefinition | None:
         content = str(override.content or "").strip()
         if not content:
-            logger.warning("Override de prompt ignorado por conteúdo vazio (key=%s, id=%s).", override.key, override.pk)
+            logger.warning(
+                "Override de prompt ignorado por conteúdo vazio (key=%s, id=%s).",
+                override.key,
+                override.pk,
+            )
             return None
 
-        task_type = normalize_task_type(override.task_type or fallback_definition.task_type)
+        task_type = normalize_task_type(
+            override.task_type or fallback_definition.task_type
+        )
         if task_type not in _ALLOWED_TASK_TYPES:
             logger.warning(
                 "Override de prompt ignorado por task_type inválido (key=%s, id=%s, task_type=%s).",
@@ -311,19 +361,34 @@ class PromptService:
         if override.schema_json is None:
             schema_json = fallback_definition.schema_json
         elif not isinstance(override.schema_json, dict):
-            logger.warning("Override de prompt ignorado por schema inválido (key=%s, id=%s).", override.key, override.pk)
+            logger.warning(
+                "Override de prompt ignorado por schema inválido (key=%s, id=%s).",
+                override.key,
+                override.pk,
+            )
             return None
         else:
             schema_json = override.schema_json
 
         try:
-            temperature = _to_optional_float(override.temperature, key=override.key, field_name="temperature")
-            max_tokens = _to_optional_int(override.max_tokens, key=override.key, field_name="max_tokens")
+            temperature = _to_optional_float(
+                override.temperature, key=override.key, field_name="temperature"
+            )
+            max_tokens = _to_optional_int(
+                override.max_tokens, key=override.key, field_name="max_tokens"
+            )
         except AIConfigurationError:
-            logger.warning("Override de prompt ignorado por parâmetros inválidos (key=%s, id=%s).", override.key, override.pk)
+            logger.warning(
+                "Override de prompt ignorado por parâmetros inválidos (key=%s, id=%s).",
+                override.key,
+                override.pk,
+            )
             return None
 
-        version = str(override.version or fallback_definition.version).strip() or fallback_definition.version
+        version = (
+            str(override.version or fallback_definition.version).strip()
+            or fallback_definition.version
+        )
 
         return PromptDefinition(
             key=fallback_definition.key,
@@ -344,13 +409,19 @@ class PromptService:
         )
         definition = definitions.get(prompt_key)
         if definition is None:
-            raise PromptNotFoundError(f"Prompt key '{prompt_key}' não encontrado no registry.")
+            raise PromptNotFoundError(
+                f"Prompt key '{prompt_key}' não encontrado no registry."
+            )
         if not definition.active:
-            raise PromptNotFoundError(f"Prompt key '{prompt_key}' está inativo no registry.")
+            raise PromptNotFoundError(
+                f"Prompt key '{prompt_key}' está inativo no registry."
+            )
         return definition
 
     @staticmethod
-    def _definition_to_resolution(definition: PromptDefinition, *, source: str, environment: str) -> PromptResolution:
+    def _definition_to_resolution(
+        definition: PromptDefinition, *, source: str, environment: str
+    ) -> PromptResolution:
         content_hash = hashlib.sha256(definition.content.encode("utf-8")).hexdigest()
         return PromptResolution(
             key=definition.key,
@@ -367,7 +438,9 @@ class PromptService:
 
     @staticmethod
     def _is_db_override_enabled() -> bool:
-        return _to_bool(getattr(settings, "AI_PROMPT_DB_OVERRIDE_ENABLED", False), default=False)
+        return _to_bool(
+            getattr(settings, "AI_PROMPT_DB_OVERRIDE_ENABLED", False), default=False
+        )
 
     @staticmethod
     def _resolve_default_environment() -> str:
@@ -394,8 +467,12 @@ def reset_prompt_service_cache() -> None:
     PromptService.reset_resolution_stats()
 
 
-def invalidate_prompt_override_cache(*, prompt_key: str | None = None, environment: str | None = None) -> None:
-    PromptService.invalidate_override_cache(prompt_key=prompt_key, environment=environment)
+def invalidate_prompt_override_cache(
+    *, prompt_key: str | None = None, environment: str | None = None
+) -> None:
+    PromptService.invalidate_override_cache(
+        prompt_key=prompt_key, environment=environment
+    )
 
 
 def get_prompt_resolution_stats() -> dict[str, dict[str, int]]:
@@ -434,7 +511,9 @@ def build_ai_request_from_prompt(
     return BuiltPromptRequest(task_request=request, prompt_resolution=resolution)
 
 
-def render_prompt_template(template: str, context: dict[str, Any] | None = None, *, strict: bool = True) -> str:
+def render_prompt_template(
+    template: str, context: dict[str, Any] | None = None, *, strict: bool = True
+) -> str:
     context_data = context or {}
     missing_variables: list[str] = []
 
@@ -449,13 +528,16 @@ def render_prompt_template(template: str, context: dict[str, Any] | None = None,
     rendered = _TEMPLATE_VARIABLE_RE.sub(replace, template)
     if strict and missing_variables:
         raise PromptRenderError(
-            "Template de prompt possui variáveis sem valor: " + ", ".join(sorted(set(missing_variables)))
+            "Template de prompt possui variáveis sem valor: "
+            + ", ".join(sorted(set(missing_variables)))
         )
 
     return rendered
 
 
-def _lookup_context_value(context: dict[str, Any], variable_name: str) -> tuple[Any, bool]:
+def _lookup_context_value(
+    context: dict[str, Any], variable_name: str
+) -> tuple[Any, bool]:
     current: Any = context
     for key in variable_name.split("."):
         if not isinstance(current, dict) or key not in current:
@@ -485,7 +567,9 @@ def _to_optional_float(value: Any, *, key: str, field_name: str) -> float | None
     try:
         return float(value)
     except (TypeError, ValueError) as exc:
-        raise AIConfigurationError(f"Prompt '{key}' possui {field_name} inválido: '{value}'.") from exc
+        raise AIConfigurationError(
+            f"Prompt '{key}' possui {field_name} inválido: '{value}'."
+        ) from exc
 
 
 def _to_optional_int(value: Any, *, key: str, field_name: str) -> int | None:
@@ -495,10 +579,14 @@ def _to_optional_int(value: Any, *, key: str, field_name: str) -> int | None:
     try:
         parsed = int(value)
     except (TypeError, ValueError) as exc:
-        raise AIConfigurationError(f"Prompt '{key}' possui {field_name} inválido: '{value}'.") from exc
+        raise AIConfigurationError(
+            f"Prompt '{key}' possui {field_name} inválido: '{value}'."
+        ) from exc
 
     if parsed <= 0:
-        raise AIConfigurationError(f"Prompt '{key}' possui {field_name} inválido: '{value}'.")
+        raise AIConfigurationError(
+            f"Prompt '{key}' possui {field_name} inválido: '{value}'."
+        )
 
     return parsed
 

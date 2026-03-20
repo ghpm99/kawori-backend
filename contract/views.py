@@ -2,15 +2,14 @@ import json
 
 from django.db import transaction
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from audit.decorators import audit_log
+from audit.models import CATEGORY_FINANCIAL
 from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
 from kawori.decorators import validate_user
-from audit.decorators import audit_log
-from audit.models import CATEGORY_FINANCIAL
 from kawori.utils import paginate
 from tag.models import Tag
 
@@ -89,7 +88,9 @@ def detail_contract_view(request, id, user):
 def detail_contract_invoices_view(request, id, user):
     req = request.GET
 
-    invoices_query = Invoice.objects.filter(contract=id, user=user, active=True).order_by("id")
+    invoices_query = Invoice.objects.filter(
+        contract=id, user=user, active=True
+    ).order_by("id")
 
     data = paginate(invoices_query, req.get("page"), req.get("page_size"))
 
@@ -103,7 +104,10 @@ def detail_contract_invoices_view(request, id, user):
             "value_open": float(invoice.value_open or 0),
             "value_closed": float(invoice.value_closed or 0),
             "date": invoice.date,
-            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in invoice.tags.all()],
+            "tags": [
+                {"id": tag.id, "name": tag.name, "color": tag.color}
+                for tag in invoice.tags.all()
+            ],
         }
         for invoice in data.get("data")
     ]
@@ -127,7 +131,9 @@ def include_new_invoice_view(request, id, user):
         tag_ids = data.get("tags")
         tags = Tag.objects.filter(id__in=tag_ids, user=user)
         if tags.count() != len(set(tag_ids)):
-            return JsonResponse({"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400)
+            return JsonResponse(
+                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
+            )
 
     with transaction.atomic():
         invoice = Invoice(
@@ -172,7 +178,9 @@ def merge_contract_view(request, id, user):
         for contract_id in contracts:
             if contract_id == contract.id:
                 continue
-            invoices = Invoice.objects.filter(contract=contract_id, user=user, active=True).all()
+            invoices = Invoice.objects.filter(
+                contract=contract_id, user=user, active=True
+            ).all()
             for invoice in invoices:
                 invoice.contract = contract
                 invoice.save()

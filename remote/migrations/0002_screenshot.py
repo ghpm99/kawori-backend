@@ -6,15 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('remote', '0001_initial'),
+        ("remote", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Screenshot',
+            name="Screenshot",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('screenshot', models.ImageField(upload_to='screenshot/')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("screenshot", models.ImageField(upload_to="screenshot/")),
             ],
         ),
     ]

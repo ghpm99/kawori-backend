@@ -16,7 +16,9 @@ def get_ai_orchestrator() -> AIOrchestrator:
     provider_registry = build_provider_registry(getattr(settings, "AI_PROVIDERS", {}))
     task_router = AITaskRouter(
         task_routes=getattr(settings, "AI_TASK_ROUTES", {}),
-        default_timeout_seconds=int(getattr(settings, "AI_DEFAULT_TIMEOUT_SECONDS", 20)),
+        default_timeout_seconds=int(
+            getattr(settings, "AI_DEFAULT_TIMEOUT_SECONDS", 20)
+        ),
         default_max_retries=int(getattr(settings, "AI_DEFAULT_MAX_RETRIES", 1)),
     )
     strategy_registry = build_default_task_strategy_registry()

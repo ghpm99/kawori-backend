@@ -7,14 +7,16 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 
 from lib import pusher as pusher_lib
-from remote.models import Config, Screenshot
 from remote import views
+from remote.models import Config, Screenshot
 
 
 class RemoteViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="remote-reg", email="remote-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="remote-reg", email="remote-reg@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -28,14 +30,18 @@ class RemoteViewsRegressionTestCase(TestCase):
                 request = request_factory_method("/", data=data or {})
             else:
                 payload = json.dumps(data or {})
-                request = request_factory_method("/", data=payload, content_type="application/json")
+                request = request_factory_method(
+                    "/", data=payload, content_type="application/json"
+                )
         if files:
             request.FILES.update(files)
         return inspect.unwrap(fn)(request, user=self.user)
 
     def test_send_command_and_input_device_views(self):
         with patch("remote.views.pusher.send_command") as mocked_cmd:
-            response = self._call(views.send_command_view, method="post", data={"cmd": "dir"})
+            response = self._call(
+                views.send_command_view, method="post", data={"cmd": "dir"}
+            )
         self.assertEqual(response.status_code, 200)
         mocked_cmd.assert_called_once_with("dir")
 
@@ -60,11 +66,17 @@ class RemoteViewsRegressionTestCase(TestCase):
         mocked_scroll.assert_called_once_with(-1)
 
         with patch("remote.views.pusher.mouse_move_button") as mocked_move_button:
-            self._call(views.mouse_move_and_button, method="post", data={"x": 5, "y": 7, "button": "right"})
+            self._call(
+                views.mouse_move_and_button,
+                method="post",
+                data={"x": 5, "y": 7, "button": "right"},
+            )
         mocked_move_button.assert_called_once_with(5, 7, "right")
 
     def test_screen_size_and_keyboard_keys_views(self):
-        Config.objects.create(type=Config.CONFIG_SCREEN, value=json.dumps({"width": 1920, "height": 1080}))
+        Config.objects.create(
+            type=Config.CONFIG_SCREEN, value=json.dumps({"width": 1920, "height": 1080})
+        )
 
         screen_response = self._call(views.screen_size_view, method="get")
         self.assertEqual(screen_response.status_code, 200)
@@ -82,16 +94,26 @@ class RemoteViewsRegressionTestCase(TestCase):
         missing = self._call(views.save_screenshot_view, method="post", data={})
         self.assertEqual(missing.status_code, 400)
 
-        upload = SimpleUploadedFile("shot.png", b"binary-image-content", content_type="image/png")
+        upload = SimpleUploadedFile(
+            "shot.png", b"binary-image-content", content_type="image/png"
+        )
         screenshot_obj = MagicMock()
         screenshot_obj.image.save = MagicMock()
 
-        with patch("remote.views.Screenshot.objects.filter", return_value=MagicMock(first=lambda: screenshot_obj)), patch(
-            "remote.views.os.path.exists", return_value=True
-        ), patch("remote.views.os.remove") as mocked_remove, patch(
+        with patch(
+            "remote.views.Screenshot.objects.filter",
+            return_value=MagicMock(first=lambda: screenshot_obj),
+        ), patch("remote.views.os.path.exists", return_value=True), patch(
+            "remote.views.os.remove"
+        ) as mocked_remove, patch(
             "remote.views.pusher.notify_screenshot"
         ) as mocked_notify:
-            success = self._call(views.save_screenshot_view, method="post", data={}, files={"image": upload})
+            success = self._call(
+                views.save_screenshot_view,
+                method="post",
+                data={},
+                files={"image": upload},
+            )
 
         self.assertEqual(success.status_code, 200)
         self.assertTrue(screenshot_obj.image.save.called)
@@ -99,16 +121,21 @@ class RemoteViewsRegressionTestCase(TestCase):
         mocked_notify.assert_called_once()
 
     def test_save_screenshot_view_creates_new_screenshot_when_not_found(self):
-        upload = SimpleUploadedFile("shot2.png", b"binary-image-content", content_type="image/png")
+        upload = SimpleUploadedFile(
+            "shot2.png", b"binary-image-content", content_type="image/png"
+        )
         query = MagicMock()
         query.first.return_value = None
 
         with patch("remote.views.Screenshot.objects.filter", return_value=query), patch(
             "remote.views.os.path.exists", return_value=False
-        ), patch(
-            "remote.views.pusher.notify_screenshot"
-        ):
-            response = self._call(views.save_screenshot_view, method="post", data={}, files={"image": upload})
+        ), patch("remote.views.pusher.notify_screenshot"):
+            response = self._call(
+                views.save_screenshot_view,
+                method="post",
+                data={},
+                files={"image": upload},
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Screenshot.objects.count(), 1)
@@ -161,13 +188,15 @@ class PusherLibRegressionTestCase(TestCase):
             invalid = pusher_lib.webhook(request)
         self.assertEqual(invalid.status_code, 400)
 
-        with patch("lib.pusher.pusher_client.validate_webhook", return_value={"events": []}):
+        with patch(
+            "lib.pusher.pusher_client.validate_webhook", return_value={"events": []}
+        ):
             ok = pusher_lib.webhook(request)
         self.assertEqual(ok.status_code, 200)
 
-        with patch("lib.pusher.channel_occupied") as mocked_occ, patch("lib.pusher.channel_vacated") as mocked_vac, patch(
-            "lib.pusher.client_event"
-        ) as mocked_client, patch(
+        with patch("lib.pusher.channel_occupied") as mocked_occ, patch(
+            "lib.pusher.channel_vacated"
+        ) as mocked_vac, patch("lib.pusher.client_event") as mocked_client, patch(
             "lib.pusher.pusher_client.validate_webhook",
             return_value={
                 "events": [

@@ -1,7 +1,12 @@
 from django.test import SimpleTestCase
 
 from ai.factory import build_provider_registry
-from ai.providers import AnthropicMessagesProvider, CohereChatProvider, GoogleGeminiProvider, OpenAICompatibleChatProvider
+from ai.providers import (
+    AnthropicMessagesProvider,
+    CohereChatProvider,
+    GoogleGeminiProvider,
+    OpenAICompatibleChatProvider,
+)
 
 
 class ProviderFactoryTestCase(SimpleTestCase):

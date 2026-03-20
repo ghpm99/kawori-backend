@@ -1,17 +1,20 @@
 import time
+
 from django.core.management.base import BaseCommand
-from facetexture.models import BDOClass, Character
-from django.contrib.auth.models import User
+
+from facetexture.models import BDOClass
 
 
 class Command(BaseCommand):
     """
-        Cadastrar a classe Wukong
+    Cadastrar a classe Wukong
     """
 
     def run_command(self):
 
-        dead_eye_class = BDOClass(name="Wukong", abbreviation="Wukong", color="#522424", class_order=30)
+        dead_eye_class = BDOClass(
+            name="Wukong", abbreviation="Wukong", color="#522424", class_order=30
+        )
         dead_eye_class.save()
 
     def handle(self, *args, **options):

@@ -7,18 +7,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('classification', '0009_remove_answersummary_question'),
+        ("classification", "0009_remove_answersummary_question"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='answer',
-            name='status',
-            field=models.IntegerField(choices=[(1, 'Aguardando'), (2, 'Processando'), (3, 'Processado')], default=1),
+            model_name="answer",
+            name="status",
+            field=models.IntegerField(
+                choices=[(1, "Aguardando"), (2, "Processando"), (3, "Processado")],
+                default=1,
+            ),
         ),
         migrations.AddField(
-            model_name='answersummary',
-            name='answers',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.IntegerField(), default=[], size=None),
+            model_name="answersummary",
+            name="answers",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.IntegerField(), default=[], size=None
+            ),
         ),
     ]

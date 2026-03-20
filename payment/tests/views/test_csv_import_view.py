@@ -18,17 +18,23 @@ class CSVImportViewTestCase(TestCase):
         cls.client = Client()
 
         # Criar usuário com permissão financial
-        user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(user)
 
         # Criar usuário sem permissão para testes de acesso negado
-        normal_user = User.objects.create_user(username="normal", email="normal@normal.com", password="123")
+        normal_user = User.objects.create_user(
+            username="normal", email="normal@normal.com", password="123"
+        )
 
         # Criar tags para testes
         cls.tag1 = Tag.objects.create(name="Tag Import 1", color="#FF0000", user=user)
         cls.tag2 = Tag.objects.create(name="Tag Import 2", color="#00FF00", user=user)
-        cls.budget_tag = Tag.objects.create(name="Budget Import", color="#0000FF", user=user)
+        cls.budget_tag = Tag.objects.create(
+            name="Budget Import", color="#0000FF", user=user
+        )
 
         # Criar invoice para testes
         cls.invoice = Invoice.objects.create(
@@ -39,7 +45,7 @@ class CSVImportViewTestCase(TestCase):
             fixed=False,
             value=Decimal("1000.00"),
             value_open=Decimal("1000.00"),
-            user=user
+            user=user,
         )
 
         # Criar ImportedPayments para testes
@@ -55,7 +61,7 @@ class CSVImportViewTestCase(TestCase):
             raw_payment_date="2026-02-20",
             raw_installments=1,
             raw_value=Decimal("100.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         cls.imported_payment_2 = ImportedPayment.objects.create(
@@ -70,7 +76,7 @@ class CSVImportViewTestCase(TestCase):
             raw_payment_date="2026-02-21",
             raw_installments=1,
             raw_value=Decimal("200.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         cls.imported_payment_3 = ImportedPayment.objects.create(
@@ -85,7 +91,7 @@ class CSVImportViewTestCase(TestCase):
             raw_payment_date="2026-02-22",
             raw_installments=1,
             raw_value=Decimal("150.00"),
-            status=ImportedPayment.IMPORT_STATUS_PROCESSING  # Não editável
+            status=ImportedPayment.IMPORT_STATUS_PROCESSING,  # Não editável
         )
 
         # Criar ImportedPayment para usuário normal (não deve ser acessível)
@@ -96,7 +102,7 @@ class CSVImportViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="Importação Normal",
             raw_value=Decimal("50.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         # Obter token de autenticação
@@ -124,24 +130,24 @@ class CSVImportViewTestCase(TestCase):
         """Testa sucesso da view com tags que incluem budget - deve processar importações"""
         # Adicionar budget tag a uma tag existente
         # (Simulando que a tag já tem budget associado)
-        
+
         import_data = {
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 },
                 {
                     "import_payment_id": self.imported_payment_2.id,
-                    "tags": [self.tag2.id, self.budget_tag.id]
-                }
+                    "tags": [self.tag2.id, self.budget_tag.id],
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -156,8 +162,12 @@ class CSVImportViewTestCase(TestCase):
         self.imported_payment_1.refresh_from_db()
         self.imported_payment_2.refresh_from_db()
 
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED)
-        self.assertEqual(self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_QUEUED)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED
+        )
+        self.assertEqual(
+            self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_QUEUED
+        )
 
         # Verificar se as tags foram definidas
         tags_1 = list(self.imported_payment_1.raw_tags.all())
@@ -172,19 +182,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id]  # Sem budget tag
+                    "tags": [self.tag1.id],  # Sem budget tag
                 },
                 {
                     "import_payment_id": self.imported_payment_2.id,
-                    "tags": [self.tag2.id]  # Sem budget tag
-                }
+                    "tags": [self.tag2.id],  # Sem budget tag
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -199,8 +209,12 @@ class CSVImportViewTestCase(TestCase):
         self.imported_payment_1.refresh_from_db()
         self.imported_payment_2.refresh_from_db()
 
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING)
-        self.assertEqual(self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_PENDING)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING
+        )
+        self.assertEqual(
+            self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_PENDING
+        )
 
     def test_csv_import_view_success_mixed_budget_tags(self):
         """Testa sucesso da view com mix de com/sem budget tags - deve processar apenas os com budget"""
@@ -208,19 +222,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]  # Com budget
+                    "tags": [self.tag1.id, self.budget_tag.id],  # Com budget
                 },
                 {
                     "import_payment_id": self.imported_payment_2.id,
-                    "tags": [self.tag2.id]  # Sem budget
-                }
+                    "tags": [self.tag2.id],  # Sem budget
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -232,8 +246,12 @@ class CSVImportViewTestCase(TestCase):
         self.imported_payment_1.refresh_from_db()
         self.imported_payment_2.refresh_from_db()
 
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED)
-        self.assertEqual(self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_PENDING)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED
+        )
+        self.assertEqual(
+            self.imported_payment_2.status, ImportedPayment.IMPORT_STATUS_PENDING
+        )
 
     def test_csv_import_view_success_empty_tags_list(self):
         """Testa sucesso da view com lista de tags vazia - deve pular importações"""
@@ -241,7 +259,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": []  # Lista vazia
+                    "tags": [],  # Lista vazia
                 }
             ]
         }
@@ -249,7 +267,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -259,7 +277,9 @@ class CSVImportViewTestCase(TestCase):
 
         # Verificar que o status não mudou
         self.imported_payment_1.refresh_from_db()
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING
+        )
 
     def test_csv_import_view_skip_non_editable_imported_payment(self):
         """Testa view pulando ImportedPayment não editável"""
@@ -267,7 +287,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_3.id,  # Status PROCESSING
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 }
             ]
         }
@@ -275,7 +295,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -285,7 +305,9 @@ class CSVImportViewTestCase(TestCase):
 
         # Verificar que o status não mudou
         self.imported_payment_3.refresh_from_db()
-        self.assertEqual(self.imported_payment_3.status, ImportedPayment.IMPORT_STATUS_PROCESSING)
+        self.assertEqual(
+            self.imported_payment_3.status, ImportedPayment.IMPORT_STATUS_PROCESSING
+        )
 
     def test_csv_import_view_skip_nonexistent_imported_payment(self):
         """Testa view pulando ImportedPayment inexistente"""
@@ -293,19 +315,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": 99999,  # Não existe
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 },
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
-                }
+                    "tags": [self.tag1.id, self.budget_tag.id],
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -315,7 +337,9 @@ class CSVImportViewTestCase(TestCase):
 
         # Verificar que o existente foi processado
         self.imported_payment_1.refresh_from_db()
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED
+        )
 
     def test_csv_import_view_skip_imported_payment_from_other_user(self):
         """Testa view pulando ImportedPayment de outro usuário"""
@@ -323,19 +347,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_normal.id,  # De outro usuário
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 },
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
-                }
+                    "tags": [self.tag1.id, self.budget_tag.id],
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -345,7 +369,9 @@ class CSVImportViewTestCase(TestCase):
 
         # Verificar que o do usuário atual foi processado
         self.imported_payment_1.refresh_from_db()
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_QUEUED
+        )
 
     def test_csv_import_view_success_multiple_tags_per_import(self):
         """Testa sucesso da view com múltiplas tags por importação - deve associar todas"""
@@ -353,7 +379,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.tag2.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.tag2.id, self.budget_tag.id],
                 }
             ]
         }
@@ -361,7 +387,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -388,21 +414,19 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
 
     def test_csv_import_view_error_empty_data_list(self):
         """Testa view com lista data vazia - deve processar zero importações"""
-        import_data = {
-            "data": []
-        }
+        import_data = {"data": []}
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -427,7 +451,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -446,7 +470,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -456,7 +480,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data="json_invalido",
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -485,7 +509,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 }
             ]
         }
@@ -497,7 +521,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -509,7 +533,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 }
             ]
         }
@@ -520,7 +544,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Deve retornar erro 401 ou 403
@@ -532,7 +556,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [99999, 88888]  # Tags não existem
+                    "tags": [99999, 88888],  # Tags não existem
                 }
             ]
         }
@@ -540,7 +564,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -550,27 +574,22 @@ class CSVImportViewTestCase(TestCase):
 
         # Verificar que o status não mudou
         self.imported_payment_1.refresh_from_db()
-        self.assertEqual(self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING)
+        self.assertEqual(
+            self.imported_payment_1.status, ImportedPayment.IMPORT_STATUS_PENDING
+        )
 
     def test_csv_import_view_edge_case_tags_from_other_user(self):
         """Testa edge case com tags de outro usuário - deve pular importações"""
-        import_data = {
-            "data": [
-                {
-                    "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id]  # Tag do usuário atual
-                }
-            ]
-        }
-
         # Criar tag para usuário normal
-        tag_normal = Tag.objects.create(name="Tag Normal", color="#CCCCCC", user=User.objects.get(username="normal"))
+        tag_normal = Tag.objects.create(
+            name="Tag Normal", color="#CCCCCC", user=User.objects.get(username="normal")
+        )
 
         import_data_normal = {
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [tag_normal.id]  # Tag de outro usuário
+                    "tags": [tag_normal.id],  # Tag de outro usuário
                 }
             ]
         }
@@ -579,7 +598,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data_normal),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -592,7 +611,7 @@ class CSVImportViewTestCase(TestCase):
         # Criar muitos ImportedPayments
         user = User.objects.get(username="test")
         imported_payments = []
-        
+
         for i in range(20):
             imported = ImportedPayment.objects.create(
                 user=user,
@@ -601,7 +620,7 @@ class CSVImportViewTestCase(TestCase):
                 raw_type=Payment.TYPE_DEBIT,
                 raw_name=f"Importação Grande {i}",
                 raw_value=Decimal("100.00"),
-                status=ImportedPayment.IMPORT_STATUS_PENDING
+                status=ImportedPayment.IMPORT_STATUS_PENDING,
             )
             imported_payments.append(imported)
 
@@ -609,7 +628,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": imported.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 }
                 for imported in imported_payments
             ]
@@ -618,7 +637,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -637,19 +656,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 },
                 {
                     "import_payment_id": self.imported_payment_1.id,  # Duplicado
-                    "tags": [self.tag2.id, self.budget_tag.id]
-                }
+                    "tags": [self.tag2.id, self.budget_tag.id],
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -672,7 +691,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.budget_tag.id],
                 }
             ]
         }
@@ -680,7 +699,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -700,7 +719,7 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id, self.tag2.id, self.budget_tag.id]
+                    "tags": [self.tag1.id, self.tag2.id, self.budget_tag.id],
                 }
             ]
         }
@@ -708,7 +727,7 @@ class CSVImportViewTestCase(TestCase):
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -716,7 +735,7 @@ class CSVImportViewTestCase(TestCase):
         # Verificar associação detalhada das tags
         self.imported_payment_1.refresh_from_db()
         tags = list(self.imported_payment_1.raw_tags.all().order_by("name"))
-        
+
         self.assertEqual(len(tags), 3)
         self.assertEqual(tags[0].name, "Budget Import")
         self.assertEqual(tags[1].name, "Tag Import 1")
@@ -734,19 +753,19 @@ class CSVImportViewTestCase(TestCase):
             "data": [
                 {
                     "import_payment_id": self.imported_payment_1.id,
-                    "tags": [self.tag1.id]  # Sem budget tag
+                    "tags": [self.tag1.id],  # Sem budget tag
                 },
                 {
                     "import_payment_id": self.imported_payment_3.id,  # PROCESSING - não editável
-                    "tags": [self.tag1.id, self.budget_tag.id]
-                }
+                    "tags": [self.tag1.id, self.budget_tag.id],
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -763,18 +782,13 @@ class CSVImportViewTestCase(TestCase):
     def test_csv_import_view_skipped_empty_tags(self):
         """Testa que tags vazias geram skip com reason no_tags"""
         import_data = {
-            "data": [
-                {
-                    "import_payment_id": self.imported_payment_1.id,
-                    "tags": []
-                }
-            ]
+            "data": [{"import_payment_id": self.imported_payment_1.id, "tags": []}]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -792,7 +806,7 @@ class CSVImportViewTestCase(TestCase):
         Budget.objects.get_or_create(
             user=user,
             tag=self.budget_tag,
-            defaults={"allocation_percentage": Decimal("10.00")}
+            defaults={"allocation_percentage": Decimal("10.00")},
         )
 
         # Pagamento principal com merge_group
@@ -805,7 +819,7 @@ class CSVImportViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="Discord",
             raw_value=Decimal("30.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         # IOF no mesmo merge_group
@@ -818,26 +832,26 @@ class CSVImportViewTestCase(TestCase):
             raw_type=Payment.TYPE_DEBIT,
             raw_name="IOF Discord",
             raw_value=Decimal("2.00"),
-            status=ImportedPayment.IMPORT_STATUS_PENDING
+            status=ImportedPayment.IMPORT_STATUS_PENDING,
         )
 
         import_data = {
             "data": [
                 {
                     "import_payment_id": main_imported.id,
-                    "tags": [self.budget_tag.id, self.tag1.id]  # Tags no principal
+                    "tags": [self.budget_tag.id, self.tag1.id],  # Tags no principal
                 },
                 {
                     "import_payment_id": iof_imported.id,
-                    "tags": []  # IOF sem tags - deve herdar do merge_group
-                }
+                    "tags": [],  # IOF sem tags - deve herdar do merge_group
+                },
             ]
         }
 
         response = self.client.post(
             reverse("financial_csv_import_view"),
             data=json.dumps(import_data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)

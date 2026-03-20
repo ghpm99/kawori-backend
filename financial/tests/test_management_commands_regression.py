@@ -1,3 +1,5 @@
+# isort: skip_file
+
 from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
@@ -7,28 +9,44 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from budget.models import Budget
-from contract.models import Contract
-from invoice.models import Invoice
-from payment.models import Payment
-from tag.models import Tag
-
-from financial.management.commands import ONEOFF_20220910_GENERATE_INVOICE as cmd_generate_invoice
-from financial.management.commands import ONEOFF_20231003_UPDATE_FINANCIAL_HOME_PAYMENT_DATE as cmd_update_home_date
-from financial.management.commands import ONEOFF_20231006_UPDATE_FINANCING_VALUE as cmd_update_financing
-from financial.management.commands import ONEOFF_20250111_MIGRATE_MODEL as cmd_migrate_model
-from financial.management.commands import ONEOFF_20251106_CONTRACT_TO_TAG as cmd_contract_to_tag
-from financial.management.commands import ONEOFF_20260104_FIX_PAYMENT_REFERENCE as cmd_fix_reference
-from financial.management.commands import ONEOFF_20260104_UPDATE_PAYMENT_DATE as cmd_update_payment_date
+from financial.management.commands import (
+    ONEOFF_20220910_GENERATE_INVOICE as cmd_generate_invoice,
+)
+from financial.management.commands import (
+    ONEOFF_20231003_UPDATE_FINANCIAL_HOME_PAYMENT_DATE as cmd_update_home_date,
+)
+from financial.management.commands import (
+    ONEOFF_20231006_UPDATE_FINANCING_VALUE as cmd_update_financing,
+)
+from financial.management.commands import (
+    ONEOFF_20250111_MIGRATE_MODEL as cmd_migrate_model,
+)
+from financial.management.commands import (
+    ONEOFF_20251106_CONTRACT_TO_TAG as cmd_contract_to_tag,
+)
+from financial.management.commands import (
+    ONEOFF_20260104_FIX_PAYMENT_REFERENCE as cmd_fix_reference,
+)
+from financial.management.commands import (
+    ONEOFF_20260104_UPDATE_PAYMENT_DATE as cmd_update_payment_date,
+)
 from financial.management.commands import cron_payment_discord as cmd_discord
 from financial.management.commands import cron_payment_email as cmd_email
 from financial.management.commands import cron_recalculate_invoices as cmd_recalculate
-from financial.management.commands import process_imported_payments as cmd_process_imported
+from financial.management.commands import (
+    process_imported_payments as cmd_process_imported,
+)
+from invoice.models import Invoice
+from payment.models import Payment
+from tag.models import Tag
 
 
 class FinancialManagementCommandsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="cmd-reg", email="cmd-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="cmd-reg", email="cmd-reg@test.com", password="123"
+        )
 
     def _create_invoice(self, **kwargs):
         return Invoice.objects.create(
@@ -70,7 +88,10 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         cursor_cm = MagicMock()
         cursor_cm.__enter__.return_value = cursor
 
-        with patch("financial.management.commands.ONEOFF_20250111_MIGRATE_MODEL.connection.cursor", return_value=cursor_cm):
+        with patch(
+            "financial.management.commands.ONEOFF_20250111_MIGRATE_MODEL.connection.cursor",
+            return_value=cursor_cm,
+        ):
             command.run_command()
 
         self.assertEqual(cursor.execute.call_count, 4)
@@ -79,11 +100,16 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         command = cmd_update_home_date.Command()
         p1 = SimpleNamespace(payment_date=None, value=None, save=MagicMock())
         p2 = SimpleNamespace(payment_date=None, value=None, save=MagicMock())
-        invoice = SimpleNamespace(payment_set=SimpleNamespace(all=MagicMock(return_value=[p1, p2])))
+        invoice = SimpleNamespace(
+            payment_set=SimpleNamespace(all=MagicMock(return_value=[p1, p2]))
+        )
         query = MagicMock()
         query.first.return_value = invoice
 
-        with patch("financial.management.commands.ONEOFF_20231003_UPDATE_FINANCIAL_HOME_PAYMENT_DATE.Invoice.objects.filter", return_value=query):
+        with patch(
+            "financial.management.commands.ONEOFF_20231003_UPDATE_FINANCIAL_HOME_PAYMENT_DATE.Invoice.objects.filter",
+            return_value=query,
+        ):
             command.run_command()
 
         self.assertEqual(p1.payment_date, "2023-11-06")
@@ -96,11 +122,16 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         command = cmd_update_financing.Command()
         payments = []
         for installment in [67, 68, 87, 147, 207, 267, 327, 387]:
-            payments.append(SimpleNamespace(installments=installment, value=0, save=MagicMock()))
+            payments.append(
+                SimpleNamespace(installments=installment, value=0, save=MagicMock())
+            )
         query = MagicMock()
         query.order_by.return_value.all.return_value = payments
 
-        with patch("financial.management.commands.ONEOFF_20231006_UPDATE_FINANCING_VALUE.Payment.objects.filter", return_value=query):
+        with patch(
+            "financial.management.commands.ONEOFF_20231006_UPDATE_FINANCING_VALUE.Payment.objects.filter",
+            return_value=query,
+        ):
             command.run_command()
 
         self.assertFalse(payments[0].save.called)
@@ -115,7 +146,10 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         query = MagicMock()
         query.all.return_value = [p1, p2]
 
-        with patch("financial.management.commands.ONEOFF_20260104_UPDATE_PAYMENT_DATE.Payment.objects.filter", return_value=query):
+        with patch(
+            "financial.management.commands.ONEOFF_20260104_UPDATE_PAYMENT_DATE.Payment.objects.filter",
+            return_value=query,
+        ):
             command.run_command()
 
         self.assertEqual(p1.payment_date, "2026-01-18")
@@ -124,13 +158,21 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
 
     def test_oneoff_20260104_fix_payment_reference_updates_specific_fields(self):
         command = cmd_fix_reference.Command()
-        payment_map = {pid: SimpleNamespace(description=None, reference=None, payment_date=None, save=MagicMock()) for pid in [2066, 2067, 2068, 2069, 1979, 1980, 1981, 1982]}
+        payment_map = {
+            pid: SimpleNamespace(
+                description=None, reference=None, payment_date=None, save=MagicMock()
+            )
+            for pid in [2066, 2067, 2068, 2069, 1979, 1980, 1981, 1982]
+        }
 
         def _filter_side_effect(*args, **kwargs):
             pid = kwargs["id"]
             return SimpleNamespace(first=lambda: payment_map[pid])
 
-        with patch("financial.management.commands.ONEOFF_20260104_FIX_PAYMENT_REFERENCE.Payment.objects.filter", side_effect=_filter_side_effect):
+        with patch(
+            "financial.management.commands.ONEOFF_20260104_FIX_PAYMENT_REFERENCE.Payment.objects.filter",
+            side_effect=_filter_side_effect,
+        ):
             command.run_command()
 
         self.assertEqual(payment_map[2066].description, "")
@@ -144,20 +186,32 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         tag = SimpleNamespace(id=99, name="Contract A")
         invoice_with_add = SimpleNamespace(
             name="Inv A",
-            tags=SimpleNamespace(filter=lambda **kwargs: SimpleNamespace(exists=lambda: False), add=MagicMock()),
+            tags=SimpleNamespace(
+                filter=lambda **kwargs: SimpleNamespace(exists=lambda: False),
+                add=MagicMock(),
+            ),
         )
         invoice_without_add = SimpleNamespace(
             name="Inv B",
-            tags=SimpleNamespace(filter=lambda **kwargs: SimpleNamespace(exists=lambda: True), add=MagicMock()),
+            tags=SimpleNamespace(
+                filter=lambda **kwargs: SimpleNamespace(exists=lambda: True),
+                add=MagicMock(),
+            ),
         )
 
-        with patch("financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Contract.objects.all", return_value=[contract]), patch(
+        with patch(
+            "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Contract.objects.all",
+            return_value=[contract],
+        ), patch(
             "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Tag.objects.get_or_create",
             return_value=(tag, True),
         ), patch(
             "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Invoice.objects.filter",
             return_value=[invoice_with_add, invoice_without_add],
-        ), patch("financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.random.randint", return_value=0):
+        ), patch(
+            "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.random.randint",
+            return_value=0,
+        ):
             command.run_command()
 
         self.assertTrue(invoice_with_add.tags.add.called)
@@ -167,15 +221,26 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         command = cmd_contract_to_tag.Command()
         contract = SimpleNamespace(name="Contract B", user=self.user)
         tag = SimpleNamespace(id=100, name="Contract B")
-        invoice = SimpleNamespace(name="Inv B", tags=SimpleNamespace(filter=lambda **kwargs: SimpleNamespace(exists=lambda: True), add=MagicMock()))
+        invoice = SimpleNamespace(
+            name="Inv B",
+            tags=SimpleNamespace(
+                filter=lambda **kwargs: SimpleNamespace(exists=lambda: True),
+                add=MagicMock(),
+            ),
+        )
 
-        with patch("financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Contract.objects.all", return_value=[contract]), patch(
+        with patch(
+            "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Contract.objects.all",
+            return_value=[contract],
+        ), patch(
             "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Tag.objects.get_or_create",
             return_value=(tag, False),
         ), patch(
             "financial.management.commands.ONEOFF_20251106_CONTRACT_TO_TAG.Invoice.objects.filter",
             return_value=[invoice],
-        ), patch("builtins.print"):
+        ), patch(
+            "builtins.print"
+        ):
             command.run_command()
 
         self.assertFalse(invoice.tags.add.called)
@@ -238,10 +303,15 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
             SimpleNamespace(first=lambda: existing_invoice),
         ]
 
-        with patch("financial.management.commands.ONEOFF_20220910_GENERATE_INVOICE.Payment.objects.all") as mocked_payments_all, patch(
+        with patch(
+            "financial.management.commands.ONEOFF_20220910_GENERATE_INVOICE.Payment.objects.all"
+        ) as mocked_payments_all, patch(
             "financial.management.commands.ONEOFF_20220910_GENERATE_INVOICE.Contract",
             return_value=created_contract,
-        ), patch("financial.management.commands.ONEOFF_20220910_GENERATE_INVOICE.Invoice", invoice_mock):
+        ), patch(
+            "financial.management.commands.ONEOFF_20220910_GENERATE_INVOICE.Invoice",
+            invoice_mock,
+        ):
             mocked_payments_all.return_value.order_by.return_value = payments
             command.run_command()
 
@@ -254,17 +324,51 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
 
     def test_cron_recalculate_invoices_handles_no_payments_invalid_and_valid(self):
         command = cmd_recalculate.Command()
-        invoice_no_payment = self._create_invoice(name="No payment", active=True, value=Decimal("10.00"), value_open=Decimal("10.00"))
-        invoice_invalid = self._create_invoice(name="Invalid", value=Decimal("0.00"), value_open=Decimal("0.00"), value_closed=Decimal("0.00"))
-        invoice_valid = self._create_invoice(name="Valid", value=Decimal("0.00"), value_open=Decimal("0.00"), value_closed=Decimal("0.00"))
+        invoice_no_payment = self._create_invoice(
+            name="No payment",
+            active=True,
+            value=Decimal("10.00"),
+            value_open=Decimal("10.00"),
+        )
+        invoice_invalid = self._create_invoice(
+            name="Invalid",
+            value=Decimal("0.00"),
+            value_open=Decimal("0.00"),
+            value_closed=Decimal("0.00"),
+        )
+        invoice_valid = self._create_invoice(
+            name="Valid",
+            value=Decimal("0.00"),
+            value_open=Decimal("0.00"),
+            value_closed=Decimal("0.00"),
+        )
 
         tag = Tag.objects.create(name="Budget", color="#123456", user=self.user)
-        Budget.objects.create(tag=tag, user=self.user, allocation_percentage=Decimal("10.00"))
+        Budget.objects.create(
+            tag=tag, user=self.user, allocation_percentage=Decimal("10.00")
+        )
         invoice_valid.tags.add(tag)
 
-        self._create_payment(invoice=invoice_invalid, status=Payment.STATUS_OPEN, value=Decimal("20.00"), active=True)
-        self._create_payment(invoice=invoice_valid, status=Payment.STATUS_OPEN, value=Decimal("40.00"), payment_date=date(2026, 1, 5), active=True)
-        self._create_payment(invoice=invoice_valid, status=Payment.STATUS_DONE, value=Decimal("60.00"), payment_date=date(2026, 1, 3), active=True)
+        self._create_payment(
+            invoice=invoice_invalid,
+            status=Payment.STATUS_OPEN,
+            value=Decimal("20.00"),
+            active=True,
+        )
+        self._create_payment(
+            invoice=invoice_valid,
+            status=Payment.STATUS_OPEN,
+            value=Decimal("40.00"),
+            payment_date=date(2026, 1, 5),
+            active=True,
+        )
+        self._create_payment(
+            invoice=invoice_valid,
+            status=Payment.STATUS_DONE,
+            value=Decimal("60.00"),
+            payment_date=date(2026, 1, 3),
+            active=True,
+        )
 
         with patch("builtins.print"):
             command.run_command()
@@ -283,11 +387,16 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
     def test_cron_payment_discord_send_discord_and_run_command(self):
         command = cmd_discord.Command()
         cursor = MagicMock()
-        cursor.fetchall.return_value = [(1, Payment.TYPE_DEBIT, "Pay 1", "2026-01-01", Decimal("12.34"))]
+        cursor.fetchall.return_value = [
+            (1, Payment.TYPE_DEBIT, "Pay 1", "2026-01-01", Decimal("12.34"))
+        ]
         cursor_cm = MagicMock()
         cursor_cm.__enter__.return_value = cursor
 
-        with patch("financial.management.commands.cron_payment_discord.connection.cursor", return_value=cursor_cm), patch(
+        with patch(
+            "financial.management.commands.cron_payment_discord.connection.cursor",
+            return_value=cursor_cm,
+        ), patch(
             "financial.management.commands.cron_payment_discord.requests.post"
         ) as mocked_post:
             command.send_discord(date(2026, 1, 3))
@@ -307,11 +416,22 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
 
     def test_cron_payment_email_send_email_and_run_command_paths(self):
         command = cmd_email.Command()
-        user = User.objects.create_user(username="email-user", email="email-user@test.com", password="123")
+        user = User.objects.create_user(
+            username="email-user", email="email-user@test.com", password="123"
+        )
         invoice = self._create_invoice(name="Email invoice")
-        self._create_payment(invoice=invoice, user=user, status=Payment.STATUS_OPEN, active=True, value=Decimal("30.00"))
+        self._create_payment(
+            invoice=invoice,
+            user=user,
+            status=Payment.STATUS_OPEN,
+            active=True,
+            value=Decimal("30.00"),
+        )
 
-        with patch("financial.management.commands.cron_payment_email.render_to_string", return_value="<html/>"), patch(
+        with patch(
+            "financial.management.commands.cron_payment_email.render_to_string",
+            return_value="<html/>",
+        ), patch(
             "financial.management.commands.cron_payment_email.EmailMessage"
         ) as mocked_email_cls:
             mocked_email_instance = mocked_email_cls.return_value
@@ -319,21 +439,29 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(mocked_email_instance.send.called)
 
-        with patch("financial.management.commands.cron_payment_email.EmailMessage", side_effect=Exception("smtp-down")), patch(
-            "financial.management.commands.cron_payment_email.render_to_string", return_value="<html/>"
+        with patch(
+            "financial.management.commands.cron_payment_email.EmailMessage",
+            side_effect=Exception("smtp-down"),
+        ), patch(
+            "financial.management.commands.cron_payment_email.render_to_string",
+            return_value="<html/>",
         ):
             self.assertFalse(command.send_email_to_user(user, date(2026, 1, 3)))
 
-        with patch("financial.management.commands.cron_payment_email.User.objects.filter") as mocked_users, patch(
-            "builtins.print"
-        ), patch.object(command, "send_email_to_user", return_value=True) as mocked_send, patch(
+        with patch(
+            "financial.management.commands.cron_payment_email.User.objects.filter"
+        ) as mocked_users, patch("builtins.print"), patch.object(
+            command, "send_email_to_user", return_value=True
+        ) as mocked_send, patch(
             "financial.management.commands.cron_payment_email.datetime"
         ) as mocked_datetime:
             mocked_datetime.now.return_value.date.return_value = date(2026, 1, 1)
             users_qs = MagicMock()
             users_qs.exists.return_value = True
             users_qs.count.return_value = 2
-            users_qs.__iter__.return_value = iter([user, User(username="no-mail", email="")])
+            users_qs.__iter__.return_value = iter(
+                [user, User(username="no-mail", email="")]
+            )
             mocked_users.return_value.distinct.return_value = users_qs
             command.run_command()
 
@@ -341,19 +469,31 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
 
     def test_cron_payment_email_no_payments_and_error_count_path(self):
         command = cmd_email.Command()
-        user_without_payments = User.objects.create_user(username="no-payments", email="no-payments@test.com", password="123")
-        self.assertFalse(command.send_email_to_user(user_without_payments, date(2026, 1, 3)))
+        user_without_payments = User.objects.create_user(
+            username="no-payments", email="no-payments@test.com", password="123"
+        )
+        self.assertFalse(
+            command.send_email_to_user(user_without_payments, date(2026, 1, 3))
+        )
 
-        user_with_email = User.objects.create_user(username="with-email", email="with-email@test.com", password="123")
-        user_without_email = User.objects.create_user(username="without-email", email="", password="123")
+        user_with_email = User.objects.create_user(
+            username="with-email", email="with-email@test.com", password="123"
+        )
+        user_without_email = User.objects.create_user(
+            username="without-email", email="", password="123"
+        )
         users_qs = MagicMock()
         users_qs.exists.return_value = True
         users_qs.count.return_value = 2
         users_qs.__iter__.return_value = iter([user_with_email, user_without_email])
 
-        with patch("financial.management.commands.cron_payment_email.User.objects.filter") as mocked_users, patch.object(
+        with patch(
+            "financial.management.commands.cron_payment_email.User.objects.filter"
+        ) as mocked_users, patch.object(
             command, "send_email_to_user", return_value=False
-        ) as mocked_send, patch("financial.management.commands.cron_payment_email.datetime") as mocked_datetime, patch(
+        ) as mocked_send, patch(
+            "financial.management.commands.cron_payment_email.datetime"
+        ) as mocked_datetime, patch(
             "builtins.print"
         ):
             mocked_datetime.now.return_value.date.return_value = date(2026, 1, 1)
@@ -367,9 +507,13 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
         users_qs = MagicMock()
         users_qs.exists.return_value = False
 
-        with patch("financial.management.commands.cron_payment_email.User.objects.filter") as mocked_users, patch(
+        with patch(
+            "financial.management.commands.cron_payment_email.User.objects.filter"
+        ) as mocked_users, patch(
             "financial.management.commands.cron_payment_email.datetime"
-        ) as mocked_datetime, patch("builtins.print"):
+        ) as mocked_datetime, patch(
+            "builtins.print"
+        ):
             mocked_datetime.now.return_value.date.return_value = date(2026, 1, 1)
             mocked_users.return_value.distinct.return_value = users_qs
             command.run_command()
@@ -388,23 +532,26 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
             cmd_recalculate.Command(),
         ]
         for command in commands:
-            with patch.object(command, "run_command") as mocked_run, patch("builtins.print"), patch.object(
-                command.stdout, "write"
-            ):
+            with patch.object(command, "run_command") as mocked_run, patch(
+                "builtins.print"
+            ), patch.object(command.stdout, "write"):
                 command.handle()
             self.assertTrue(mocked_run.called)
 
     def test_process_imported_helpers_cover_remaining_merge_paths(self):
         command = cmd_process_imported.Command()
 
-        with patch.object(command, "get_merge_group_payments", return_value=[SimpleNamespace(id=1), SimpleNamespace(id=2)]), patch.object(
-            command, "try_set_processing", side_effect=[False, True]
-        ):
+        with patch.object(
+            command,
+            "get_merge_group_payments",
+            return_value=[SimpleNamespace(id=1), SimpleNamespace(id=2)],
+        ), patch.object(command, "try_set_processing", side_effect=[False, True]):
             claimed = command.claim_merge_group_payments("g1")
         self.assertEqual(len(claimed), 1)
         self.assertEqual(claimed[0].id, 2)
 
         from payment.utils import generate_payment_installments_by_name
+
         self.assertEqual(generate_payment_installments_by_name("Compra 2/5"), (2, 5))
 
         source_tags = [SimpleNamespace(id=2), SimpleNamespace(id=3)]
@@ -422,32 +569,48 @@ class FinancialManagementCommandsRegressionTestCase(TestCase):
             invoice=mock_invoice,
             save=MagicMock(),
         )
-        main_payment = SimpleNamespace(reference="ref", raw_date=date(2026, 1, 1), raw_payment_date=date(2026, 1, 2))
+        main_payment = SimpleNamespace(
+            reference="ref",
+            raw_date=date(2026, 1, 1),
+            raw_payment_date=date(2026, 1, 2),
+        )
         imported_ns = SimpleNamespace(raw_value=Decimal("50.00"))
-        with patch.object(command, "get_main_payment", return_value=main_payment), patch.object(
-            command, "get_payment_description", return_value="desc"
-        ), patch("financial.management.commands.process_imported_payments.update_invoice_value"):
+        with patch.object(
+            command, "get_main_payment", return_value=main_payment
+        ), patch.object(command, "get_payment_description", return_value="desc"), patch(
+            "financial.management.commands.process_imported_payments.update_invoice_value"
+        ):
             command.update_invoice_by_imported_payment(payment, [imported_ns])
         self.assertEqual(payment.reference, "ref")
         self.assertEqual(payment.description, "desc")
         self.assertEqual(payment.value, Decimal("50.00"))
         self.assertTrue(payment.save.called)
 
-        with self.assertRaisesMessage(Exception, "Pagamento merge sem pagamento selecionado"):
+        with self.assertRaisesMessage(
+            Exception, "Pagamento merge sem pagamento selecionado"
+        ):
             command.update_invoice_by_imported_payment(None, [SimpleNamespace()])
 
         merge_item = SimpleNamespace(matched_payment=payment)
-        with patch.object(command, "update_invoice_by_imported_payment") as mocked_update:
+        with patch.object(
+            command, "update_invoice_by_imported_payment"
+        ) as mocked_update:
             command.process_payment_by_merge([merge_item])
         mocked_update.assert_called_once()
 
-        with patch.object(command, "check_payment_is_merge", return_value=True), patch.object(
+        with patch.object(
+            command, "check_payment_is_merge", return_value=True
+        ), patch.object(
             command, "process_payment_by_merge"
-        ) as mocked_merge, patch.object(command, "finish_with_success") as mocked_success:
+        ) as mocked_merge, patch.object(
+            command, "finish_with_success"
+        ) as mocked_success:
             command.process_payment([SimpleNamespace()])
         self.assertTrue(mocked_merge.called)
         self.assertTrue(mocked_success.called)
 
-        with patch.object(command, "is_processing_running", return_value=True), patch("builtins.print") as mocked_print:
+        with patch.object(command, "is_processing_running", return_value=True), patch(
+            "builtins.print"
+        ) as mocked_print:
             command.run_command()
         self.assertTrue(mocked_print.called)

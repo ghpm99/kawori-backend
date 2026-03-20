@@ -1,9 +1,8 @@
-import os
-from django.http import JsonResponse
-from django.conf import settings
 import pusher
-from remote.models import Config
+from django.conf import settings
+from django.http import JsonResponse
 
+from remote.models import Config
 
 pusher_client = pusher.Pusher(
     app_id=settings.ENV_PUSHER_APP_ID,
@@ -46,7 +45,9 @@ def client_event(event):
 
 def webhook(request):
     webhook = pusher_client.validate_webhook(
-        key=request.headers.get("X-Pusher-Key"), signature=request.headers.get("X-Pusher-Signature"), body=request.body
+        key=request.headers.get("X-Pusher-Key"),
+        signature=request.headers.get("X-Pusher-Signature"),
+        body=request.body,
     )
 
     if webhook is None:
@@ -64,7 +65,9 @@ def webhook(request):
 
 
 def auth(request, channel_name, socket_id):
-    auth_response = pusher_client.authenticate(channel=channel_name, socket_id=socket_id)
+    auth_response = pusher_client.authenticate(
+        channel=channel_name, socket_id=socket_id
+    )
     return JsonResponse(auth_response)
 
 
@@ -93,4 +96,6 @@ def mouse_scroll(value):
 
 
 def mouse_move_button(x, y, button):
-    pusher_client.trigger("private-display", "mouse-move-button", {"x": x, "y": y, "button": button})
+    pusher_client.trigger(
+        "private-display", "mouse-move-button", {"x": x, "y": y, "button": button}
+    )

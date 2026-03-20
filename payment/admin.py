@@ -5,8 +5,18 @@ from payment.models import Payment
 
 # Register your models here.
 class PaymentConfig(admin.ModelAdmin):
-    list_display = ("id", "name", "value", "payment_date", "status", "type", "date", "fixed", "active", "user")
-    pass
+    list_display = (
+        "id",
+        "name",
+        "value",
+        "payment_date",
+        "status",
+        "type",
+        "date",
+        "fixed",
+        "active",
+        "user",
+    )
 
 
 admin.site.register(Payment, PaymentConfig)

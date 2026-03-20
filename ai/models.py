@@ -24,7 +24,9 @@ _ALLOWED_TASK_TYPES = {item.value for item in AITaskType}
 
 class PromptOverride(models.Model):
     key = models.CharField(max_length=128, db_index=True)
-    environment = models.CharField(max_length=32, default=PROMPT_OVERRIDE_ENVIRONMENT_ALL, db_index=True)
+    environment = models.CharField(
+        max_length=32, default=PROMPT_OVERRIDE_ENVIRONMENT_ALL, db_index=True
+    )
     content = models.TextField()
     task_type = models.CharField(max_length=64)
     schema_json = models.JSONField(default=dict, blank=True)
@@ -63,7 +65,10 @@ class PromptOverride(models.Model):
 
     def clean(self) -> None:
         self.key = str(self.key or "").strip()
-        self.environment = str(self.environment or "").strip().lower() or PROMPT_OVERRIDE_ENVIRONMENT_ALL
+        self.environment = (
+            str(self.environment or "").strip().lower()
+            or PROMPT_OVERRIDE_ENVIRONMENT_ALL
+        )
         self.version = str(self.version or "").strip() or "v1"
         self.task_type = normalize_task_type(self.task_type)
 
@@ -74,7 +79,9 @@ class PromptOverride(models.Model):
             raise ValidationError({"task_type": "task_type inválido."})
 
         if self.schema_json is not None and not isinstance(self.schema_json, dict):
-            raise ValidationError({"schema_json": "schema_json precisa ser um objeto JSON."})
+            raise ValidationError(
+                {"schema_json": "schema_json precisa ser um objeto JSON."}
+            )
 
         if self.temperature is not None:
             try:
@@ -88,13 +95,19 @@ class PromptOverride(models.Model):
             except (TypeError, ValueError) as exc:
                 raise ValidationError({"max_tokens": "max_tokens inválido."}) from exc
             if self.max_tokens <= 0:
-                raise ValidationError({"max_tokens": "max_tokens deve ser maior que zero."})
+                raise ValidationError(
+                    {"max_tokens": "max_tokens deve ser maior que zero."}
+                )
 
         if self.valid_from and self.valid_until and self.valid_from >= self.valid_until:
-            raise ValidationError({"valid_until": "valid_until deve ser maior que valid_from."})
+            raise ValidationError(
+                {"valid_until": "valid_until deve ser maior que valid_from."}
+            )
 
         if self.is_active and not str(self.change_reason or "").strip():
-            raise ValidationError({"change_reason": "change_reason é obrigatório para override ativo."})
+            raise ValidationError(
+                {"change_reason": "change_reason é obrigatório para override ativo."}
+            )
 
         if self.pk:
             previous = PromptOverride.objects.filter(pk=self.pk).first()
@@ -111,7 +124,10 @@ class PromptOverride(models.Model):
                     "valid_from",
                     "valid_until",
                 ]
-                changed_active_payload = any(getattr(previous, field) != getattr(self, field) for field in protected_fields)
+                changed_active_payload = any(
+                    getattr(previous, field) != getattr(self, field)
+                    for field in protected_fields
+                )
                 if changed_active_payload:
                     raise ValidationError(
                         "Override ativo não pode ser editado diretamente. "
@@ -168,7 +184,9 @@ class PromptOverrideHistory(models.Model):
 
 class AIExecutionEvent(models.Model):
     trace_id = models.CharField(max_length=64, db_index=True)
-    feature_name = models.CharField(max_length=128, db_index=True, blank=True, default="")
+    feature_name = models.CharField(
+        max_length=128, db_index=True, blank=True, default=""
+    )
     task_type = models.CharField(max_length=64, db_index=True, blank=True, default="")
     provider = models.CharField(max_length=64, blank=True, default="")
     model = models.CharField(max_length=128, blank=True, default="")
@@ -180,7 +198,9 @@ class AIExecutionEvent(models.Model):
     prompt_tokens = models.PositiveIntegerField(default=0)
     completion_tokens = models.PositiveIntegerField(default=0)
     total_tokens = models.PositiveIntegerField(default=0)
-    cost_estimate = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True)
+    cost_estimate = models.DecimalField(
+        max_digits=12, decimal_places=6, null=True, blank=True
+    )
     cache_status = models.CharField(max_length=16, blank=True, default="")
     retry_count = models.PositiveIntegerField(default=0)
     metadata = models.JSONField(default=dict, blank=True)
@@ -209,10 +229,18 @@ class AIExecutionEvent(models.Model):
 class AIBudgetPolicy(models.Model):
     feature_name = models.CharField(max_length=128, unique=True)
     active = models.BooleanField(default=True, db_index=True)
-    daily_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    monthly_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    user_daily_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    user_monthly_limit_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    daily_limit_usd = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    monthly_limit_usd = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    user_daily_limit_usd = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    user_monthly_limit_usd = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

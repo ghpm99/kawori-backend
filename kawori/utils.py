@@ -1,19 +1,17 @@
-import io
 import os
-import colorsys
-
-from PIL import Image, ImageFilter, ImageEnhance, ImageDraw
-import numpy as np
 from datetime import datetime
-from scipy.ndimage import binary_dilation
 
-from django.core.paginator import Paginator
-from django.core.files.base import ContentFile
+import numpy as np
 from django.conf import settings
+from django.core.paginator import Paginator
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+from scipy.ndimage import binary_dilation
 
 from facetexture.models import BDOClass
 
-CLASSES_SYMBOL_SPR_URL = os.path.join(settings.MEDIA_ROOT, "bdoclass/classes_symbol_spr.png")
+CLASSES_SYMBOL_SPR_URL = os.path.join(
+    settings.MEDIA_ROOT, "bdoclass/classes_symbol_spr.png"
+)
 CLASS_SYMBOL_SPR_PIXEL = 50
 
 CLASSES_IMAGE_SPR_URL = os.path.join(settings.MEDIA_ROOT, "classimage/classes_spr.jpg")
@@ -23,7 +21,9 @@ CLASS_IMAGE_SPR_PIXEL_Y = 329
 DEFAULT_PAGINATION_PER_PAGE = 15
 
 
-def paginate(object_list: list, page_number: int, per_page: int = DEFAULT_PAGINATION_PER_PAGE) -> dict:
+def paginate(
+    object_list: list, page_number: int, per_page: int = DEFAULT_PAGINATION_PER_PAGE
+) -> dict:
     """
     "paginate" generates a default pattern to API paginations using Django Paginator.
 
@@ -86,7 +86,9 @@ def hex_to_rgb(hex_color: str) -> tuple:
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def apply_glowing_icon(image, hex_color="#C0E0FF", glow_radius=0.5, glow_brightness=6.0):
+def apply_glowing_icon(
+    image, hex_color="#C0E0FF", glow_radius=0.5, glow_brightness=6.0
+):
     """
     Aplica um efeito de brilho colorido a um ícone, colocando-o em um fundo sólido.
 
@@ -117,7 +119,9 @@ def apply_glowing_icon(image, hex_color="#C0E0FF", glow_radius=0.5, glow_brightn
     colored_icon_image = Image.fromarray(colored_icon_base, mode="RGBA")
 
     # Aplica o desfoque para criar o efeito de brilho
-    blurred_glow = colored_icon_image.filter(ImageFilter.GaussianBlur(radius=glow_radius))
+    blurred_glow = colored_icon_image.filter(
+        ImageFilter.GaussianBlur(radius=glow_radius)
+    )
 
     # Aumenta o brilho da camada de brilho
     enhanced_glow = ImageEnhance.Brightness(blurred_glow).enhance(glow_brightness)
@@ -146,7 +150,9 @@ def apply_vivid_outline_glow(
 
     # Outline mask
     alpha_mask = (alpha > 0.05).astype(np.uint8)
-    outline_mask = binary_dilation(alpha_mask, iterations=2).astype(np.float32) - alpha_mask
+    outline_mask = (
+        binary_dilation(alpha_mask, iterations=2).astype(np.float32) - alpha_mask
+    )
     outline_mask = np.clip(outline_mask, 0, 1)
 
     # Colored outline
@@ -154,9 +160,13 @@ def apply_vivid_outline_glow(
     for i in range(3):
         outline_layer[..., i] = (rgb_color[i] * outline_mask).astype(np.uint8)
     outline_layer[..., 3] = (outline_mask * 255).astype(np.uint8)
-    colored_outline = Image.fromarray(outline_layer, mode="RGBA").filter(ImageFilter.GaussianBlur(radius=glow_radius))
+    colored_outline = Image.fromarray(outline_layer, mode="RGBA").filter(
+        ImageFilter.GaussianBlur(radius=glow_radius)
+    )
 
-    blurred_glow = Image.fromarray(outline_layer, mode="RGBA").filter(ImageFilter.GaussianBlur(radius=glow_radius * 2))
+    blurred_glow = Image.fromarray(outline_layer, mode="RGBA").filter(
+        ImageFilter.GaussianBlur(radius=glow_radius * 2)
+    )
     # enhanced_glow = ImageEnhance.Brightness(blurred_glow).enhance(glow_brightness)
 
     # Composite
@@ -185,7 +195,11 @@ def _prepare_image_and_mask(image: Image.Image) -> tuple[Image.Image, Image.Imag
 
 
 def _create_halo_layer(
-    image: Image.Image, original_mask: Image.Image, rgb_color: tuple, glow_radius: int, border_width: int
+    image: Image.Image,
+    original_mask: Image.Image,
+    rgb_color: tuple,
+    glow_radius: int,
+    border_width: int,
 ) -> Image.Image:
     """
     Cria a camada de halo externo suave.
@@ -233,9 +247,13 @@ def _create_border_layer(
     mask_for_border = Image.new("L", image.size, 0)
     ImageDraw.Draw(mask_for_border).bitmap((0, 0), original_mask, fill=255)
 
-    expanded_border_mask = mask_for_border.filter(ImageFilter.MaxFilter(border_width * 2 + 1))
+    expanded_border_mask = mask_for_border.filter(
+        ImageFilter.MaxFilter(border_width * 2 + 1)
+    )
 
-    colored_border_fill = Image.new("RGBA", (image.width, image.height), rgb_color + (255,))
+    colored_border_fill = Image.new(
+        "RGBA", (image.width, image.height), rgb_color + (255,)
+    )
 
     temp_expanded_mask_full_size = Image.new("L", (image.width, image.height), 0)
     temp_expanded_mask_full_size.paste(expanded_border_mask, (0, 0))
@@ -265,7 +283,10 @@ def _create_white_glow_layer(
 
 
 def _compose_layers(
-    image: Image.Image, halo_layer: Image.Image, border_layer: Image.Image, white_glow_layer: Image.Image
+    image: Image.Image,
+    halo_layer: Image.Image,
+    border_layer: Image.Image,
+    white_glow_layer: Image.Image,
 ) -> Image.Image:
     """
     Compõe todas as camadas na imagem final.
@@ -281,7 +302,9 @@ def _compose_layers(
     """
     final_image_size_width = max(halo_layer.width, border_layer.width)
     final_image_size_height = max(halo_layer.height, border_layer.height)
-    final_image = Image.new("RGBA", (final_image_size_width, final_image_size_height), (0, 0, 0, 0))
+    final_image = Image.new(
+        "RGBA", (final_image_size_width, final_image_size_height), (0, 0, 0, 0)
+    )
 
     # Colar as camadas na ordem correta (de trás para frente)
     final_image.paste(halo_layer, (0, 0), halo_layer)
@@ -291,7 +314,9 @@ def _compose_layers(
     return final_image
 
 
-def _resize_to_original(final_image: Image.Image, original_image_size: tuple) -> Image.Image:
+def _resize_to_original(
+    final_image: Image.Image, original_image_size: tuple
+) -> Image.Image:
     """
     Redimensiona a imagem final para o tamanho original, se necessário.
 
@@ -336,9 +361,13 @@ def apply_glow_effect(
     rgb_color = hex_to_rgb(hex_color)
 
     # Criar as camadas individuais
-    halo_layer = _create_halo_layer(image, original_mask, rgb_color, glow_radius, border_width)
+    halo_layer = _create_halo_layer(
+        image, original_mask, rgb_color, glow_radius, border_width
+    )
     border_layer = _create_border_layer(image, original_mask, rgb_color, border_width)
-    white_glow_layer = _create_white_glow_layer(image, original_mask, white_glow_intensity)
+    white_glow_layer = _create_white_glow_layer(
+        image, original_mask, white_glow_intensity
+    )
 
     # Compor todas as camadas
     final_image = _compose_layers(image, halo_layer, border_layer, white_glow_layer)
@@ -346,8 +375,14 @@ def apply_glow_effect(
     return final_image
 
 
-def get_glowed_symbol_class(bdoClass: BDOClass, class_image: Image.Image) -> Image.Image:
-    image_exists = bdoClass.image and bdoClass.image.name and bdoClass.image.storage.exists(bdoClass.image.name)
+def get_glowed_symbol_class(
+    bdoClass: BDOClass, class_image: Image.Image
+) -> Image.Image:
+    image_exists = (
+        bdoClass.image
+        and bdoClass.image.name
+        and bdoClass.image.storage.exists(bdoClass.image.name)
+    )
 
     if not image_exists:
         class_image = apply_glow_effect(class_image, hex_color=bdoClass.color)

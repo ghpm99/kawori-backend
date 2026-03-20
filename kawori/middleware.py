@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from urllib.parse import urlparse
+
 from django.conf import settings
 from django.http import HttpResponse
 from django.middleware.csrf import CsrfViewMiddleware
@@ -18,7 +19,9 @@ class SimpleCorsMiddleware(MiddlewareMixin):
         if request.META.get("HTTP_ORIGIN") in settings.BASE_URL_FRONTEND_LIST:
             response["Access-Control-Allow-Origin"] = request.META.get("HTTP_ORIGIN")
             response["Access-Control-Allow-Credentials"] = "true"
-            response["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            response["Access-Control-Allow-Methods"] = (
+                "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            )
             response["Access-Control-Allow-Headers"] = (
                 "Authorization, Content-Type, Accept, Origin, User-Agent, Referer, Host, Connection, "
                 "Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Allow-Origin"
@@ -29,9 +32,13 @@ class SimpleCorsMiddleware(MiddlewareMixin):
         if request.method == "OPTIONS":
             response = HttpResponse()
             if request.META.get("HTTP_ORIGIN") in settings.BASE_URL_FRONTEND_LIST:
-                response["Access-Control-Allow-Origin"] = request.META.get("HTTP_ORIGIN")
+                response["Access-Control-Allow-Origin"] = request.META.get(
+                    "HTTP_ORIGIN"
+                )
                 response["Access-Control-Allow-Credentials"] = "true"
-                response["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                response["Access-Control-Allow-Methods"] = (
+                    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                )
                 response["Access-Control-Allow-Headers"] = (
                     "Authorization, Content-Type, Accept, Origin, User-Agent, Referer, Host, Connection, "
                     "Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Allow-Origin"
@@ -62,7 +69,12 @@ class OriginFilterMiddleware(MiddlewareMixin):
         origin_norm = self._normalize(origin)
 
         allowed = {self._normalize(settings.BASE_URL)}
-        allowed.update({self._normalize(o) for o in getattr(settings, "BASE_URL_FRONTEND_LIST", [])})
+        allowed.update(
+            {
+                self._normalize(o)
+                for o in getattr(settings, "BASE_URL_FRONTEND_LIST", [])
+            }
+        )
 
         # Se origin estiver na lista de permitidos, permite.
         if origin_norm in allowed:

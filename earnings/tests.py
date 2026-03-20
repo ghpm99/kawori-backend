@@ -15,7 +15,9 @@ from payment.models import Payment
 class EarningsViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="earnings-reg", email="earnings-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="earnings-reg", email="earnings-reg@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -78,7 +80,9 @@ class EarningsViewsRegressionTestCase(TestCase):
 
     def test_get_all_view_with_filters_and_payload_contract_fields(self):
         contract = self._create_contract(name="Main Job")
-        invoice = self._create_invoice(contract=contract, payment_date=date(2026, 1, 10))
+        invoice = self._create_invoice(
+            contract=contract, payment_date=date(2026, 1, 10)
+        )
         self._create_payment(
             invoice=invoice,
             status=Payment.STATUS_OPEN,

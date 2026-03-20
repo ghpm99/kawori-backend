@@ -13,13 +13,25 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="ReleaseScriptExecution",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("release_version", models.CharField(max_length=20)),
                 ("script_name", models.CharField(max_length=255)),
                 (
                     "status",
                     models.CharField(
-                        choices=[("success", "Success"), ("failure", "Failure"), ("skipped", "Skipped")],
+                        choices=[
+                            ("success", "Success"),
+                            ("failure", "Failure"),
+                            ("skipped", "Skipped"),
+                        ],
                         max_length=10,
                     ),
                 ),
@@ -31,8 +43,14 @@ class Migration(migrations.Migration):
                 "db_table": "release_script_execution",
                 "ordering": ["-started_at"],
                 "indexes": [
-                    models.Index(fields=["release_version", "script_name"], name="release_scr_release_a1ed7d_idx"),
-                    models.Index(fields=["status", "-started_at"], name="release_scr_status_d2b1bd_idx"),
+                    models.Index(
+                        fields=["release_version", "script_name"],
+                        name="release_scr_release_a1ed7d_idx",
+                    ),
+                    models.Index(
+                        fields=["status", "-started_at"],
+                        name="release_scr_status_d2b1bd_idx",
+                    ),
                 ],
             },
         ),

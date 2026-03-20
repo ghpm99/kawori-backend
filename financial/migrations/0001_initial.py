@@ -7,18 +7,36 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Month',
+            name="Month",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.IntegerField(choices=[(0, 'empty'), (1, 'projection'), (2, 'calculated'), (3, 'accounted')], default=0)),
-                ('month', models.IntegerField()),
-                ('year', models.IntegerField()),
-                ('total', models.IntegerField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "status",
+                    models.IntegerField(
+                        choices=[
+                            (0, "empty"),
+                            (1, "projection"),
+                            (2, "calculated"),
+                            (3, "accounted"),
+                        ],
+                        default=0,
+                    ),
+                ),
+                ("month", models.IntegerField()),
+                ("year", models.IntegerField()),
+                ("total", models.IntegerField()),
             ],
         ),
     ]

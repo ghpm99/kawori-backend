@@ -5,7 +5,16 @@ from mailer.models import EmailQueue, UserEmailPreference
 
 @admin.register(EmailQueue)
 class EmailQueueAdmin(admin.ModelAdmin):
-    list_display = ("email_type", "to_email", "status", "priority", "category", "retry_count", "scheduled_at", "sent_at")
+    list_display = (
+        "email_type",
+        "to_email",
+        "status",
+        "priority",
+        "category",
+        "retry_count",
+        "scheduled_at",
+        "sent_at",
+    )
     list_filter = ("status", "email_type", "category", "priority")
     search_fields = ("to_email", "subject", "skip_reason")
     readonly_fields = (
@@ -42,7 +51,13 @@ class EmailQueueAdmin(admin.ModelAdmin):
 
 @admin.register(UserEmailPreference)
 class UserEmailPreferenceAdmin(admin.ModelAdmin):
-    list_display = ("user", "allow_all_emails", "allow_notification", "allow_promotional", "updated_at")
+    list_display = (
+        "user",
+        "allow_all_emails",
+        "allow_notification",
+        "allow_promotional",
+        "updated_at",
+    )
     list_filter = ("allow_all_emails", "allow_notification", "allow_promotional")
     search_fields = ("user__username", "user__email")
     readonly_fields = ("user", "created_at", "updated_at")

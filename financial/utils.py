@@ -26,19 +26,21 @@ def generate_payments(invoice: Invoice, description="", reference=""):
 
     payments = []
     for i in range(installments):
-        payments.append(Payment(
-            type=invoice.type,
-            name=f"{invoice.name} #{i + 1}",
-            description=description,
-            date=invoice_date,
-            installments=i + 1,
-            payment_date=payment_date,
-            fixed=invoice.fixed,
-            value=value_installments[i],
-            invoice=invoice,
-            reference=reference,
-            user=invoice.user,
-        ))
+        payments.append(
+            Payment(
+                type=invoice.type,
+                name=f"{invoice.name} #{i + 1}",
+                description=description,
+                date=invoice_date,
+                installments=i + 1,
+                payment_date=payment_date,
+                fixed=invoice.fixed,
+                value=value_installments[i],
+                invoice=invoice,
+                reference=reference,
+                user=invoice.user,
+            )
+        )
         payment_date = payment_date + relativedelta(months=1)
 
     Payment.objects.bulk_create(payments)
@@ -92,7 +94,9 @@ def update_invoice_value(invoice: Invoice):
         invoice.status = Invoice.STATUS_OPEN
 
     next_payment_date = (
-        Payment.objects.filter(invoice=invoice.id, active=True, status=Payment.STATUS_OPEN)
+        Payment.objects.filter(
+            invoice=invoice.id, active=True, status=Payment.STATUS_OPEN
+        )
         .order_by("payment_date")
         .first()
     )

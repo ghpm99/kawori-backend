@@ -1,5 +1,4 @@
 import io
-import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -8,9 +7,13 @@ from django.http import JsonResponse
 from django.test import RequestFactory, TestCase, override_settings
 from PIL import Image
 
-from kawori.decorators import validate_user
-from kawori.middleware import CsrfCookieOnlyMiddleware, OriginFilterMiddleware, SimpleCorsMiddleware
 from kawori import utils
+from kawori.decorators import validate_user
+from kawori.middleware import (
+    CsrfCookieOnlyMiddleware,
+    OriginFilterMiddleware,
+    SimpleCorsMiddleware,
+)
 
 
 class KaworiUtilsRegressionTestCase(TestCase):
@@ -46,7 +49,9 @@ class KaworiUtilsRegressionTestCase(TestCase):
         effected = utils.apply_glow_effect(image, hex_color="#ABCDEF")
         self.assertEqual(effected.mode, "RGBA")
 
-        resized = utils._resize_to_original(Image.new("RGBA", (30, 30), (0, 0, 0, 0)), (20, 20))
+        resized = utils._resize_to_original(
+            Image.new("RGBA", (30, 30), (0, 0, 0, 0)), (20, 20)
+        )
         self.assertEqual(resized.size, (20, 20))
 
     def test_get_glowed_symbol_class_and_sprite_extractors(self):
@@ -54,10 +59,14 @@ class KaworiUtilsRegressionTestCase(TestCase):
 
         no_file_class = SimpleNamespace(
             color="#123456",
-            image=SimpleNamespace(name="", storage=SimpleNamespace(exists=lambda _: False)),
+            image=SimpleNamespace(
+                name="", storage=SimpleNamespace(exists=lambda _: False)
+            ),
             class_order=1,
         )
-        with patch("kawori.utils.apply_glow_effect", return_value=base_icon) as mocked_glow:
+        with patch(
+            "kawori.utils.apply_glow_effect", return_value=base_icon
+        ) as mocked_glow:
             result = utils.get_glowed_symbol_class(no_file_class, base_icon)
         self.assertEqual(result, base_icon)
         mocked_glow.assert_called_once()
@@ -67,20 +76,30 @@ class KaworiUtilsRegressionTestCase(TestCase):
         image_buffer.seek(0)
         with_file_class = SimpleNamespace(
             color="#123456",
-            image=SimpleNamespace(name="x.png", storage=SimpleNamespace(exists=lambda _: True), file=image_buffer),
+            image=SimpleNamespace(
+                name="x.png",
+                storage=SimpleNamespace(exists=lambda _: True),
+                file=image_buffer,
+            ),
             class_order=1,
         )
         loaded = utils.get_glowed_symbol_class(with_file_class, base_icon)
         self.assertEqual(loaded.mode, "RGBA")
 
-        bdo_class = SimpleNamespace(class_order=1, color="#00FF00", image=with_file_class.image)
+        bdo_class = SimpleNamespace(
+            class_order=1, color="#00FF00", image=with_file_class.image
+        )
         with patch("kawori.utils.Image.open") as mocked_open, patch(
             "kawori.utils.get_glowed_symbol_class", return_value=base_icon
         ):
             mocked_open.side_effect = [
                 Image.new("RGBA", (100, 100), (0, 0, 255, 255)),
                 Image.new("RGBA", (100, 100), (0, 0, 255, 255)),
-                Image.new("RGB", (utils.CLASS_IMAGE_SPR_PIXEL_X * 2, utils.CLASS_IMAGE_SPR_PIXEL_Y), (255, 0, 0)),
+                Image.new(
+                    "RGB",
+                    (utils.CLASS_IMAGE_SPR_PIXEL_X * 2, utils.CLASS_IMAGE_SPR_PIXEL_Y),
+                    (255, 0, 0),
+                ),
             ]
             symbol_default = utils.get_symbol_class(bdo_class, symbol_style="D")
             symbol_green = utils.get_symbol_class(bdo_class, symbol_style="G")
@@ -88,13 +107,18 @@ class KaworiUtilsRegressionTestCase(TestCase):
 
         self.assertEqual(symbol_default.mode, "RGBA")
         self.assertEqual(symbol_green.mode, "RGBA")
-        self.assertEqual(class_image.size, (utils.CLASS_IMAGE_SPR_PIXEL_X, utils.CLASS_IMAGE_SPR_PIXEL_Y))
+        self.assertEqual(
+            class_image.size,
+            (utils.CLASS_IMAGE_SPR_PIXEL_X, utils.CLASS_IMAGE_SPR_PIXEL_Y),
+        )
 
 
 class KaworiDecoratorsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(username="kw-user", email="kw-user@test.com", password="123", is_active=True)
+        cls.user = User.objects.create_user(
+            username="kw-user", email="kw-user@test.com", password="123", is_active=True
+        )
         cls.admin_group = Group.objects.create(name="admin")
         cls.admin_group.user_set.add(cls.user)
 
@@ -119,56 +143,80 @@ class KaworiDecoratorsRegressionTestCase(TestCase):
 
         request = self.rf.get("/")
         request.COOKIES["access_token"] = "invalid"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", side_effect=Exception("bad")
-        ):
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch("kawori.decorators.AccessToken", side_effect=Exception("bad")):
             response = protected_view(request)
         self.assertEqual(response.status_code, 401)
 
         request = self.rf.get("/")
         request.COOKIES["access_token"] = "token"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(None)
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch(
+            "kawori.decorators.AccessToken",
+            return_value=self._build_access_token_mock(None),
         ):
             response = protected_view(request)
         self.assertEqual(response.status_code, 403)
 
         request = self.rf.get("/")
         request.COOKIES["access_token"] = "token"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(self.user.id)
-        ), patch("kawori.decorators.User.objects.get", side_effect=User.DoesNotExist):
-            response = protected_view(request)
-        self.assertEqual(response.status_code, 403)
-
-        inactive = User.objects.create_user(username="inactive-kw", password="123", is_active=False)
-        request = self.rf.get("/")
-        request.COOKIES["access_token"] = "token"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(inactive.id)
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch(
+            "kawori.decorators.AccessToken",
+            return_value=self._build_access_token_mock(self.user.id),
+        ), patch(
+            "kawori.decorators.User.objects.get", side_effect=User.DoesNotExist
         ):
             response = protected_view(request)
         self.assertEqual(response.status_code, 403)
 
-        no_perm_user = User.objects.create_user(username="no-perm-kw", password="123", is_active=True)
+        inactive = User.objects.create_user(
+            username="inactive-kw", password="123", is_active=False
+        )
         request = self.rf.get("/")
         request.COOKIES["access_token"] = "token"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(no_perm_user.id)
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch(
+            "kawori.decorators.AccessToken",
+            return_value=self._build_access_token_mock(inactive.id),
+        ):
+            response = protected_view(request)
+        self.assertEqual(response.status_code, 403)
+
+        no_perm_user = User.objects.create_user(
+            username="no-perm-kw", password="123", is_active=True
+        )
+        request = self.rf.get("/")
+        request.COOKIES["access_token"] = "token"
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch(
+            "kawori.decorators.AccessToken",
+            return_value=self._build_access_token_mock(no_perm_user.id),
         ):
             response = protected_view(request)
         self.assertEqual(response.status_code, 403)
 
         request = self.rf.get("/")
         request.COOKIES["access_token"] = "token"
-        with patch("kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"), patch(
-            "kawori.decorators.AccessToken", return_value=self._build_access_token_mock(self.user.id)
+        with patch(
+            "kawori.decorators.settings.ACCESS_TOKEN_NAME", "access_token"
+        ), patch(
+            "kawori.decorators.AccessToken",
+            return_value=self._build_access_token_mock(self.user.id),
         ):
             response = protected_view(request)
         self.assertEqual(response.status_code, 200)
 
 
-@override_settings(BASE_URL="http://api.local", BASE_URL_FRONTEND_LIST=["http://front.local", "https://app.local"])
+@override_settings(
+    BASE_URL="http://api.local",
+    BASE_URL_FRONTEND_LIST=["http://front.local", "https://app.local"],
+)
 class KaworiMiddlewareRegressionTestCase(TestCase):
     def setUp(self):
         self.rf = RequestFactory()

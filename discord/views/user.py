@@ -1,6 +1,7 @@
 from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+
 from kawori.decorators import validate_user
 from kawori.utils import paginate
 

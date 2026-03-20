@@ -1,18 +1,17 @@
-import json
 import inspect
+import json
 from datetime import timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
-
-from django.conf import settings
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from authentication.models import EmailVerification, SocialAccount, UserToken
-from authentication import views
 from authentication import utils as auth_utils
+from authentication import views
+from authentication.models import EmailVerification, SocialAccount, UserToken
 
 
 # Create your tests here.
@@ -238,7 +237,7 @@ class PasswordResetRequestTestCase(TestCase):
     @patch("authentication.views.send_password_reset_email_async")
     def test_request_inactive_user_returns_200(self, mock_send):
         """Usuário inativo é tratado como inexistente (anti-enumeração)"""
-        inactive = User.objects.create_user(
+        User.objects.create_user(
             username="inactive_reset",
             email="inactive@test.com",
             password="pass123",
@@ -364,7 +363,9 @@ class PasswordResetValidateTestCase(TestCase):
     def test_validate_valid_token(self):
         """Token válido retorna valid=True"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
 
         response = self.client.get(
@@ -410,9 +411,13 @@ class PasswordResetValidateTestCase(TestCase):
     def test_validate_used_token(self):
         """Token já utilizado retorna 400"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
-        token_obj = UserToken.objects.get(user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
+        token_obj = UserToken.objects.get(
+            user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
         token_obj.consume("127.0.0.1")
 
         response = self.client.get(
@@ -445,7 +450,9 @@ class PasswordResetConfirmTestCase(TestCase):
     def test_confirm_success(self):
         """Redefinição bem-sucedida retorna 200 e atualiza a senha"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
 
         response = self.client.post(
@@ -499,9 +506,13 @@ class PasswordResetConfirmTestCase(TestCase):
     def test_confirm_used_token(self):
         """Token já utilizado retorna 400"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
-        token_obj = UserToken.objects.get(user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET)
+        token_obj = UserToken.objects.get(
+            user=self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
+        )
         token_obj.consume("127.0.0.1")
 
         response = self.client.post(
@@ -515,7 +526,9 @@ class PasswordResetConfirmTestCase(TestCase):
     def test_confirm_weak_password(self):
         """Senha fraca é rejeitada pelas validações do Django"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
 
         response = self.client.post(
@@ -552,7 +565,9 @@ class PasswordResetConfirmTestCase(TestCase):
     def test_confirm_token_not_reusable(self):
         """Token não pode ser usado duas vezes"""
         raw_token = UserToken.create_for_user(
-            self.user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address="127.0.0.1"
+            self.user,
+            token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET,
+            ip_address="127.0.0.1",
         )
 
         # Primeiro uso — sucesso
@@ -707,7 +722,9 @@ class EmailVerificationVerifyTestCase(TestCase):
             ip_address="127.0.0.1",
         )
         token_obj = UserToken.objects.get(
-            user=self.user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, used=False
+            user=self.user,
+            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
+            used=False,
         )
         token_obj.consume("127.0.0.1")
 
@@ -823,14 +840,20 @@ class AuthenticationViewsRegressionExtraTestCase(TestCase):
         user_group.user_set.add(self.active_user)
 
     def _post_unwrapped(self, fn, data=None, cookies=None):
-        request = self.rf.post("/", data=json.dumps(data or {}), content_type="application/json")
+        request = self.rf.post(
+            "/", data=json.dumps(data or {}), content_type="application/json"
+        )
         for key, value in (cookies or {}).items():
             request.COOKIES[key] = value
         return inspect.unwrap(fn)(request)
 
     def test_obtain_token_pair_inactive_user_branch(self):
-        with patch("authentication.views.authenticate", return_value=self.inactive_user):
-            response = self._post_unwrapped(views.obtain_token_pair, {"username": "x", "password": "y"})
+        with patch(
+            "authentication.views.authenticate", return_value=self.inactive_user
+        ):
+            response = self._post_unwrapped(
+                views.obtain_token_pair, {"username": "x", "password": "y"}
+            )
 
         self.assertEqual(response.status_code, 403)
 
@@ -839,7 +862,9 @@ class AuthenticationViewsRegressionExtraTestCase(TestCase):
         self.active_user.save(update_fields=["last_login"])
 
         with patch("authentication.views.authenticate", return_value=self.active_user):
-            response = self._post_unwrapped(views.obtain_token_pair, {"username": "x", "password": "y"})
+            response = self._post_unwrapped(
+                views.obtain_token_pair, {"username": "x", "password": "y"}
+            )
 
         self.assertEqual(response.status_code, 200)
         self.active_user.refresh_from_db()
@@ -890,7 +915,9 @@ class AuthenticationViewsRegressionExtraTestCase(TestCase):
         self.assertEqual(refresh_invalid.status_code, 403)
 
     def test_signup_duplicate_and_optional_failures_and_csrf(self):
-        User.objects.create_user(username="dup_user", email="dup@test.com", password="x")
+        User.objects.create_user(
+            username="dup_user", email="dup@test.com", password="x"
+        )
 
         duplicate_username = self.client.post(
             "/auth/signup",
@@ -918,8 +945,12 @@ class AuthenticationViewsRegressionExtraTestCase(TestCase):
         )
         self.assertEqual(duplicate_email.status_code, 400)
 
-        with patch("budget.services.create_default_budgets_for_user", side_effect=Exception("budget-fail")), patch(
-            "authentication.views.UserToken.create_for_user", side_effect=Exception("token-fail")
+        with patch(
+            "budget.services.create_default_budgets_for_user",
+            side_effect=Exception("budget-fail"),
+        ), patch(
+            "authentication.views.UserToken.create_for_user",
+            side_effect=Exception("token-fail"),
         ):
             optional_fail = self.client.post(
                 "/auth/signup",
@@ -1029,7 +1060,10 @@ class SocialAuthenticationTestCase(TestCase):
             authorize = self.client.get("/auth/social/google/authorize/")
         state = self._extract_state(json.loads(authorize.content)["authorize_url"])
 
-        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+        with patch(
+            "authentication.views.exchange_social_code_for_token",
+            return_value={"access_token": "abc"},
+        ), patch(
             "authentication.views.fetch_social_profile",
             return_value={
                 "provider_user_id": "google-1",
@@ -1041,13 +1075,17 @@ class SocialAuthenticationTestCase(TestCase):
             },
         ):
             with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
-                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+                callback = self.client.get(
+                    f"/auth/social/google/callback/?code=code123&state={state}"
+                )
 
         self.assertEqual(callback.status_code, 200)
         body = json.loads(callback.content)
         self.assertFalse(body["is_new_user"])
         self.assertTrue(body["linked_existing_user"])
-        self.assertTrue(SocialAccount.objects.filter(user=self.user, provider="google").exists())
+        self.assertTrue(
+            SocialAccount.objects.filter(user=self.user, provider="google").exists()
+        )
         self.assertIn(settings.ACCESS_TOKEN_NAME, callback.cookies)
 
     def test_social_login_creates_new_user_when_email_does_not_exist(self):
@@ -1055,7 +1093,10 @@ class SocialAuthenticationTestCase(TestCase):
             authorize = self.client.get("/auth/social/google/authorize/")
         state = self._extract_state(json.loads(authorize.content)["authorize_url"])
 
-        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+        with patch(
+            "authentication.views.exchange_social_code_for_token",
+            return_value={"access_token": "abc"},
+        ), patch(
             "authentication.views.fetch_social_profile",
             return_value={
                 "provider_user_id": "google-2",
@@ -1067,13 +1108,17 @@ class SocialAuthenticationTestCase(TestCase):
             },
         ):
             with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
-                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+                callback = self.client.get(
+                    f"/auth/social/google/callback/?code=code123&state={state}"
+                )
 
         self.assertEqual(callback.status_code, 200)
         body = json.loads(callback.content)
         self.assertTrue(body["is_new_user"])
         created_user = User.objects.get(email="new_social@test.com")
-        self.assertTrue(SocialAccount.objects.filter(user=created_user, provider="google").exists())
+        self.assertTrue(
+            SocialAccount.objects.filter(user=created_user, provider="google").exists()
+        )
         self.assertTrue(EmailVerification.objects.get(user=created_user).is_verified)
 
     def test_social_link_logged_user_even_with_different_email(self):
@@ -1083,7 +1128,10 @@ class SocialAuthenticationTestCase(TestCase):
             authorize = self.client.get("/auth/social/google/authorize/?mode=link")
         state = self._extract_state(json.loads(authorize.content)["authorize_url"])
 
-        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+        with patch(
+            "authentication.views.exchange_social_code_for_token",
+            return_value={"access_token": "abc"},
+        ), patch(
             "authentication.views.fetch_social_profile",
             return_value={
                 "provider_user_id": "google-3",
@@ -1095,12 +1143,16 @@ class SocialAuthenticationTestCase(TestCase):
             },
         ):
             with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
-                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+                callback = self.client.get(
+                    f"/auth/social/google/callback/?code=code123&state={state}"
+                )
 
         self.assertEqual(callback.status_code, 200)
         body = json.loads(callback.content)
         self.assertEqual(body["mode"], "link")
-        social = SocialAccount.objects.get(provider="google", provider_user_id="google-3")
+        social = SocialAccount.objects.get(
+            provider="google", provider_user_id="google-3"
+        )
         self.assertEqual(social.user_id, self.user.id)
 
     def test_social_link_conflict_when_already_linked_to_other_user(self):
@@ -1122,7 +1174,10 @@ class SocialAuthenticationTestCase(TestCase):
             authorize = self.client.get("/auth/social/google/authorize/?mode=link")
         state = self._extract_state(json.loads(authorize.content)["authorize_url"])
 
-        with patch("authentication.views.exchange_social_code_for_token", return_value={"access_token": "abc"}), patch(
+        with patch(
+            "authentication.views.exchange_social_code_for_token",
+            return_value={"access_token": "abc"},
+        ), patch(
             "authentication.views.fetch_social_profile",
             return_value={
                 "provider_user_id": "google-conflict",
@@ -1134,7 +1189,9 @@ class SocialAuthenticationTestCase(TestCase):
             },
         ):
             with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
-                callback = self.client.get(f"/auth/social/google/callback/?code=code123&state={state}")
+                callback = self.client.get(
+                    f"/auth/social/google/callback/?code=code123&state={state}"
+                )
 
         self.assertEqual(callback.status_code, 409)
 
@@ -1155,10 +1212,14 @@ class SocialAuthenticationTestCase(TestCase):
         with override_settings(SOCIAL_AUTH_PROVIDERS=self.social_settings):
             unlink_response = self.client.post("/auth/social/accounts/google/unlink/")
         self.assertEqual(unlink_response.status_code, 200)
-        self.assertFalse(SocialAccount.objects.filter(user=self.user, provider="google").exists())
+        self.assertFalse(
+            SocialAccount.objects.filter(user=self.user, provider="google").exists()
+        )
 
     def test_social_unlink_prevents_orphan_access(self):
-        passwordless = User.objects.create_user(username="passwordless_user", email="passwordless@test.com", password=None)
+        passwordless = User.objects.create_user(
+            username="passwordless_user", email="passwordless@test.com", password=None
+        )
         passwordless.set_unusable_password()
         passwordless.save(update_fields=["password"])
         Group.objects.get(name="user").user_set.add(passwordless)
@@ -1210,7 +1271,9 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
         self.assertTrue(self.user.groups.filter(name="blackdesert").exists())
         self.assertTrue(self.user.groups.filter(name="financial").exists())
 
-        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="10.0.0.1, 10.0.0.2", REMOTE_ADDR="127.0.0.1")
+        request = RequestFactory().get(
+            "/", HTTP_X_FORWARDED_FOR="10.0.0.1, 10.0.0.2", REMOTE_ADDR="127.0.0.1"
+        )
         self.assertEqual(auth_utils.get_client_ip(request), "10.0.0.1")
 
         request_no_proxy = RequestFactory().get("/", REMOTE_ADDR="127.0.0.1")
@@ -1246,7 +1309,9 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
         from mailer.models import EmailQueue
 
         auth_utils.send_password_reset_email_async(self.user, "raw-token")
-        email = EmailQueue.objects.get(user=self.user, email_type=EmailQueue.TYPE_PASSWORD_RESET)
+        email = EmailQueue.objects.get(
+            user=self.user, email_type=EmailQueue.TYPE_PASSWORD_RESET
+        )
         self.assertEqual(email.status, EmailQueue.STATUS_PENDING)
         self.assertEqual(email.to_email, self.user.email)
         self.assertEqual(email.priority, EmailQueue.PRIORITY_HIGH)
@@ -1255,7 +1320,9 @@ class AuthenticationUtilsRegressionTestCase(TestCase):
         from mailer.models import EmailQueue
 
         auth_utils.send_verification_email_async(self.user, "verify-token")
-        email = EmailQueue.objects.get(user=self.user, email_type=EmailQueue.TYPE_EMAIL_VERIFICATION)
+        email = EmailQueue.objects.get(
+            user=self.user, email_type=EmailQueue.TYPE_EMAIL_VERIFICATION
+        )
         self.assertEqual(email.status, EmailQueue.STATUS_PENDING)
         self.assertEqual(email.to_email, self.user.email)
         self.assertEqual(email.priority, EmailQueue.PRIORITY_HIGH)

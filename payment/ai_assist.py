@@ -44,7 +44,9 @@ def suggest_import_resolution(
 ) -> dict[str, Any] | None:
     mapped_data = getattr(parsed_transaction, "mapped_data", None)
     matched_payment = getattr(parsed_transaction, "matched_payment", None)
-    candidates = getattr(parsed_transaction, "possibly_matched_payment_list", None) or []
+    candidates = (
+        getattr(parsed_transaction, "possibly_matched_payment_list", None) or []
+    )
 
     if mapped_data is None or matched_payment is not None or len(candidates) == 0:
         return None
@@ -58,7 +60,9 @@ def suggest_import_resolution(
                 "name": payment.name,
                 "description": payment.description,
                 "date": payment.date.isoformat() if payment.date else None,
-                "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+                "payment_date": (
+                    payment.payment_date.isoformat() if payment.payment_date else None
+                ),
                 "installments": payment.installments,
                 "value": float(payment.value) if payment.value is not None else None,
                 "score": candidate.get("score"),
@@ -107,7 +111,9 @@ def suggest_import_resolution(
         return None
 
     valid_candidate_ids = {item["payment_id"] for item in candidate_payload}
-    suggested_payment_id = _normalize_int(output.get("matched_payment_id"), minimum=1, maximum=999999999)
+    suggested_payment_id = _normalize_int(
+        output.get("matched_payment_id"), minimum=1, maximum=999999999
+    )
     if suggested_payment_id not in valid_candidate_ids:
         suggested_payment_id = None
 
@@ -143,26 +149,42 @@ def suggest_payment_normalization(
             "name": main_payment.raw_name,
             "description": main_payment.raw_description,
             "reference": main_payment.reference,
-            "date": main_payment.raw_date.isoformat() if main_payment.raw_date else None,
-            "payment_date": main_payment.raw_payment_date.isoformat() if main_payment.raw_payment_date else None,
-            "value": float(main_payment.raw_value) if isinstance(main_payment.raw_value, Decimal) else main_payment.raw_value,
+            "date": (
+                main_payment.raw_date.isoformat() if main_payment.raw_date else None
+            ),
+            "payment_date": (
+                main_payment.raw_payment_date.isoformat()
+                if main_payment.raw_payment_date
+                else None
+            ),
+            "value": (
+                float(main_payment.raw_value)
+                if isinstance(main_payment.raw_value, Decimal)
+                else main_payment.raw_value
+            ),
         },
         "merge_context": [
             {
                 "name": item.raw_name,
                 "description": item.raw_description,
-                "value": float(item.raw_value) if isinstance(item.raw_value, Decimal) else item.raw_value,
+                "value": (
+                    float(item.raw_value)
+                    if isinstance(item.raw_value, Decimal)
+                    else item.raw_value
+                ),
             }
             for item in payments_to_process
         ],
     }
+
+    user_id = getattr(main_payment, "user_id", None)
 
     try:
         built_request = build_ai_request_from_prompt(
             prompt_key="payment.normalization.v1",
             payload=payload,
             feature_name="payment_normalization",
-            extra_metadata={"user_id": main_payment.user_id},
+            extra_metadata={"user_id": user_id},
         )
     except Exception:
         logger.exception("Falha ao montar prompt para normalização de pagamento.")
@@ -171,7 +193,7 @@ def suggest_payment_normalization(
     response = safe_execute_ai_task(
         built_request.task_request,
         feature_name="payment_normalization",
-        user_id=main_payment.user_id,
+        user_id=user_id,
     )
     if response is None or not isinstance(response.output, dict):
         return None
@@ -189,7 +211,9 @@ def suggest_payment_normalization(
         filtered_tags = []
         for tag in tag_names:
             clean_tag = str(tag).strip()
-            if clean_tag and clean_tag.lower() not in {item.lower() for item in filtered_tags}:
+            if clean_tag and clean_tag.lower() not in {
+                item.lower() for item in filtered_tags
+            }:
                 filtered_tags.append(clean_tag[:64])
         tag_names = filtered_tags[:8]
     else:
@@ -198,7 +222,9 @@ def suggest_payment_normalization(
     return {
         "normalized_name": normalized_name,
         "normalized_description": normalized_description,
-        "installments_total": _normalize_int(output.get("installments_total"), minimum=1, maximum=360),
+        "installments_total": _normalize_int(
+            output.get("installments_total"), minimum=1, maximum=360
+        ),
         "tag_names": tag_names,
         "confidence": _to_confidence(output.get("confidence")),
         "reason": str(output.get("reason", "")).strip(),

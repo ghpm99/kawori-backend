@@ -17,7 +17,9 @@ class AIMetricsEndpointsTestCase(TestCase):
     def setUpTestData(cls):
         cls.client = Client()
 
-        admin_user = User.objects.create_user(username="aiadmin", email="aiadmin@test.com", password="123")
+        admin_user = User.objects.create_user(
+            username="aiadmin", email="aiadmin@test.com", password="123"
+        )
         admin_group, _ = Group.objects.get_or_create(name="admin")
         admin_group.user_set.add(admin_user)
         cls.user = admin_user
@@ -109,7 +111,9 @@ class AIMetricsEndpointsTestCase(TestCase):
         self.assertGreater(payload["totals"]["cost_usd"], 0)
 
     def test_metrics_breakdown_by_feature(self):
-        response = self.client.get(reverse("ai_metrics_breakdown"), data={"group_by": "feature_name"})
+        response = self.client.get(
+            reverse("ai_metrics_breakdown"), data={"group_by": "feature_name"}
+        )
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
 
@@ -117,7 +121,9 @@ class AIMetricsEndpointsTestCase(TestCase):
         self.assertGreaterEqual(len(payload["rows"]), 3)
 
     def test_metrics_timeseries_day(self):
-        response = self.client.get(reverse("ai_metrics_timeseries"), data={"interval": "day"})
+        response = self.client.get(
+            reverse("ai_metrics_timeseries"), data={"interval": "day"}
+        )
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
 
@@ -140,5 +146,7 @@ class AIMetricsEndpointsTestCase(TestCase):
             self.assertEqual(row["provider"], "openai")
 
     def test_metrics_invalid_group_returns_400(self):
-        response = self.client.get(reverse("ai_metrics_breakdown"), data={"group_by": "invalid"})
+        response = self.client.get(
+            reverse("ai_metrics_breakdown"), data={"group_by": "invalid"}
+        )
         self.assertEqual(response.status_code, 400)

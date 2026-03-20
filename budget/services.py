@@ -1,19 +1,33 @@
 from decimal import Decimal
-from django.db.models.functions import Trim
+
 from django.contrib.auth.models import User
-from tag.models import Tag
 from django.db import transaction
+from django.db.models.functions import Trim
+
+from tag.models import Tag
 
 from .models import Budget
 
 DEFAULT_BUDGETS = [
     {"name": "Entradas", "allocation_percentage": Decimal("0.0"), "color": "#4222d7"},
-    {"name": "Custos fixos", "allocation_percentage": Decimal("40.0"), "color": "#1f77b4"},
+    {
+        "name": "Custos fixos",
+        "allocation_percentage": Decimal("40.0"),
+        "color": "#1f77b4",
+    },
     {"name": "Conforto", "allocation_percentage": Decimal("20.0"), "color": "#ff7f0e"},
     {"name": "Metas", "allocation_percentage": Decimal("5.0"), "color": "#2ca02c"},
     {"name": "Prazeres", "allocation_percentage": Decimal("5.0"), "color": "#d62728"},
-    {"name": "Liberdade financeira", "allocation_percentage": Decimal("25.0"), "color": "#9467bd"},
-    {"name": "Conhecimento", "allocation_percentage": Decimal("5.0"), "color": "#8c564b"},
+    {
+        "name": "Liberdade financeira",
+        "allocation_percentage": Decimal("25.0"),
+        "color": "#9467bd",
+    },
+    {
+        "name": "Conhecimento",
+        "allocation_percentage": Decimal("5.0"),
+        "color": "#8c564b",
+    },
 ]
 
 

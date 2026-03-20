@@ -14,7 +14,9 @@ class GetPaymentsMonthTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.client = Client()
-        cls.user = User.objects.create_superuser(username="test", email="test@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="test", email="test@test.com", password="123"
+        )
         financial_group, _ = Group.objects.get_or_create(name="financial")
         financial_group.user_set.add(cls.user)
 
@@ -147,7 +149,10 @@ class GetPaymentsMonthTestCase(TestCase):
 
         response = self.client.get(
             reverse("financial_get_payments_month"),
-            data={"date_from": month_start.isoformat(), "date_to": (month_start + timedelta(days=20)).isoformat()},
+            data={
+                "date_from": month_start.isoformat(),
+                "date_to": (month_start + timedelta(days=20)).isoformat(),
+            },
         )
 
         self.assertEqual(response.status_code, 200)

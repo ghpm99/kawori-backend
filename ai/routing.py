@@ -28,19 +28,27 @@ class AITaskRouter:
         metadata: dict[str, Any] | None = None,
     ) -> TaskRouteConfig:
         normalized_task_type = normalize_task_type(task_type)
-        route_payload = self._task_routes.get(normalized_task_type) or self._task_routes.get("default")
+        route_payload = self._task_routes.get(
+            normalized_task_type
+        ) or self._task_routes.get("default")
         if route_payload is None:
-            raise AIConfigurationError(f"Rota de task '{normalized_task_type}' não foi configurada.")
+            raise AIConfigurationError(
+                f"Rota de task '{normalized_task_type}' não foi configurada."
+            )
 
         primary_model = self._parse_model(route_payload.get("primary"))
-        fallback_models = [self._parse_model(model) for model in route_payload.get("fallbacks", [])]
+        fallback_models = [
+            self._parse_model(model) for model in route_payload.get("fallbacks", [])
+        ]
         primary_model = self._resolve_cost_tier_route(
             primary_model=primary_model,
             feature_name=feature_name,
             metadata=metadata,
         )
 
-        timeout_seconds = int(route_payload.get("timeout_seconds", self._default_timeout_seconds))
+        timeout_seconds = int(
+            route_payload.get("timeout_seconds", self._default_timeout_seconds)
+        )
         timeout_seconds = max(timeout_seconds, 1)
 
         max_retries = int(route_payload.get("max_retries", self._default_max_retries))
@@ -81,7 +89,11 @@ class AITaskRouter:
 
         if escalation_threshold is not None:
             confidence = _extract_confidence(metadata)
-            if confidence is not None and confidence < float(escalation_threshold) and high_quality:
+            if (
+                confidence is not None
+                and confidence < float(escalation_threshold)
+                and high_quality
+            ):
                 selected = high_quality
 
         try:

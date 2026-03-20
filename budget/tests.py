@@ -7,9 +7,9 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
+from budget import views
 from budget.models import Budget
 from budget.services import DEFAULT_BUDGETS, create_default_budgets_for_user
-from budget import views
 from invoice.models import Invoice
 from payment.models import Payment
 from tag.models import Tag
@@ -18,7 +18,9 @@ from tag.models import Tag
 class BudgetViewsRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="budget-reg", email="budget-reg@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="budget-reg", email="budget-reg@test.com", password="123"
+        )
 
     def setUp(self):
         self.rf = RequestFactory()
@@ -29,7 +31,9 @@ class BudgetViewsRegressionTestCase(TestCase):
         if method.lower() == "get":
             request = request_factory_method("/", data=data or {})
         else:
-            request = request_factory_method("/", data=payload, content_type="application/json")
+            request = request_factory_method(
+                "/", data=payload, content_type="application/json"
+            )
 
         target = inspect.unwrap(fn)
         return target(request, user=self.user)
@@ -83,18 +87,38 @@ class BudgetViewsRegressionTestCase(TestCase):
         self.assertEqual(invalid["end"], date(2026, 3, 15))
 
     def test_get_all_budgets_view_uses_real_credits_and_maps_debits_by_tag(self):
-        fixed_tag = Tag.objects.create(name="Custos fixos", color="#1f77b4", user=self.user)
-        entradas_tag = Tag.objects.create(name="Entradas", color="#000000", user=self.user)
-        fixed_budget = Budget.objects.create(user=self.user, tag=fixed_tag, allocation_percentage=Decimal("40.00"))
-        Budget.objects.create(user=self.user, tag=entradas_tag, allocation_percentage=Decimal("0.00"))
+        fixed_tag = Tag.objects.create(
+            name="Custos fixos", color="#1f77b4", user=self.user
+        )
+        entradas_tag = Tag.objects.create(
+            name="Entradas", color="#000000", user=self.user
+        )
+        fixed_budget = Budget.objects.create(
+            user=self.user, tag=fixed_tag, allocation_percentage=Decimal("40.00")
+        )
+        Budget.objects.create(
+            user=self.user, tag=entradas_tag, allocation_percentage=Decimal("0.00")
+        )
 
         invoice = self._create_invoice()
         invoice.tags.add(fixed_tag)
 
-        self._create_payment(type=Payment.TYPE_CREDIT, value=Decimal("1000.00"), payment_date=date(2026, 1, 2), invoice=invoice)
-        self._create_payment(type=Payment.TYPE_DEBIT, value=Decimal("120.00"), payment_date=date(2026, 1, 3), invoice=invoice)
+        self._create_payment(
+            type=Payment.TYPE_CREDIT,
+            value=Decimal("1000.00"),
+            payment_date=date(2026, 1, 2),
+            invoice=invoice,
+        )
+        self._create_payment(
+            type=Payment.TYPE_DEBIT,
+            value=Decimal("120.00"),
+            payment_date=date(2026, 1, 3),
+            invoice=invoice,
+        )
 
-        response = self._call(views.get_all_budgets_view, method="get", data={"period": "01/2026"})
+        response = self._call(
+            views.get_all_budgets_view, method="get", data={"period": "01/2026"}
+        )
         self.assertEqual(response.status_code, 200)
 
         payload = json.loads(response.content)["data"]
@@ -105,8 +129,12 @@ class BudgetViewsRegressionTestCase(TestCase):
         self.assertEqual(payload[0]["actual_expense"], 120.0)
 
     def test_get_all_budgets_view_falls_back_to_predicted_fixed_total(self):
-        comfort_tag = Tag.objects.create(name="Conforto", color="#ff7f0e", user=self.user)
-        Budget.objects.create(user=self.user, tag=comfort_tag, allocation_percentage=Decimal("20.00"))
+        comfort_tag = Tag.objects.create(
+            name="Conforto", color="#ff7f0e", user=self.user
+        )
+        Budget.objects.create(
+            user=self.user, tag=comfort_tag, allocation_percentage=Decimal("20.00")
+        )
 
         invoice = self._create_invoice()
         invoice.tags.add(comfort_tag)
@@ -142,7 +170,9 @@ class BudgetViewsRegressionTestCase(TestCase):
         with patch("budget.views.date") as mocked_date:
             mocked_date.today.return_value = date(2026, 3, 20)
             mocked_date.side_effect = lambda *args, **kwargs: date(*args, **kwargs)
-            response = self._call(views.get_all_budgets_view, method="get", data={"period": "01/2026"})
+            response = self._call(
+                views.get_all_budgets_view, method="get", data={"period": "01/2026"}
+            )
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)["data"]
@@ -152,7 +182,9 @@ class BudgetViewsRegressionTestCase(TestCase):
 
     def test_save_budget_view_updates_only_existing_rows(self):
         tag = Tag.objects.create(name="Metas", color="#2ca02c", user=self.user)
-        budget = Budget.objects.create(user=self.user, tag=tag, allocation_percentage=Decimal("5.00"))
+        budget = Budget.objects.create(
+            user=self.user, tag=tag, allocation_percentage=Decimal("5.00")
+        )
 
         response = self._call(
             views.save_budget_view,
@@ -169,9 +201,13 @@ class BudgetViewsRegressionTestCase(TestCase):
         budget.refresh_from_db()
         self.assertEqual(budget.allocation_percentage, Decimal("12.50"))
 
-    def test_reset_budget_allocation_view_restores_defaults_by_tag_name_case_insensitive(self):
+    def test_reset_budget_allocation_view_restores_defaults_by_tag_name_case_insensitive(
+        self,
+    ):
         tag = Tag.objects.create(name="conforto", color="#ff7f0e", user=self.user)
-        budget = Budget.objects.create(user=self.user, tag=tag, allocation_percentage=Decimal("99.00"))
+        budget = Budget.objects.create(
+            user=self.user, tag=tag, allocation_percentage=Decimal("99.00")
+        )
 
         response = self._call(views.reset_budget_allocation_view, method="get", data={})
         self.assertEqual(response.status_code, 200)
@@ -183,17 +219,27 @@ class BudgetViewsRegressionTestCase(TestCase):
 class BudgetServicesRegressionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_superuser(username="budget-svc", email="budget-svc@test.com", password="123")
+        cls.user = User.objects.create_superuser(
+            username="budget-svc", email="budget-svc@test.com", password="123"
+        )
 
     def test_create_default_budgets_for_user_creates_all_defaults(self):
         create_default_budgets_for_user(self.user)
 
-        self.assertEqual(Budget.objects.filter(user=self.user).count(), len(DEFAULT_BUDGETS))
-        self.assertEqual(Tag.objects.filter(user=self.user).count(), len(DEFAULT_BUDGETS))
+        self.assertEqual(
+            Budget.objects.filter(user=self.user).count(), len(DEFAULT_BUDGETS)
+        )
+        self.assertEqual(
+            Tag.objects.filter(user=self.user).count(), len(DEFAULT_BUDGETS)
+        )
 
-    def test_create_default_budgets_for_user_updates_existing_tag_color_and_budget_percentage(self):
+    def test_create_default_budgets_for_user_updates_existing_tag_color_and_budget_percentage(
+        self,
+    ):
         tag = Tag.objects.create(name="  conforto  ", color="#000000", user=self.user)
-        budget = Budget.objects.create(user=self.user, tag=tag, allocation_percentage=Decimal("99.99"))
+        budget = Budget.objects.create(
+            user=self.user, tag=tag, allocation_percentage=Decimal("99.99")
+        )
 
         create_default_budgets_for_user(self.user)
 
@@ -203,9 +249,9 @@ class BudgetServicesRegressionTestCase(TestCase):
         self.assertEqual(budget.allocation_percentage, Decimal("20.00"))
 
     def test_create_default_budgets_for_user_handles_exception(self):
-        with patch("budget.services.Tag.objects.annotate", side_effect=Exception("boom")), patch(
-            "builtins.print"
-        ) as mocked_print:
+        with patch(
+            "budget.services.Tag.objects.annotate", side_effect=Exception("boom")
+        ), patch("builtins.print") as mocked_print:
             create_default_budgets_for_user(self.user)
 
         mocked_print.assert_called_once()

@@ -16,7 +16,6 @@ from payment.models import Payment
 from payment.utils import PaymentDetail, find_possible_payment_matches
 from tag.models import Tag
 
-
 CSV_FIELD_HINTS: dict[str, dict[str, list[tuple[str, float]]]] = {
     "payment_date": {
         "keywords": [
@@ -161,7 +160,7 @@ def _parse_currency(value: Any) -> Decimal | None:
 
     raw = raw.replace("R$", "").replace("r$", "")
     raw = raw.replace(" ", "")
-    raw = raw.replace("\u00A0", "")
+    raw = raw.replace("\u00a0", "")
 
     if "," in raw and "." in raw:
         if raw.rfind(",") > raw.rfind("."):
@@ -268,7 +267,9 @@ def _extract_sample_values(sample_rows: list[dict[str, Any]], header: str) -> li
     return values
 
 
-def _pattern_score_for_field(field: str, sample_values: list[Any]) -> tuple[float, bool]:
+def _pattern_score_for_field(
+    field: str, sample_values: list[Any]
+) -> tuple[float, bool]:
     if not sample_values:
         return 0.0, False
 
@@ -349,7 +350,11 @@ def suggest_csv_mapping(
                 field_bonus += 0.06
 
             score = 0.12 + (keyword_score * 0.58) + (pattern_score * 0.36) + field_bonus
-            if field in {"name", "description"} and normalized_header in {"hist", "historico", "historico"}:
+            if field in {"name", "description"} and normalized_header in {
+                "hist",
+                "historico",
+                "historico",
+            }:
                 score += 0.08
 
             ranked_fields.append(
@@ -366,12 +371,16 @@ def suggest_csv_mapping(
         second = ranked_fields[1]
 
         if best["score"] < 0.35:
-            warnings.append(f"Coluna '{header}' nao teve confianca suficiente para mapeamento automatico")
+            warnings.append(
+                f"Coluna '{header}' nao teve confianca suficiente para mapeamento automatico"
+            )
             continue
 
         system_field = best["field"]
         confidence = round(best["score"], 2)
-        reason = _build_mapping_reason(system_field, best["has_keyword"], best["has_pattern"])
+        reason = _build_mapping_reason(
+            system_field, best["has_keyword"], best["has_pattern"]
+        )
 
         previous = mapped_fields.get(system_field)
         if previous is not None:
@@ -475,7 +484,10 @@ def normalize_csv_transactions(transactions: list[dict[str, Any]]) -> dict[str, 
 
         installments_original = mapped_data.get("installments")
         installments_parsed = _parse_installments(installments_original)
-        if installments_parsed is not None and installments_original != installments_parsed:
+        if (
+            installments_parsed is not None
+            and installments_original != installments_parsed
+        ):
             mapped_data["installments"] = installments_parsed
             message = "parcela convertida para inteiro"
             row_messages.append(message)
@@ -534,7 +546,9 @@ def normalize_csv_transactions(transactions: list[dict[str, Any]]) -> dict[str, 
 def _to_payment_detail(mapped_data: dict[str, Any], user_id: int) -> PaymentDetail:
     parsed_value = _parse_currency(mapped_data.get("value")) or Decimal("0")
     parsed_date = _parse_flexible_date(mapped_data.get("date")) or date.today()
-    parsed_payment_date = _parse_flexible_date(mapped_data.get("payment_date")) or parsed_date
+    parsed_payment_date = (
+        _parse_flexible_date(mapped_data.get("payment_date")) or parsed_date
+    )
 
     parsed_type = mapped_data.get("type", Payment.TYPE_DEBIT)
     try:
@@ -548,7 +562,9 @@ def _to_payment_detail(mapped_data: dict[str, Any], user_id: int) -> PaymentDeta
         id=None,
         status=Payment.STATUS_OPEN,
         type=parsed_type,
-        name=str(mapped_data.get("name") or mapped_data.get("description") or "").strip(),
+        name=str(
+            mapped_data.get("name") or mapped_data.get("description") or ""
+        ).strip(),
         description=str(mapped_data.get("description") or "").strip(),
         reference=str(mapped_data.get("reference") or "").strip(),
         date=parsed_date,
@@ -562,7 +578,9 @@ def _to_payment_detail(mapped_data: dict[str, Any], user_id: int) -> PaymentDeta
     )
 
 
-def _build_reconcile_explanation(candidate: dict[str, Any], payment_detail: PaymentDetail) -> str:
+def _build_reconcile_explanation(
+    candidate: dict[str, Any], payment_detail: PaymentDetail
+) -> str:
     payment = candidate.get("payment")
     parts = []
 
@@ -575,7 +593,11 @@ def _build_reconcile_explanation(candidate: dict[str, Any], payment_detail: Paym
     elif value_score >= 0.8:
         parts.append("valor muito proximo")
 
-    date_candidate = payment.payment_date if payment and payment.payment_date else payment.date if payment else None
+    date_candidate = (
+        payment.payment_date
+        if payment and payment.payment_date
+        else payment.date if payment else None
+    )
     date_source = payment_detail.payment_date or payment_detail.date
     if date_candidate and date_source:
         day_diff = abs((date_candidate - date_source).days)
@@ -584,7 +606,9 @@ def _build_reconcile_explanation(candidate: dict[str, Any], payment_detail: Paym
         elif day_diff <= 3:
             parts.append(f"data proxima ({day_diff} dias)")
 
-    if date_score >= 0.75 and not any(part.startswith("data proxima") for part in parts):
+    if date_score >= 0.75 and not any(
+        part.startswith("data proxima") for part in parts
+    ):
         parts.append("compatibilidade de data")
 
     if text_score >= 0.8:
@@ -647,7 +671,9 @@ def suggest_reconciliation_matches(
                 }
                 explanation = "referencia identica encontrada"
 
-        candidate_matches = find_possible_payment_matches(user, payment_detail, threshold=0.4, top_n=5)
+        candidate_matches = find_possible_payment_matches(
+            user, payment_detail, threshold=0.4, top_n=5
+        )
 
         if best_match is None and candidate_matches:
             primary = candidate_matches[0]
@@ -723,7 +749,9 @@ def suggest_tag_suggestions(user, transactions: list[dict[str, Any]]) -> dict[st
             "apply_all_count": 0,
         }
 
-    budget_tag_ids = set(Budget.objects.filter(user=user).values_list("tag_id", flat=True))
+    budget_tag_ids = set(
+        Budget.objects.filter(user=user).values_list("tag_id", flat=True)
+    )
 
     historical_payments = list(
         Payment.objects.filter(
@@ -740,7 +768,9 @@ def suggest_tag_suggestions(user, transactions: list[dict[str, Any]]) -> dict[st
     budget_tag_frequency: Counter[int] = Counter()
     historical_text_cache: dict[int, str] = {}
     for payment in historical_payments:
-        historical_text_cache[payment.id] = _normalize_text(f"{payment.name} {payment.description}")
+        historical_text_cache[payment.id] = _normalize_text(
+            f"{payment.name} {payment.description}"
+        )
         for tag in payment.invoice.tags.all():
             if tag.id in budget_tag_ids:
                 budget_tag_frequency[tag.id] += 1
@@ -801,7 +831,9 @@ def suggest_tag_suggestions(user, transactions: list[dict[str, Any]]) -> dict[st
             if tag_obj is None:
                 continue
 
-            confidence = _clamp(0.45 + min(score, 1.8) * 0.23 + max(score - second_score, 0) * 0.25)
+            confidence = _clamp(
+                0.45 + min(score, 1.8) * 0.23 + max(score - second_score, 0) * 0.25
+            )
             reason = ", ".join(sorted(reason_map.get(tag_id) or {"perfil de gastos"}))
 
             tag_suggestions.append(
@@ -814,9 +846,13 @@ def suggest_tag_suggestions(user, transactions: list[dict[str, Any]]) -> dict[st
                 }
             )
 
-        needs_budget_tag = bool(budget_tag_ids) and not any(item["is_budget"] for item in tag_suggestions)
+        needs_budget_tag = bool(budget_tag_ids) and not any(
+            item["is_budget"] for item in tag_suggestions
+        )
         if needs_budget_tag and default_budget_tag_id is not None:
-            budget_tag = next((tag for tag in tags if tag.id == default_budget_tag_id), None)
+            budget_tag = next(
+                (tag for tag in tags if tag.id == default_budget_tag_id), None
+            )
             if budget_tag is not None:
                 tag_suggestions.insert(
                     0,
@@ -829,10 +865,14 @@ def suggest_tag_suggestions(user, transactions: list[dict[str, Any]]) -> dict[st
                     },
                 )
 
-        tag_suggestions = sorted(tag_suggestions, key=lambda item: item["confidence"], reverse=True)[:3]
+        tag_suggestions = sorted(
+            tag_suggestions, key=lambda item: item["confidence"], reverse=True
+        )[:3]
 
         recommended_tag_id = tag_suggestions[0]["tag_id"] if tag_suggestions else None
-        recommended_confidence = tag_suggestions[0]["confidence"] if tag_suggestions else 0
+        recommended_confidence = (
+            tag_suggestions[0]["confidence"] if tag_suggestions else 0
+        )
         if recommended_confidence >= 0.85:
             apply_all_count += 1
 
@@ -891,9 +931,13 @@ def detect_statement_anomalies(user, begin: date, end: date) -> list[dict[str, A
         payment_date__range=(history_start, history_end),
     )
 
-    history_values = [float(item.value or 0) for item in historical_qs if item.value is not None]
+    history_values = [
+        float(item.value or 0) for item in historical_qs if item.value is not None
+    ]
     if not history_values:
-        history_values = [float(item.value or 0) for item in payments if item.value is not None]
+        history_values = [
+            float(item.value or 0) for item in payments if item.value is not None
+        ]
 
     baseline_median = median(history_values) if history_values else 0.0
     baseline_p90 = _percentile(history_values, 0.9)
@@ -948,7 +992,9 @@ def detect_statement_anomalies(user, begin: date, end: date) -> list[dict[str, A
                 "payment_id": payment.id,
                 "name": payment.name,
                 "description": payment.description,
-                "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+                "payment_date": (
+                    payment.payment_date.isoformat() if payment.payment_date else None
+                ),
                 "value": value,
                 "type": payment.type,
                 "risk_level": risk_level,

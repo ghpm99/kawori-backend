@@ -14,7 +14,10 @@ def emit_event(event_type: str, payload: dict[str, Any]) -> None:
         "event_type": event_type,
         **payload,
     }
-    logger.info("ai_event=%s", json.dumps(event, ensure_ascii=False, default=str, sort_keys=True))
+    logger.info(
+        "ai_event=%s",
+        json.dumps(event, ensure_ascii=False, default=str, sort_keys=True),
+    )
 
     if not bool(getattr(settings, "AI_PERSIST_EXECUTION_EVENTS", False)):
         return
@@ -34,7 +37,9 @@ def emit_event(event_type: str, payload: dict[str, Any]) -> None:
             success=bool(payload.get("success")),
             error_message=str(payload.get("error_message") or "")[:1000],
             prompt_tokens=int((payload.get("usage") or {}).get("prompt_tokens") or 0),
-            completion_tokens=int((payload.get("usage") or {}).get("completion_tokens") or 0),
+            completion_tokens=int(
+                (payload.get("usage") or {}).get("completion_tokens") or 0
+            ),
             total_tokens=int((payload.get("usage") or {}).get("total_tokens") or 0),
             cost_estimate=payload.get("cost_estimate"),
             cache_status=str(payload.get("cache_status") or ""),
