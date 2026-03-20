@@ -26,6 +26,7 @@ urlpatterns = [
     path("analytics/", include("analytics.urls")),
     path("audit/", include("audit.urls")),
     path("mailer/", include("mailer.urls")),
+    path("ai/", include("ai.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
