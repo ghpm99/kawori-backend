@@ -9,7 +9,7 @@ Keep versioning, release creation, and deployment explicit and easy to audit, wi
 1. Development happens on `develop`.
 2. CI validates push and pull request changes.
 3. Release is executed locally with `make release-main-ff`.
-4. The command first syncs `develop` with `origin/main` (merge commit when needed) and pushes `develop`.
+4. The command first syncs `develop` with `origin/main` (history merge with `-s ours` when needed) and pushes `develop`.
 5. The command fast-forwards `main` to `develop`, restores release-controlled files from `origin/main`, and recalculates version/changelog.
 6. The command creates the release commit `build(release): prepare vX.Y.Z`.
 7. The command creates and pushes the annotated tag `vX.Y.Z`.
