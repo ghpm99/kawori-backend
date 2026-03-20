@@ -1,5 +1,73 @@
 # Changelog
 
+## v5.0.0 - 2026-03-20
+
+### Breaking Changes
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+- build(ci): introduce main to develop sync workflow (69b45ac)
+
+### Features
+- feat(mailer): add EmailQueue and UserEmailPreference models (3969426)
+- feat(mailer): add email enqueue utilities (3a9ab0d)
+- feat(mailer): add process_email_queue worker command with preference checks (76451fe)
+- feat(mailer): add cleanup_email_queue command (864da6d)
+- feat(mailer): add email preferences endpoint (50bcc9e)
+- feat(ai): Implement multi-provider AI orchestration layer (ccbb51f)
+- feat(ai): Introduce AI assistant for various features (0e47f3c)
+- feat(ai): Implement financial AI features and endpoints (f15f844)
+- feat(ai): Implement dynamic prompt management and override system (5f4d06b)
+- feat(ai): Introduce telemetry, caching, and budget for AI executions (5594554)
+- feat(ai): Implement AI execution metrics endpoints (2b269c0)
+
+### Fixes
+- fix(payment): Update payment model field defaults and statement ordering (05c0d36)
+- fix: process_email_queue (a5a1229)
+- fix: import csv flow (adb2c4e)
+- fix(decimal): Use Decimal for Coalesce default values (459e0a1)
+- fix: quality gates (f7f9b75)
+- fix(release): avoid sync conflicts with ours merge strategy (11b2417)
+
+### Maintenance
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+- refactor(email): Switch to Django EmailMessage for sending emails (7a62f90)
+- test(mailer): add tests for email queue system (51eb0ad)
+- refactor(auth): use email queue for password reset and verification (14d6b48)
+- refactor(financial): use email queue for payment notifications (50ed03b)
+- build(deps): bump pyjwt from 2.10.1 to 2.12.0 (ec1feb7)
+- build(ci): introduce main to develop sync workflow (69b45ac)
+- docs(ai): Add AI opportunities analysis document (717ba55)
+
+## v4.0.0 - 2026-03-13
+
+### Breaking Changes
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
+### Features
+- feat(mailer): add EmailQueue and UserEmailPreference models (3969426)
+- feat(mailer): add email enqueue utilities (3a9ab0d)
+- feat(mailer): add process_email_queue worker command with preference checks (76451fe)
+- feat(mailer): add cleanup_email_queue command (864da6d)
+- feat(mailer): add email preferences endpoint (50bcc9e)
+
+### Fixes
+- fix(payment): Update payment model field defaults and statement ordering (05c0d36)
+- fix: process_email_queue (a5a1229)
+
+### Maintenance
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+- refactor(email): Switch to Django EmailMessage for sending emails (7a62f90)
+- test(mailer): add tests for email queue system (51eb0ad)
+- refactor(auth): use email queue for password reset and verification (14d6b48)
+- refactor(financial): use email queue for payment notifications (50ed03b)
+
+## v3.0.0 - 2026-03-12
+
+### Breaking Changes
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
+### Maintenance
+- docs: Revamp README with detailed project overview and structure (0cd73ae)
+
 ## v2.1.0 - 2026-03-11
 
 ### Features
