@@ -22,28 +22,28 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
-from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
-from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
-from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
-from payment.interfaces.api.serializers.csv_mapping_serializers import (
-    CSVMappingInputSerializer,
-)
-from payment.interfaces.api.serializers.csv_ai_serializers import (
-    CSVAIMapInputSerializer,
-    CSVAINormalizeInputSerializer,
-)
 from payment.ai_assist import suggest_import_resolution
 from payment.ai_features import (
     detect_statement_anomalies,
-    suggest_reconciliation_matches,
     suggest_tag_suggestions,
+)
+from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
+from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
+from payment.application.use_cases.csv_ai_reconcile import CSVAIReconcileUseCase
+from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.interfaces.api.serializers.csv_ai_serializers import (
+    CSVAIMapInputSerializer,
+    CSVAINormalizeInputSerializer,
+    CSVAIReconcileInputSerializer,
+)
+from payment.interfaces.api.serializers.csv_mapping_serializers import (
+    CSVMappingInputSerializer,
 )
 from payment.models import ImportedPayment, Payment
 from payment.utils import (
     CSVMapping,
     PaymentImport,
     Row,
-    csv_header_mapping,
     process_csv_row,
 )
 from tag.models import Tag
@@ -791,20 +791,21 @@ def csv_ai_reconcile_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    transactions = data.get("transactions")
-    if transactions is None:
-        transactions = data.get("import")
+    serializer = CSVAIReconcileInputSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+    transactions = serializer.get_transactions()
 
     if not isinstance(transactions, list):
         return JsonResponse(
             {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
         )
 
-    import_type = str(
-        data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
-    )
-    matches = suggest_reconciliation_matches(
-        user=user, transactions=transactions, import_type=import_type
+    matches = CSVAIReconcileUseCase().execute(
+        user=user,
+        transactions=transactions,
+        import_type=serializer.validated_data.get(
+            "import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+        ),
     )
 
     return JsonResponse({"matches": matches})

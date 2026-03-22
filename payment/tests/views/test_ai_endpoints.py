@@ -262,6 +262,28 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertIsNotNone(best_match)
         self.assertEqual(best_match["payment_id"], self.reference_payment.id)
 
+    def test_csv_ai_reconcile_returns_error_on_invalid_json(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_reconcile"),
+            data="invalid_json",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "JSON inválido")
+
+    def test_csv_ai_reconcile_returns_error_without_transactions(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_reconcile"),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "transactions is required")
+
     def test_ai_tag_suggestions_returns_recommendation(self):
         response = self.client.post(
             reverse("financial_ai_tag_suggestions"),
