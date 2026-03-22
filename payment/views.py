@@ -13,6 +13,8 @@ from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from rest_framework.exceptions import ParseError
+from rest_framework.parsers import JSONParser
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
@@ -20,6 +22,10 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
+from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.interfaces.api.serializers.csv_mapping_serializers import (
+    CSVMappingInputSerializer,
+)
 from payment.ai_assist import suggest_import_resolution
 from payment.ai_features import (
     detect_statement_anomalies,
@@ -832,19 +838,16 @@ def ai_tag_suggestions_view(request, user):
 @audit_log("payment.csv_mapping", CATEGORY_FINANCIAL, "Payment")
 def get_csv_mapping(request, user):
     try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, TypeError, ValueError):
+        data = JSONParser().parse(request)
+    except ParseError:
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    csv_headers = data.get("headers")
-
-    if not csv_headers:
+    serializer = CSVMappingInputSerializer(data=data)
+    if not serializer.is_valid():
         return JsonResponse({"msg": "CSV mapping is required"}, status=400)
 
-    csv_mapping = [
-        {"csv_column": col, "system_field": csv_header_mapping(col)}
-        for col in csv_headers
-    ]
+    csv_headers = serializer.validated_data["headers"]
+    csv_mapping = GetCSVMappingUseCase().execute(csv_headers=csv_headers)
 
     return JsonResponse({"data": csv_mapping})
 
