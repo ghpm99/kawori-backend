@@ -1,4 +1,3 @@
-import hashlib
 import json
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -6,7 +5,6 @@ from math import ceil
 from typing import List
 
 from dateutil.relativedelta import relativedelta
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Case, Count, DecimalField, Q, Sum, Value, When
 from django.db.models.functions import TruncMonth
@@ -22,7 +20,6 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
-from payment.ai_assist import suggest_import_resolution
 from payment.ai_features import detect_statement_anomalies
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
@@ -31,22 +28,21 @@ from payment.application.use_cases.csv_ai_tag_suggestions import (
     CSVAITagSuggestionsUseCase,
 )
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
 from payment.interfaces.api.serializers.csv_ai_serializers import (
     CSVAIMapInputSerializer,
     CSVAINormalizeInputSerializer,
     CSVAIReconcileInputSerializer,
     CSVAITagSuggestionsInputSerializer,
 )
+from payment.interfaces.api.serializers.csv_import_serializers import (
+    ProcessCSVUploadInputSerializer,
+)
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
 )
 from payment.models import ImportedPayment, Payment
-from payment.utils import (
-    CSVMapping,
-    PaymentImport,
-    Row,
-    process_csv_row,
-)
+from payment.utils import CSVMapping, PaymentImport, Row
 from tag.models import Tag
 
 MONTHS_PT_BR = [
@@ -63,59 +59,6 @@ MONTHS_PT_BR = [
     "Novembro",
     "Dezembro",
 ]
-
-
-def _candidate_confidence_score(parsed_row) -> float:
-    candidates = getattr(parsed_row, "possibly_matched_payment_list", None) or []
-    if not candidates:
-        return 0.0
-    top_score = float(candidates[0].get("score") or 0.0)
-    second_score = (
-        float(candidates[1].get("score") or 0.0) if len(candidates) > 1 else 0.0
-    )
-    spread = max(top_score - second_score, 0.0)
-    confidence = top_score * 0.8 + spread * 0.2
-    return max(0.0, min(1.0, confidence))
-
-
-def _is_uncertain_confidence(score: float) -> bool:
-    high = float(getattr(settings, "AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE", 0.82))
-    medium = float(getattr(settings, "AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", 0.58))
-    return medium <= score < high
-
-
-def _build_import_ai_idempotency_key(user_id: int, import_type: str, parsed_row) -> str:
-    mapped = (
-        parsed_row.mapped_data.to_dict()
-        if getattr(parsed_row, "mapped_data", None)
-        else {}
-    )
-    candidates = parsed_row.possibly_matched_payment_list or []
-    payload = {
-        "user_id": user_id,
-        "import_type": import_type,
-        "mapped_payment": {
-            "reference": mapped.get("reference"),
-            "name": mapped.get("name"),
-            "description": mapped.get("description"),
-            "date": mapped.get("date"),
-            "payment_date": mapped.get("payment_date"),
-            "value": mapped.get("value"),
-            "installments": mapped.get("installments"),
-        },
-        "candidates": [
-            {
-                "payment_id": item["payment"].id,
-                "score": item.get("score"),
-                "text_score": item.get("text_score"),
-                "value_score": item.get("value_score"),
-                "date_score": item.get("date_score"),
-            }
-            for item in candidates[:5]
-        ],
-    }
-    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def get_status_filter(status_params):
@@ -862,86 +805,23 @@ def process_csv_upload(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    csv_headers: List[CSVMapping] = data.get("headers", [])
-    csv_body: List[Row] = data.get("body", [])
-    import_type: str = data.get("import_type", "transactions")
-    payment_date = format_date(data.get("payment_date"))
+    serializer = ProcessCSVUploadInputSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
 
-    processed_payments = []
-    global_cap = max(int(getattr(settings, "AI_IMPORT_SUGGESTION_MAX_ITEMS", 20)), 0)
-    request_cap = max(
-        int(
-            data.get("ai_suggestion_limit")
-            or getattr(settings, "AI_IMPORT_SUGGESTION_MAX_PER_REQUEST", global_cap)
-        ),
-        0,
+    csv_headers: List[CSVMapping] = serializer.validated_data.get("headers", [])
+    csv_body: List[Row] = serializer.validated_data.get("body", [])
+    import_type: str = serializer.validated_data.get("import_type", "transactions")
+    payment_date = format_date(serializer.validated_data.get("payment_date"))
+    ai_suggestion_limit = serializer.validated_data.get("ai_suggestion_limit")
+
+    processed = ProcessCSVUploadUseCase().execute(
+        user=user,
+        csv_headers=csv_headers,
+        csv_body=csv_body,
+        import_type=import_type,
+        payment_date=payment_date,
+        ai_suggestion_limit=ai_suggestion_limit,
     )
-    request_cap = min(request_cap, global_cap) if global_cap > 0 else request_cap
-
-    user_daily_cap = max(
-        int(getattr(settings, "AI_IMPORT_SUGGESTION_DAILY_PER_USER", 60)), 0
-    )
-    today = timezone.now().date()
-    used_today = (
-        ImportedPayment.objects.filter(
-            user=user,
-            updated_at__date=today,
-            ai_suggestion_data__isnull=False,
-        )
-        .exclude(ai_suggestion_data={})
-        .count()
-    )
-    daily_remaining = max(user_daily_cap - used_today, 0)
-    max_ai_suggestions = (
-        min(request_cap, daily_remaining) if user_daily_cap > 0 else request_cap
-    )
-    ai_attempts_left = max_ai_suggestions
-    request_idempotency_cache: dict[str, dict] = {}
-
-    for row in csv_body:
-        processed_row = process_csv_row(
-            user, import_type, csv_headers, row, payment_date
-        )
-        is_valid_row = getattr(processed_row, "is_valid", True)
-        matched_payment = getattr(processed_row, "matched_payment", None)
-        possible_matches = getattr(processed_row, "possibly_matched_payment_list", [])
-        has_candidates = (
-            is_valid_row and matched_payment is None and bool(possible_matches)
-        )
-        if has_candidates and ai_attempts_left > 0:
-            confidence = _candidate_confidence_score(processed_row)
-            if _is_uncertain_confidence(confidence):
-                idempotency_key = _build_import_ai_idempotency_key(
-                    user.id, import_type, processed_row
-                )
-                suggestion_payload = request_idempotency_cache.get(idempotency_key)
-
-                if suggestion_payload is None:
-                    existing_import = ImportedPayment.objects.filter(
-                        user=user,
-                        reference=processed_row.mapped_data.reference,
-                        ai_idempotency_key=idempotency_key,
-                    ).first()
-                    if existing_import and existing_import.ai_suggestion_data:
-                        suggestion_payload = dict(existing_import.ai_suggestion_data)
-
-                if suggestion_payload is None:
-                    ai_attempts_left -= 1
-                    suggestion_payload = suggest_import_resolution(
-                        user,
-                        processed_row,
-                        import_type,
-                        heuristic_confidence=confidence,
-                    )
-                    if suggestion_payload:
-                        suggestion_payload["idempotency_key"] = idempotency_key
-                        request_idempotency_cache[idempotency_key] = suggestion_payload
-
-                if suggestion_payload:
-                    processed_row.ai_suggestion = suggestion_payload
-        processed_payments.append(processed_row)
-
-    processed = [pt.to_dict() for pt in processed_payments]
 
     return JsonResponse({"data": processed})
 
