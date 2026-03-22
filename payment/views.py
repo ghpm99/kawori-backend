@@ -23,8 +23,12 @@ from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
+)
+from payment.interfaces.api.serializers.csv_ai_serializers import (
+    CSVAIMapInputSerializer,
 )
 from payment.ai_assist import suggest_import_resolution
 from payment.ai_features import (
@@ -740,21 +744,18 @@ def csv_ai_map_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    headers = data.get("headers")
-    if not isinstance(headers, list) or len(headers) == 0:
+    serializer = CSVAIMapInputSerializer(data=data)
+    if not serializer.is_valid():
         return JsonResponse(
             {"msg": "headers is required"}, status=HTTPStatus.BAD_REQUEST
         )
 
-    sample_rows = data.get("sample_rows")
-    if not isinstance(sample_rows, list):
-        sample_rows = []
-
-    import_type = str(
-        data.get("import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS)
-    )
-    result = suggest_csv_mapping(
-        headers=headers, sample_rows=sample_rows, import_type=import_type
+    result = CSVAIMapUseCase().execute(
+        headers=serializer.validated_data["headers"],
+        sample_rows=serializer.validated_data.get("sample_rows"),
+        import_type=serializer.validated_data.get(
+            "import_type", ImportedPayment.IMPORT_SOURCE_TRANSACTIONS
+        ),
     )
     return JsonResponse(result)
 

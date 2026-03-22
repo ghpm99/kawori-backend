@@ -153,6 +153,28 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertEqual(suggestions.get("Vl."), "value")
         self.assertEqual(suggestions.get("Parc."), "installments")
 
+    def test_csv_ai_map_returns_error_on_invalid_json(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_map"),
+            data="invalid_json",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "JSON inválido")
+
+    def test_csv_ai_map_returns_error_without_headers(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_map"),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "headers is required")
+
     def test_csv_ai_normalize_returns_corrections(self):
         response = self.client.post(
             reverse("financial_csv_ai_normalize"),
