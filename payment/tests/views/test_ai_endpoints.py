@@ -346,3 +346,34 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertGreaterEqual(payload["total_anomalies"], 1)
         anomaly_ids = [item["payment_id"] for item in payload["anomalies"]]
         self.assertIn(self.anomalous_payment.id, anomaly_ids)
+
+    def test_statement_anomalies_returns_error_when_dates_are_missing(self):
+        response = self.client.get(reverse("financial_statement_anomalies"))
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "date_from and date_to are required")
+
+    def test_statement_anomalies_returns_error_on_invalid_date_format(self):
+        response = self.client.get(
+            reverse("financial_statement_anomalies"),
+            data={"date_from": "01-03-2026", "date_to": "31-03-2026"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(
+            payload["msg"], "date_from and date_to must be in YYYY-MM-DD format"
+        )
+
+    def test_statement_anomalies_returns_error_when_date_from_gt_date_to(self):
+        response = self.client.get(
+            reverse("financial_statement_anomalies"),
+            data={"date_from": "2026-03-31", "date_to": "2026-03-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(
+            payload["msg"], "date_from must be less than or equal to date_to"
+        )

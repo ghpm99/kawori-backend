@@ -19,7 +19,6 @@ from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
-from payment.ai_features import detect_statement_anomalies
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
 from payment.application.use_cases.csv_ai_reconcile import CSVAIReconcileUseCase
@@ -32,6 +31,9 @@ from payment.application.use_cases.csv_resolve_imports import (
 )
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
+from payment.application.use_cases.statement_anomalies import (
+    StatementAnomaliesUseCase,
+)
 from payment.interfaces.api.serializers.csv_ai_serializers import (
     CSVAIMapInputSerializer,
     CSVAINormalizeInputSerializer,
@@ -45,6 +47,9 @@ from payment.interfaces.api.serializers.csv_import_serializers import (
 )
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
+)
+from payment.interfaces.api.serializers.statement_serializers import (
+    StatementAnomaliesQuerySerializer,
 )
 from payment.models import ImportedPayment, Payment
 from payment.utils import CSVMapping, PaymentImport, Row
@@ -647,39 +652,19 @@ def statement_view(request, user):
 @require_GET
 @validate_user("financial")
 def statement_anomalies_view(request, user):
-    date_from = request.GET.get("date_from")
-    date_to = request.GET.get("date_to")
-
-    if not date_from or not date_to:
+    serializer = StatementAnomaliesQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
         return JsonResponse(
-            {"msg": "date_from and date_to are required"},
+            {"msg": serializer.errors["non_field_errors"][0]},
             status=HTTPStatus.BAD_REQUEST,
         )
-
-    try:
-        date_from_parsed = datetime.strptime(date_from, "%Y-%m-%d").date()
-        date_to_parsed = datetime.strptime(date_to, "%Y-%m-%d").date()
-    except ValueError:
-        return JsonResponse(
-            {"msg": "date_from and date_to must be in YYYY-MM-DD format"},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    if date_from_parsed > date_to_parsed:
-        return JsonResponse(
-            {"msg": "date_from must be less than or equal to date_to"},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    anomalies = detect_statement_anomalies(user, date_from_parsed, date_to_parsed)
 
     return JsonResponse(
-        {
-            "data": {
-                "anomalies": anomalies,
-                "total_anomalies": len(anomalies),
-            }
-        }
+        StatementAnomaliesUseCase().execute(
+            user=user,
+            date_from=serializer.validated_data["date_from_parsed"],
+            date_to=serializer.validated_data["date_to_parsed"],
+        )
     )
 
 
