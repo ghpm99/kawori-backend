@@ -207,6 +207,28 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertEqual(normalized["payment_date"], "2026-03-14")
         self.assertEqual(normalized["value"], 1234.56)
 
+    def test_csv_ai_normalize_returns_error_on_invalid_json(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_normalize"),
+            data="invalid_json",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "JSON inválido")
+
+    def test_csv_ai_normalize_returns_error_without_transactions(self):
+        response = self.client.post(
+            reverse("financial_csv_ai_normalize"),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "transactions is required")
+
     def test_csv_ai_reconcile_returns_best_match(self):
         response = self.client.post(
             reverse("financial_csv_ai_reconcile"),

@@ -24,17 +24,17 @@ from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
+from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
 )
 from payment.interfaces.api.serializers.csv_ai_serializers import (
     CSVAIMapInputSerializer,
+    CSVAINormalizeInputSerializer,
 )
 from payment.ai_assist import suggest_import_resolution
 from payment.ai_features import (
     detect_statement_anomalies,
-    normalize_csv_transactions,
-    suggest_csv_mapping,
     suggest_reconciliation_matches,
     suggest_tag_suggestions,
 )
@@ -769,16 +769,16 @@ def csv_ai_normalize_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    transactions = data.get("transactions")
-    if transactions is None:
-        transactions = data.get("data")
+    serializer = CSVAINormalizeInputSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+    transactions = serializer.get_transactions()
 
     if not isinstance(transactions, list):
         return JsonResponse(
             {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
         )
 
-    result = normalize_csv_transactions(transactions)
+    result = CSVAINormalizeUseCase().execute(transactions=transactions)
     return JsonResponse(result)
 
 

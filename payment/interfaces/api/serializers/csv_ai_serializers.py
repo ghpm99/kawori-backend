@@ -12,3 +12,14 @@ class CSVAIMapInputSerializer(serializers.Serializer):
         allow_blank=True,
         trim_whitespace=False,
     )
+
+
+class CSVAINormalizeInputSerializer(serializers.Serializer):
+    transactions = serializers.JSONField(required=False)
+    data = serializers.JSONField(required=False)
+
+    def get_transactions(self):
+        transactions = self.validated_data.get("transactions")
+        if transactions is None:
+            transactions = self.validated_data.get("data")
+        return transactions
