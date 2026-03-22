@@ -24,9 +24,7 @@ class ProcessCSVUploadUseCase:
 
     def _is_uncertain_confidence(self, score: float) -> bool:
         high = float(getattr(settings, "AI_IMPORT_HEURISTIC_HIGH_CONFIDENCE", 0.82))
-        medium = float(
-            getattr(settings, "AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", 0.58)
-        )
+        medium = float(getattr(settings, "AI_IMPORT_HEURISTIC_MEDIUM_CONFIDENCE", 0.58))
         return medium <= score < high
 
     def _build_import_ai_idempotency_key(
@@ -72,6 +70,7 @@ class ProcessCSVUploadUseCase:
         import_type,
         payment_date,
         ai_suggestion_limit,
+        process_row=process_csv_row,
     ):
         processed_payments = []
         global_cap = max(
@@ -111,7 +110,7 @@ class ProcessCSVUploadUseCase:
         request_idempotency_cache = {}
 
         for row in csv_body:
-            processed_row = process_csv_row(
+            processed_row = process_row(
                 user,
                 import_type,
                 csv_headers,
@@ -145,7 +144,9 @@ class ProcessCSVUploadUseCase:
                             ai_idempotency_key=idempotency_key,
                         ).first()
                         if existing_import and existing_import.ai_suggestion_data:
-                            suggestion_payload = dict(existing_import.ai_suggestion_data)
+                            suggestion_payload = dict(
+                                existing_import.ai_suggestion_data
+                            )
 
                     if suggestion_payload is None:
                         ai_attempts_left -= 1

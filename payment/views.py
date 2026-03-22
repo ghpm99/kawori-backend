@@ -54,7 +54,7 @@ from payment.interfaces.api.serializers.statement_serializers import (
     StatementQuerySerializer,
 )
 from payment.models import ImportedPayment, Payment
-from payment.utils import CSVMapping, PaymentImport, Row
+from payment.utils import CSVMapping, PaymentImport, Row, process_csv_row
 
 MONTHS_PT_BR = [
     "Janeiro",
@@ -716,6 +716,7 @@ def process_csv_upload(request, user):
         import_type=import_type,
         payment_date=payment_date,
         ai_suggestion_limit=ai_suggestion_limit,
+        process_row=process_csv_row,
     )
 
     return JsonResponse({"data": processed})
