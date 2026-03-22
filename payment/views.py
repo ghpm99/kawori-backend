@@ -23,18 +23,19 @@ from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
 from payment.ai_assist import suggest_import_resolution
-from payment.ai_features import (
-    detect_statement_anomalies,
-    suggest_tag_suggestions,
-)
+from payment.ai_features import detect_statement_anomalies
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
 from payment.application.use_cases.csv_ai_reconcile import CSVAIReconcileUseCase
+from payment.application.use_cases.csv_ai_tag_suggestions import (
+    CSVAITagSuggestionsUseCase,
+)
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.interfaces.api.serializers.csv_ai_serializers import (
     CSVAIMapInputSerializer,
     CSVAINormalizeInputSerializer,
     CSVAIReconcileInputSerializer,
+    CSVAITagSuggestionsInputSerializer,
 )
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
@@ -820,18 +821,16 @@ def ai_tag_suggestions_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    transactions = data.get("transactions")
-    if transactions is None:
-        transactions = data.get("data")
-    if transactions is None:
-        transactions = data.get("import")
+    serializer = CSVAITagSuggestionsInputSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+    transactions = serializer.get_transactions()
 
     if not isinstance(transactions, list):
         return JsonResponse(
             {"msg": "transactions is required"}, status=HTTPStatus.BAD_REQUEST
         )
 
-    result = suggest_tag_suggestions(user=user, transactions=transactions)
+    result = CSVAITagSuggestionsUseCase().execute(user=user, transactions=transactions)
     return JsonResponse(result)
 
 

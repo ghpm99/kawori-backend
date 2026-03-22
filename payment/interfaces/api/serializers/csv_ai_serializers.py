@@ -39,3 +39,17 @@ class CSVAIReconcileInputSerializer(serializers.Serializer):
         if transactions is None:
             transactions = self.validated_data.get("import")
         return transactions
+
+
+class CSVAITagSuggestionsInputSerializer(serializers.Serializer):
+    transactions = serializers.JSONField(required=False)
+    data = serializers.JSONField(required=False)
+    import_data = serializers.JSONField(required=False, source="import")
+
+    def get_transactions(self):
+        transactions = self.validated_data.get("transactions")
+        if transactions is None:
+            transactions = self.validated_data.get("data")
+        if transactions is None:
+            transactions = self.validated_data.get("import")
+        return transactions

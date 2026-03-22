@@ -312,6 +312,28 @@ class PaymentAIEndpointsViewTestCase(TestCase):
         self.assertIn("recommended_tag_id", item)
         self.assertGreaterEqual(len(item["tag_suggestions"]), 1)
 
+    def test_ai_tag_suggestions_returns_error_on_invalid_json(self):
+        response = self.client.post(
+            reverse("financial_ai_tag_suggestions"),
+            data="invalid_json",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "JSON inválido")
+
+    def test_ai_tag_suggestions_returns_error_without_transactions(self):
+        response = self.client.post(
+            reverse("financial_ai_tag_suggestions"),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["msg"], "transactions is required")
+
     def test_statement_anomalies_returns_detected_items(self):
         response = self.client.get(
             reverse("financial_statement_anomalies"),
