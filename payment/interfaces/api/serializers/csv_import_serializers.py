@@ -15,3 +15,10 @@ class CSVResolveImportsInputSerializer(serializers.Serializer):
 
     def get_import_data(self):
         return self.initial_data.get("import", [])
+
+
+class CSVImportInputSerializer(serializers.Serializer):
+    data = serializers.JSONField(required=False)
+
+    def get_items(self):
+        return self.initial_data.get("data")
