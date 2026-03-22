@@ -24,7 +24,9 @@ class StatementUseCase:
                 )
             ),
         )
-        opening_balance = float((prior_agg["credits"] or 0) - (prior_agg["debits"] or 0))
+        opening_balance = float(
+            (prior_agg["credits"] or 0) - (prior_agg["debits"] or 0)
+        )
 
         period_payments = (
             Payment.objects.filter(
