@@ -30,3 +30,25 @@ class StatementAnomaliesQuerySerializer(serializers.Serializer):
         attrs["date_from_parsed"] = date_from_parsed
         attrs["date_to_parsed"] = date_to_parsed
         return attrs
+
+
+class StatementQuerySerializer(serializers.Serializer):
+    date_from = serializers.CharField(required=False)
+    date_to = serializers.CharField(required=False)
+
+    def validate(self, attrs):
+        date_from = attrs.get("date_from")
+        date_to = attrs.get("date_to")
+
+        if not date_from or not date_to:
+            raise serializers.ValidationError("date_from and date_to are required")
+
+        try:
+            attrs["date_from_parsed"] = datetime.strptime(date_from, "%Y-%m-%d").date()
+            attrs["date_to_parsed"] = datetime.strptime(date_to, "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                "date_from and date_to must be in YYYY-MM-DD format"
+            ) from exc
+
+        return attrs
