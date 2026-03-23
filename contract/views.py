@@ -13,6 +13,9 @@ from contract.application.use_cases.get_contract_invoices import (
     GetContractInvoicesUseCase,
 )
 from contract.application.use_cases.merge_contracts import MergeContractsUseCase
+from contract.application.use_cases.update_all_contracts_value import (
+    UpdateAllContractsValueUseCase,
+)
 from contract.interfaces.api.serializers.contract_serializers import (
     ContractInvoicesQuerySerializer,
     ContractListQuerySerializer,
@@ -152,8 +155,9 @@ def merge_contract_view(request, id, user):
 @validate_user("financial")
 @audit_log("contract.update_all_values", CATEGORY_FINANCIAL, "Contract")
 def update_all_contracts_value(request, user):
-    with transaction.atomic():
-        contracts = Contract.objects.filter(user=user)
-        for contract in contracts:
-            update_contract_value(contract)
-    return JsonResponse({"msg": "ok"})
+    payload, status_code = UpdateAllContractsValueUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        update_contract_value_fn=update_contract_value,
+    )
+    return JsonResponse(payload, status=status_code)
