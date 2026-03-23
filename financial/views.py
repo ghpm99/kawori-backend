@@ -42,6 +42,9 @@ from financial.application.use_cases.report_overdue_health import (
 from financial.application.use_cases.report_payment_summary import (
     ReportPaymentSummaryUseCase,
 )
+from financial.application.use_cases.report_tag_evolution import (
+    ReportTagEvolutionUseCase,
+)
 from financial.application.use_cases.report_top_expenses import ReportTopExpensesUseCase
 from financial.interfaces.api.serializers.report_ai_insights_serializers import (
     ReportAIInsightsPayloadSerializer,
@@ -1099,9 +1102,12 @@ def report_overdue_health_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_tag_evolution_view(request, user):
-    filters, error_response = parse_period_filters(request, required=True)
-    if error_response:
-        return error_response
+    serializer = RequiredPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
     compare_with_previous_period = True
     if request.GET.get("compare_with_previous_period") is not None:
@@ -1109,72 +1115,11 @@ def report_tag_evolution_view(request, user):
             request.GET.get("compare_with_previous_period")
         )
 
-    current_rows = (
-        Payment.objects.filter(
-            user=user,
-            active=True,
-            type=Payment.TYPE_DEBIT,
-            payment_date__range=(filters["begin"], filters["end"]),
-            invoice__tags__isnull=False,
-        )
-        .values("invoice__tags__id", "invoice__tags__name")
-        .annotate(amount=Coalesce(Sum("value"), Decimal("0")))
+    data = ReportTagEvolutionUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        compare_with_previous_period=compare_with_previous_period,
     )
-
-    current_data = {
-        row["invoice__tags__id"]: {
-            "tag_id": row["invoice__tags__id"],
-            "tag_name": row["invoice__tags__name"],
-            "current_amount": float(row["amount"] or 0),
-        }
-        for row in current_rows
-    }
-
-    previous_data = {}
-    if compare_with_previous_period:
-        period_days = (filters["end"] - filters["begin"]).days + 1
-        previous_end = filters["begin"] - timedelta(days=1)
-        previous_begin = previous_end - timedelta(days=period_days - 1)
-
-        previous_rows = (
-            Payment.objects.filter(
-                user=user,
-                active=True,
-                type=Payment.TYPE_DEBIT,
-                payment_date__range=(previous_begin, previous_end),
-                invoice__tags__isnull=False,
-            )
-            .values("invoice__tags__id")
-            .annotate(amount=Coalesce(Sum("value"), Decimal("0")))
-        )
-        previous_data = {
-            row["invoice__tags__id"]: float(row["amount"] or 0) for row in previous_rows
-        }
-
-    data = []
-    for item in current_data.values():
-        previous_amount = previous_data.get(item["tag_id"], 0.0)
-        if previous_amount == 0:
-            variation_percent = 100.0 if item["current_amount"] > 0 else 0.0
-        else:
-            variation_percent = (
-                (item["current_amount"] - previous_amount) / abs(previous_amount)
-            ) * 100
-
-        data.append(
-            {
-                "tag_id": item["tag_id"],
-                "tag_name": item["tag_name"],
-                "current_amount": item["current_amount"],
-                "previous_amount": (
-                    previous_amount if compare_with_previous_period else 0.0
-                ),
-                "variation_percent": (
-                    round(variation_percent, 1) if compare_with_previous_period else 0.0
-                ),
-            }
-        )
-
-    data.sort(key=lambda item: item["current_amount"], reverse=True)
 
     return JsonResponse({"data": data})

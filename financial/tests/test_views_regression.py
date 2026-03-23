@@ -817,6 +817,169 @@ class FinancialViewsRegressionTestCase(TestCase):
             {"msg": "date_from must be less than or equal to date_to"},
         )
 
+    def test_report_tag_evolution_view_returns_current_previous_and_variation(self):
+        contract = Contract.objects.create(name="TEV", user=self.user)
+        invoice_food = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="Food Invoice",
+            date=date(2026, 10, 1),
+            installments=1,
+            payment_date=date(2026, 10, 12),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        invoice_rent = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="Rent Invoice",
+            date=date(2026, 10, 2),
+            installments=1,
+            payment_date=date(2026, 10, 15),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        food = Tag.objects.create(name="Food", color="#f00", user=self.user)
+        rent = Tag.objects.create(name="Rent", color="#0f0", user=self.user)
+        invoice_food.tags.add(food)
+        invoice_rent.tags.add(rent)
+
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Food Current",
+            date=date(2026, 10, 10),
+            installments=1,
+            payment_date=date(2026, 10, 12),
+            fixed=False,
+            active=True,
+            value=Decimal("100.00"),
+            status=Payment.STATUS_DONE,
+            reference="tev1",
+            invoice=invoice_food,
+            user=self.user,
+        )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Rent Current",
+            date=date(2026, 10, 11),
+            installments=1,
+            payment_date=date(2026, 10, 15),
+            fixed=False,
+            active=True,
+            value=Decimal("40.00"),
+            status=Payment.STATUS_DONE,
+            reference="tev2",
+            invoice=invoice_rent,
+            user=self.user,
+        )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Food Previous",
+            date=date(2026, 10, 1),
+            installments=1,
+            payment_date=date(2026, 10, 5),
+            fixed=False,
+            active=True,
+            value=Decimal("50.00"),
+            status=Payment.STATUS_DONE,
+            reference="tev3",
+            invoice=invoice_food,
+            user=self.user,
+        )
+
+        response = self._call(
+            views.report_tag_evolution_view,
+            data={"date_from": "2026-10-10", "date_to": "2026-10-20"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)["data"]
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["tag_name"], "Food")
+        self.assertEqual(data[0]["current_amount"], 100.0)
+        self.assertEqual(data[0]["previous_amount"], 50.0)
+        self.assertEqual(data[0]["variation_percent"], 100.0)
+        self.assertEqual(data[1]["tag_name"], "Rent")
+        self.assertEqual(data[1]["current_amount"], 40.0)
+        self.assertEqual(data[1]["previous_amount"], 0.0)
+        self.assertEqual(data[1]["variation_percent"], 100.0)
+
+    def test_report_tag_evolution_view_disables_comparison_when_requested(self):
+        contract = Contract.objects.create(name="TEV2", user=self.user)
+        invoice = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="Tag Invoice",
+            date=date(2026, 10, 1),
+            installments=1,
+            payment_date=date(2026, 10, 12),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        tag = Tag.objects.create(name="Only Current", color="#abc", user=self.user)
+        invoice.tags.add(tag)
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Only Current",
+            date=date(2026, 10, 10),
+            installments=1,
+            payment_date=date(2026, 10, 12),
+            fixed=False,
+            active=True,
+            value=Decimal("30.00"),
+            status=Payment.STATUS_DONE,
+            reference="tev4",
+            invoice=invoice,
+            user=self.user,
+        )
+
+        response = self._call(
+            views.report_tag_evolution_view,
+            data={
+                "date_from": "2026-10-10",
+                "date_to": "2026-10-20",
+                "compare_with_previous_period": "false",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)["data"]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["previous_amount"], 0.0)
+        self.assertEqual(data[0]["variation_percent"], 0.0)
+
+    def test_report_tag_evolution_view_requires_date_from_and_date_to(self):
+        response = self._call(
+            views.report_tag_evolution_view,
+            data={"date_to": "2026-10-20"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content), {"msg": "date_from and date_to are required"}
+        )
+
+    def test_report_tag_evolution_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_tag_evolution_view,
+            data={"date_from": "2026-10-20", "date_to": "2026-10-10"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(
             name="C1", user=self.user, value=10, value_open=8, value_closed=2
