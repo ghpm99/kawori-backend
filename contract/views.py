@@ -6,7 +6,11 @@ from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
+from contract.application.use_cases.get_all_contracts import GetAllContractsUseCase
 from contract.application.use_cases.get_contract_detail import GetContractDetailUseCase
+from contract.interfaces.api.serializers.contract_serializers import (
+    ContractListQuerySerializer,
+)
 from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
@@ -18,30 +22,18 @@ from tag.models import Tag
 @require_GET
 @validate_user("financial")
 def get_all_contract_view(request, user):
-    req = request.GET
-    filters = {}
+    serializer = ContractListQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
 
-    if req.get("id"):
-        filters["id"] = req.get("id")
-
-    contracts_query = Contract.objects.filter(**filters, user=user).order_by("id")
-
-    data = paginate(contracts_query, req.get("page"), req.get("page_size"))
-
-    contracts = [
-        {
-            "id": contract.id,
-            "name": contract.name,
-            "value": float(contract.value or 0),
-            "value_open": float(contract.value_open or 0),
-            "value_closed": float(contract.value_closed or 0),
-        }
-        for contract in data.get("data")
-    ]
-
-    data["data"] = contracts
-
-    return JsonResponse({"data": data})
+    payload = GetAllContractsUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        paginate_fn=paginate,
+        contract_id=serializer.validated_data.get("id"),
+        page=serializer.validated_data.get("page"),
+        page_size=serializer.validated_data.get("page_size"),
+    )
+    return JsonResponse(payload)
 
 
 @require_POST
