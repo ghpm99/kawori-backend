@@ -52,6 +52,7 @@ from financial.interfaces.api.serializers.report_ai_insights_serializers import 
 )
 from financial.interfaces.api.serializers.report_payment_serializers import (
     DateFromRequiredQuerySerializer,
+    ReportCountPaymentResponseSerializer,
     ReportPaymentPeriodQuerySerializer,
     ReportPaymentSummaryResponseSerializer,
     RequiredPeriodQuerySerializer,
@@ -843,7 +844,8 @@ def report_count_payment_view(request, user):
         cursor_factory=connection.cursor,
     )
 
-    return JsonResponse({"data": data})
+    response_serializer = ReportCountPaymentResponseSerializer({"data": data})
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET

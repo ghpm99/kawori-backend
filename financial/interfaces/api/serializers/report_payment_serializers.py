@@ -67,3 +67,8 @@ class DateFromRequiredQuerySerializer(serializers.Serializer):
 class ReportPaymentSummaryResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ReportCountPaymentResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
