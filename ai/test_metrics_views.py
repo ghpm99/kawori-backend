@@ -131,6 +131,14 @@ class AIMetricsEndpointsTestCase(TestCase):
         self.assertGreaterEqual(len(payload["rows"]), 1)
         self.assertIn("calls", payload["rows"][0])
 
+    def test_metrics_timeseries_invalid_interval_returns_400(self):
+        response = self.client.get(
+            reverse("ai_metrics_timeseries"), data={"interval": "invalid"}
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload, {"msg": "interval inválido"})
+
     def test_metrics_events_pagination_and_filter(self):
         response = self.client.get(
             reverse("ai_metrics_events"),
