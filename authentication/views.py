@@ -41,6 +41,7 @@ from authentication.application.use_cases.obtain_token_pair import (
     ObtainTokenPairUseCase,
 )
 from authentication.application.use_cases.verify_token import VerifyTokenUseCase
+from authentication.application.use_cases.refresh_token import RefreshTokenUseCase
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -70,6 +71,9 @@ from authentication.interfaces.api.serializers.obtain_token_pair_serializers imp
 )
 from authentication.interfaces.api.serializers.verify_token_serializers import (
     VerifyTokenResponseSerializer,
+)
+from authentication.interfaces.api.serializers.refresh_token_serializers import (
+    RefreshTokenResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -253,21 +257,13 @@ def verify_token(request: HttpRequest) -> JsonResponse:
 @require_POST
 @audit_log_auth("token.refresh")
 def refresh_token(request: HttpRequest) -> JsonResponse:
-
-    refresh_token_cookie = request.COOKIES.get(settings.REFRESH_TOKEN_NAME)
-    if refresh_token_cookie is None:
-        return JsonResponse(
-            {"msg": "Token não encontrado"}, status=HTTPStatus.FORBIDDEN
-        )
-
-    try:
-        refresh_token = RefreshToken(refresh_token_cookie)
-        refresh_token.verify()
-        refresh_token.verify_token_type()
-
-        access_token = refresh_token.access_token
-
-        json_response = JsonResponse({"msg": "Token válido"})
+    payload, status_code, access_token = RefreshTokenUseCase().execute(
+        refresh_token_cookie=request.COOKIES.get(settings.REFRESH_TOKEN_NAME),
+        refresh_token_cls=RefreshToken,
+    )
+    serializer = RefreshTokenResponseSerializer(payload)
+    json_response = JsonResponse(serializer.data, status=status_code)
+    if access_token is not None:
         json_response.set_cookie(
             settings.ACCESS_TOKEN_NAME,
             str(access_token),
@@ -277,12 +273,7 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
             max_age=access_token.lifetime.total_seconds(),
             domain=settings.COOKIE_DOMAIN,
         )
-
-        return json_response
-    except Exception as e:
-        return JsonResponse(
-            {"error": str(e), "valid": False}, status=HTTPStatus.FORBIDDEN
-        )
+    return json_response
 
 
 @require_POST
