@@ -40,6 +40,7 @@ from authentication.application.use_cases.resend_verification_email import (
 from authentication.application.use_cases.obtain_token_pair import (
     ObtainTokenPairUseCase,
 )
+from authentication.application.use_cases.verify_token import VerifyTokenUseCase
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -66,6 +67,9 @@ from authentication.interfaces.api.serializers.resend_verification_email_seriali
 )
 from authentication.interfaces.api.serializers.obtain_token_pair_serializers import (
     ObtainTokenPairRequestSerializer,
+)
+from authentication.interfaces.api.serializers.verify_token_serializers import (
+    VerifyTokenResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -232,33 +236,18 @@ def signout_view(request: HttpRequest) -> JsonResponse:
 @require_POST
 @audit_log_auth("token.verify")
 def verify_token(request: HttpRequest) -> JsonResponse:
-
-    access_token_cookie = request.COOKIES.get(settings.ACCESS_TOKEN_NAME)
-
-    if access_token_cookie is None:
-        return JsonResponse(
-            {"msg": "Token não encontrado"}, status=HTTPStatus.BAD_REQUEST
-        )
-
-    try:
-
-        token = AccessToken(access_token_cookie)
-        token.verify()
-        token.verify_token_type()
-
-        return JsonResponse({"msg": "Token válido"})
-
-    except Exception as e:
-
-        json_response = JsonResponse(
-            {"error": str(e), "valid": False}, status=HTTPStatus.UNAUTHORIZED
-        )
-
+    payload, status_code, should_delete_cookie = VerifyTokenUseCase().execute(
+        access_token_cookie=request.COOKIES.get(settings.ACCESS_TOKEN_NAME),
+        access_token_cls=AccessToken,
+    )
+    serializer = VerifyTokenResponseSerializer(payload)
+    json_response = JsonResponse(serializer.data, status=status_code)
+    if should_delete_cookie:
         json_response.delete_cookie(
             settings.ACCESS_TOKEN_NAME,
             domain=settings.COOKIE_DOMAIN,
         )
-        return json_response
+    return json_response
 
 
 @require_POST
