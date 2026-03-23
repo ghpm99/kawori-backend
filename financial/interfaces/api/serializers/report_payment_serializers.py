@@ -34,11 +34,11 @@ class RequiredPeriodQuerySerializer(serializers.Serializer):
 
         date_from_parsed = format_date(date_from_raw) if date_from_raw else None
         if not date_from_parsed:
-            raise serializers.ValidationError("date_from is required")
+            raise serializers.ValidationError("date_from and date_to are required")
 
         date_to_parsed = format_date(date_to_raw) if date_to_raw else None
         if not date_to_parsed:
-            raise serializers.ValidationError("date_to is required")
+            raise serializers.ValidationError("date_from and date_to are required")
 
         if date_from_parsed > date_to_parsed:
             raise serializers.ValidationError(

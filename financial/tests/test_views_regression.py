@@ -545,14 +545,18 @@ class FinancialViewsRegressionTestCase(TestCase):
             data={"date_to": "2026-08-01"},
         )
         self.assertEqual(no_from.status_code, 400)
-        self.assertEqual(json.loads(no_from.content), {"msg": "date_from is required"})
+        self.assertEqual(
+            json.loads(no_from.content), {"msg": "date_from and date_to are required"}
+        )
 
         no_to = self._call(
             views.report_daily_cash_flow_view,
             data={"date_from": "2026-08-01"},
         )
         self.assertEqual(no_to.status_code, 400)
-        self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
+        self.assertEqual(
+            json.loads(no_to.content), {"msg": "date_from and date_to are required"}
+        )
 
     def test_report_top_expenses_view_returns_ordered_limited_data(self):
         contract = Contract.objects.create(name="TE", user=self.user)
@@ -633,14 +637,18 @@ class FinancialViewsRegressionTestCase(TestCase):
             data={"date_to": "2026-09-01"},
         )
         self.assertEqual(no_from.status_code, 400)
-        self.assertEqual(json.loads(no_from.content), {"msg": "date_from is required"})
+        self.assertEqual(
+            json.loads(no_from.content), {"msg": "date_from and date_to are required"}
+        )
 
         no_to = self._call(
             views.report_top_expenses_view,
             data={"date_from": "2026-09-01"},
         )
         self.assertEqual(no_to.status_code, 400)
-        self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
+        self.assertEqual(
+            json.loads(no_to.content), {"msg": "date_from and date_to are required"}
+        )
 
     def test_report_balance_projection_view_returns_months_and_risk_levels(self):
         queryset = MagicMock()
