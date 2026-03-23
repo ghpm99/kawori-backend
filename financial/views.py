@@ -14,6 +14,9 @@ from contract.models import Contract
 from financial.application.use_cases.report_ai_insights import (
     ReportAIInsightsUseCase,
 )
+from financial.application.use_cases.report_amount_invoice_by_tag import (
+    ReportAmountInvoiceByTagUseCase,
+)
 from financial.application.use_cases.report_amount_payment import (
     ReportAmountPaymentUseCase,
 )
@@ -886,71 +889,19 @@ def report_amount_payment_closed_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_amount_invoice_by_tag_view(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
-    query_params = {"user_id": user.id, "payment_type": Payment.TYPE_DEBIT}
-    if params["begin"] and params["end"]:
-        query_params.update({"begin": params["begin"], "end": params["end"]})
-        amount_invoice = """
-            SELECT
-                ft.id,
-                ft."name",
-                COALESCE(ft.color, '#000'),
-                sum(fp.value)
-            FROM
-                financial_tag ft
-            INNER JOIN financial_invoice_tags fit ON
-                ft.id = fit.tag_id
-            INNER JOIN financial_invoice fi ON
-                fit.invoice_id = fi.id
-            INNER JOIN financial_payment fp ON
-                fp.invoice_id = fi.id
-            WHERE
-                ft.user_id=%(user_id)s
-                AND fp.type=%(payment_type)s
-                AND fp."payment_date" BETWEEN %(begin)s AND %(end)s
-                AND fi.active=true
-                AND fp.active=true
-            GROUP BY
-                ft.id
-            ORDER BY
-                sum(fp.value) DESC;
-        """
-    else:
-        amount_invoice = """
-            SELECT
-                ft.id,
-                ft."name",
-                COALESCE(ft.color, '#000'),
-                sum(fp.value)
-            FROM
-                financial_tag ft
-            INNER JOIN financial_invoice_tags fit ON
-                ft.id = fit.tag_id
-            INNER JOIN financial_invoice fi ON
-                fit.invoice_id = fi.id
-            INNER JOIN financial_payment fp ON
-                fp.invoice_id = fi.id
-            WHERE
-                ft.user_id=%(user_id)s
-                AND fp.type=%(payment_type)s
-                AND fi.active=true
-                AND fp.active=true
-            GROUP BY
-                ft.id
-            ORDER BY
-                sum(fp.value) DESC;
-        """
-    with connection.cursor() as cursor:
-        cursor.execute(amount_invoice, query_params)
-        amount_invoice = cursor.fetchall()
-
-    tags = [
-        {"id": data[0], "name": data[1], "color": data[2], "amount": float(data[3])}
-        for data in amount_invoice
-    ]
+    tags = ReportAmountInvoiceByTagUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        cursor_factory=connection.cursor,
+    )
 
     return JsonResponse({"data": tags})
 

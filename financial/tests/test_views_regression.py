@@ -297,6 +297,20 @@ class FinancialViewsRegressionTestCase(TestCase):
             },
         )
 
+    def test_report_amount_invoice_by_tag_view_returns_error_when_period_is_invalid(
+        self,
+    ):
+        response = self._call(
+            views.report_amount_invoice_by_tag_view,
+            data={"date_from": "2026-06-02", "date_to": "2026-06-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
     def test_report_forecast_amount_value_view_empty_and_non_empty(self):
         empty_ctx, empty_cursor = self._mock_cursor(fetchall_side_effect=[[]])
         with patch("financial.views.connection.cursor", return_value=empty_ctx):
