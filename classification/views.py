@@ -9,6 +9,10 @@ from classification.application.use_cases.get_bdo_class import GetBDOClassUseCas
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
 )
+from classification.interfaces.api.serializers.total_votes_serializers import (
+    TotalVotesResponseSerializer,
+)
+from classification.application.use_cases.total_votes import TotalVotesUseCase
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
@@ -111,9 +115,9 @@ def get_bdo_class(request):
 
 @require_GET
 def total_votes(request):
-    total_votes = Answer.objects.count()
-
-    return JsonResponse({"total_votes": total_votes})
+    payload, status_code = TotalVotesUseCase().execute(answer_model=Answer)
+    serializer = TotalVotesResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
