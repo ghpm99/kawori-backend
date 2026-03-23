@@ -1,8 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from http import HTTPStatus
 
-from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -12,6 +10,7 @@ from financial.utils import generate_payments
 from invoice.application.use_cases.get_all_invoices import GetAllInvoicesUseCase
 from invoice.application.use_cases.get_invoice_detail import GetInvoiceDetailUseCase
 from invoice.application.use_cases.get_invoice_payments import GetInvoicePaymentsUseCase
+from invoice.application.use_cases.include_new_invoice import IncludeNewInvoiceUseCase
 from invoice.application.use_cases.save_invoice_detail import SaveInvoiceDetailUseCase
 from invoice.application.use_cases.save_invoice_tags import SaveInvoiceTagsUseCase
 from invoice.models import Invoice
@@ -106,61 +105,16 @@ def save_tag_invoice_view(request, id, user):
 @audit_log("invoice.create", CATEGORY_FINANCIAL, "Invoice")
 def include_new_invoice_view(request, user):
     data = json.loads(request.body)
-
-    required_fields = [
-        {"field": "name", "msg": "Campo nome é obrigatório"},
-        {"field": "date", "msg": "Campo dia de lançamento é obrigatório"},
-        {"field": "installments", "msg": "Campo parcelas é obrigatório"},
-        {"field": "payment_date", "msg": "Campo dia de pagamento é obrigatório"},
-        {"field": "value", "msg": "Campo valor é obrigatório"},
-        {"field": "type", "msg": "Campo tipo de pagamento é obrigatório"},
-    ]
-    for field in required_fields:
-        if not data.get(field["field"]):
-            return JsonResponse({"msg": field["msg"]}, status=HTTPStatus.BAD_REQUEST)
-
-    name = data.get("name")
-    date = data.get("date")
-    installments = data.get("installments")
-    payment_date = format_date(data.get("payment_date"))
-    fixed = data.get("fixed", False)
-    value = data.get("value")
-    type = data.get("type")
-
-    try:
-        invoice_type = parse_type(type)
-    except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
-    if data.get("tags"):
-        tag_ids = data.get("tags")
-        tags = Tag.objects.filter(id__in=tag_ids, user=user)
-        if tags.count() != len(set(tag_ids)):
-            return JsonResponse(
-                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
-            )
-
-    with transaction.atomic():
-        invoice = Invoice.objects.create(
-            status=Invoice.STATUS_OPEN,
-            type=invoice_type,
-            name=name,
-            date=date,
-            installments=installments,
-            payment_date=payment_date,
-            fixed=fixed,
-            active=True,
-            value=value,
-            value_open=value,
-            user=user,
-        )
-
-        if data.get("tags"):
-            invoice.tags.set(tags)
-
-        generate_payments(invoice)
-
-    return JsonResponse({"msg": "Nota inclusa com sucesso"})
+    payload, status_code = IncludeNewInvoiceUseCase().execute(
+        payload=data,
+        user=user,
+        invoice_model=Invoice,
+        tag_model=Tag,
+        parse_type_fn=parse_type,
+        format_date_fn=format_date,
+        generate_payments_fn=generate_payments,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
