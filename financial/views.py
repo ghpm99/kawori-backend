@@ -48,6 +48,7 @@ from financial.application.use_cases.report_tag_evolution import (
 from financial.application.use_cases.report_top_expenses import ReportTopExpensesUseCase
 from financial.interfaces.api.serializers.report_ai_insights_serializers import (
     ReportAIInsightsPayloadSerializer,
+    ReportAIInsightsResponseSerializer,
 )
 from financial.interfaces.api.serializers.report_payment_serializers import (
     DateFromRequiredQuerySerializer,
@@ -474,7 +475,8 @@ def report_ai_insights_view(request, user):
     result = ReportAIInsightsUseCase().execute(
         user=user, payload=serializer.validated_data
     )
-    return JsonResponse(result)
+    response_serializer = ReportAIInsightsResponseSerializer(result)
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
