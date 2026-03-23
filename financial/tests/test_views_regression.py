@@ -194,6 +194,18 @@ class FinancialViewsRegressionTestCase(TestCase):
             },
         )
 
+    def test_report_amount_payment_open_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_amount_payment_open_view,
+            data={"date_from": "2026-04-02", "date_to": "2026-04-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
     def test_report_amount_payment_closed_view_sums_all_closed_payments_without_default_period(
         self,
     ):

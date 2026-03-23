@@ -17,6 +17,9 @@ from financial.application.use_cases.report_ai_insights import (
 from financial.application.use_cases.report_amount_payment import (
     ReportAmountPaymentUseCase,
 )
+from financial.application.use_cases.report_amount_payment_open import (
+    ReportAmountPaymentOpenUseCase,
+)
 from financial.application.use_cases.report_count_payment import (
     ReportCountPaymentUseCase,
 )
@@ -840,41 +843,21 @@ def report_amount_payment_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_amount_payment_open_view(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
-    query_params = {"user_id": user.id}
-    if params["begin"] and params["end"]:
-        query_params.update({"begin": params["begin"], "end": params["end"]})
-        count_payment = """
-            SELECT
-                COALESCE(SUM(value), 0) as amount_payment_total
-            FROM
-                financial_payment fp
-            WHERE
-                fp.user_id=%(user_id)s
-                AND fp.status=0
-                AND fp.active=true
-                AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
-        """
-    else:
-        count_payment = """
-            SELECT
-                COALESCE(SUM(value), 0) as amount_payment_total
-            FROM
-                financial_payment fp
-            WHERE
-                fp.user_id=%(user_id)s
-                AND fp.status=0
-                AND fp.active=true;
-        """
+    data = ReportAmountPaymentOpenUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        cursor_factory=connection.cursor,
+    )
 
-    with connection.cursor() as cursor:
-        cursor.execute(count_payment, query_params)
-        amount_payment_total = cursor.fetchone()
-
-    return JsonResponse({"data": float(amount_payment_total[0])})
+    return JsonResponse({"data": data})
 
 
 @require_GET
