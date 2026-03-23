@@ -10,6 +10,7 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from budget.ai_features import build_budget_allocation_suggestions
 from budget.application.use_cases.get_all_budgets import GetAllBudgetsUseCase
+from budget.application.use_cases.save_budget import SaveBudgetUseCase
 from budget.interfaces.api.serializers.budget_serializers import (
     BudgetPeriodQuerySerializer,
 )
@@ -63,16 +64,12 @@ def get_all_budgets_view(request, user):
 @audit_log("budget.update", CATEGORY_FINANCIAL, "Budget")
 def save_budget_view(request, user):
     data = json.loads(request.body)
-    with transaction.atomic():
-        for item in data.get("data", []):
-            budget = Budget.objects.filter(id=item.get("id"), user=user).first()
-            if budget:
-                budget.allocation_percentage = item.get(
-                    "allocation_percentage", budget.allocation_percentage
-                )
-                budget.save()
-
-    return JsonResponse({"msg": "Orçamento atualizado com sucesso"})
+    payload, status_code = SaveBudgetUseCase().execute(
+        user=user,
+        budget_model=Budget,
+        payload=data,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
