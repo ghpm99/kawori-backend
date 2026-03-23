@@ -1,6 +1,5 @@
 import json
 
-from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -12,6 +11,7 @@ from contract.application.use_cases.get_contract_detail import GetContractDetail
 from contract.application.use_cases.get_contract_invoices import (
     GetContractInvoicesUseCase,
 )
+from contract.application.use_cases.include_new_invoice import IncludeNewInvoiceUseCase
 from contract.application.use_cases.merge_contracts import MergeContractsUseCase
 from contract.application.use_cases.update_all_contracts_value import (
     UpdateAllContractsValueUseCase,
@@ -94,45 +94,16 @@ def detail_contract_invoices_view(request, id, user):
 @audit_log("contract.invoice.create", CATEGORY_FINANCIAL, "Invoice")
 def include_new_invoice_view(request, id, user):
     data = json.loads(request.body)
-
-    contract = Contract.objects.filter(id=id, user=user).first()
-    if contract is None:
-        return JsonResponse({"msg": "Contract not found"}, status=404)
-
-    if data.get("tags"):
-        tag_ids = data.get("tags")
-        tags = Tag.objects.filter(id__in=tag_ids, user=user)
-        if tags.count() != len(set(tag_ids)):
-            return JsonResponse(
-                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
-            )
-
-    with transaction.atomic():
-        invoice = Invoice(
-            status=data.get("status"),
-            type=data.get("type"),
-            name=data.get("name"),
-            date=data.get("date"),
-            installments=data.get("installments"),
-            payment_date=data.get("payment_date"),
-            fixed=data.get("fixed"),
-            active=data.get("active"),
-            value=data.get("value"),
-            value_open=data.get("value"),
-            contract=contract,
-            user=user,
-        )
-        invoice.save()
-        if data.get("tags"):
-            invoice.tags.set(tags)
-
-        generate_payments(invoice)
-
-        contract.value_open = float(contract.value_open or 0) + float(invoice.value)
-        contract.value = float(contract.value or 0) + float(invoice.value)
-        contract.save()
-
-    return JsonResponse({"msg": "Nota inclusa com sucesso"})
+    payload, status_code = IncludeNewInvoiceUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        invoice_model=Invoice,
+        tag_model=Tag,
+        contract_id=id,
+        payload=data,
+        generate_payments_fn=generate_payments,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
