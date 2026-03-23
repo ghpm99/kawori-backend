@@ -10,6 +10,9 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from budget.ai_features import build_budget_allocation_suggestions
 from budget.application.use_cases.get_all_budgets import GetAllBudgetsUseCase
+from budget.application.use_cases.reset_budget_allocation import (
+    ResetBudgetAllocationUseCase,
+)
 from budget.application.use_cases.save_budget import SaveBudgetUseCase
 from budget.interfaces.api.serializers.budget_serializers import (
     BudgetPeriodQuerySerializer,
@@ -76,18 +79,12 @@ def save_budget_view(request, user):
 @validate_user("financial")
 @audit_log("budget.reset", CATEGORY_FINANCIAL, "Budget")
 def reset_budget_allocation_view(request, user):
-    with transaction.atomic():
-        budget_list = Budget.objects.filter(user=user)
-        for budget in budget_list:
-            for default_budget in DEFAULT_BUDGETS:
-                if budget.tag.name.lower() == default_budget["name"].lower():
-                    budget.allocation_percentage = default_budget[
-                        "allocation_percentage"
-                    ]
-                    budget.save()
-                    break
-
-    return JsonResponse({"msg": "Orçamentos resetados com sucesso"})
+    payload, status_code = ResetBudgetAllocationUseCase().execute(
+        user=user,
+        budget_model=Budget,
+        default_budgets=DEFAULT_BUDGETS,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
