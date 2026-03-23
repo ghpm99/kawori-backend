@@ -5,6 +5,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_CLASSIFICATION
+from classification.application.use_cases.get_bdo_class import GetBDOClassUseCase
+from classification.interfaces.api.serializers.get_bdo_class_serializers import (
+    GetBDOClassResponseSerializer,
+)
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url
@@ -96,22 +100,13 @@ def register_answer(request, user):
 
 @require_GET
 def get_bdo_class(request):
-
-    bdo_classes = BDOClass.objects.order_by("abbreviation")
-
-    bdo_class = [
-        {
-            "id": bdo_class.id,
-            "name": bdo_class.name,
-            "abbreviation": bdo_class.abbreviation,
-            "class_image": get_bdo_class_image_url(bdo_class.id),
-            "class_symbol": get_bdo_class_symbol_url(bdo_class.id),
-            "color": bdo_class.color if bdo_class.color else "",
-        }
-        for bdo_class in bdo_classes
-    ]
-
-    return JsonResponse({"class": bdo_class})
+    payload, status_code = GetBDOClassUseCase().execute(
+        bdo_class_model=BDOClass,
+        get_bdo_class_image_url_fn=get_bdo_class_image_url,
+        get_bdo_class_symbol_url_fn=get_bdo_class_symbol_url,
+    )
+    serializer = GetBDOClassResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
