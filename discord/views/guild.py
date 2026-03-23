@@ -2,6 +2,10 @@ from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
+from discord.application.use_cases.get_all_guilds import GetAllGuildsUseCase
+from discord.interfaces.api.serializers.guild_serializers import (
+    GetAllGuildsResponseSerializer,
+)
 from kawori.decorators import validate_user
 from kawori.utils import paginate
 
@@ -44,38 +48,13 @@ def get_all_members(request, user):
 @require_GET
 @validate_user("admin")
 def get_all_guilds(request, user):
-    req = request.GET
-
-    query = """
-        SELECT id,
-            active,
-            block,
-            id_discord,
-            id_owner,
-            last_message,
-            name
-        FROM guild_discord;
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-        guilds = cursor.fetchall()
-
-    guilds = [
-        {
-            "id": guild[0],
-            "active": guild[1],
-            "block": guild[2],
-            "id_discord": guild[3],
-            "id_owner": guild[4],
-            "last_message": guild[5],
-            "name": guild[6],
-        }
-        for guild in guilds
-    ]
-
-    guilds = paginate(guilds, req.get("page"))
-    return JsonResponse(guilds)
+    payload, status_code = GetAllGuildsUseCase().execute(
+        request_get=request.GET,
+        connection_module=connection,
+        paginate_fn=paginate,
+    )
+    serializer = GetAllGuildsResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
