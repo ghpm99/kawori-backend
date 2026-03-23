@@ -7,3 +7,7 @@ class SendCommandPayloadSerializer(serializers.Serializer):
 
 class HotkeyPayloadSerializer(serializers.Serializer):
     hotkey = serializers.JSONField(required=False)
+
+
+class KeyPressPayloadSerializer(serializers.Serializer):
+    keys = serializers.JSONField(required=False)

@@ -13,8 +13,10 @@ from kawori.decorators import validate_user
 from lib import pusher
 from remote.application.use_cases.send_command import SendCommandUseCase
 from remote.application.use_cases.send_hotkey import SendHotkeyUseCase
+from remote.application.use_cases.send_key_press import SendKeyPressUseCase
 from remote.interfaces.api.serializers.remote_serializers import (
     HotkeyPayloadSerializer,
+    KeyPressPayloadSerializer,
     SendCommandPayloadSerializer,
 )
 from remote.models import Config, Screenshot
@@ -63,9 +65,14 @@ def hotkey_view(request, user):
 @audit_log("remote.key_press", CATEGORY_REMOTE)
 def key_press_view(request, user):
     data = json.loads(request.body)
-    keys = data.get("keys")
-    pusher.send_key_press(keys)
-    return JsonResponse({"msg": "Ok"})
+    serializer = KeyPressPayloadSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+
+    payload, status_code = SendKeyPressUseCase().execute(
+        payload=data,
+        send_key_press_fn=pusher.send_key_press,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
