@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from django.db import connection, transaction
-from django.db.models import Q, Sum
+from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
@@ -27,6 +27,9 @@ from financial.application.use_cases.report_amount_payment_closed import (
 from financial.application.use_cases.report_amount_payment_open import (
     ReportAmountPaymentOpenUseCase,
 )
+from financial.application.use_cases.report_balance_projection import (
+    ReportBalanceProjectionUseCase,
+)
 from financial.application.use_cases.report_count_payment import (
     ReportCountPaymentUseCase,
 )
@@ -46,6 +49,7 @@ from financial.interfaces.api.serializers.report_ai_insights_serializers import 
     ReportAIInsightsPayloadSerializer,
 )
 from financial.interfaces.api.serializers.report_payment_serializers import (
+    DateFromRequiredQuerySerializer,
     ReportPaymentPeriodQuerySerializer,
     RequiredPeriodQuerySerializer,
 )
@@ -1055,67 +1059,23 @@ def report_top_expenses_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_balance_projection_view(request, user):
-    start_date = (
-        format_date(request.GET.get("date_from"))
-        if request.GET.get("date_from")
-        else None
-    )
-    if start_date is None:
-        return JsonResponse({"msg": "date_from is required"}, status=400)
+    serializer = DateFromRequiredQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
     months_ahead = parse_int_query_param(
         request.GET.get("months_ahead"), default=6, minimum=1
     )
 
-    start_month = start_date.replace(day=1)
-    data = []
-
-    for i in range(months_ahead):
-        month_start = start_month + relativedelta(months=i)
-        month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
-
-        sums = Payment.objects.filter(
-            user=user,
-            active=True,
-            payment_date__range=(month_start, month_end),
-        ).aggregate(
-            credit=Coalesce(
-                Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), Decimal("0")
-            ),
-            debit=Coalesce(
-                Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), Decimal("0")
-            ),
-        )
-
-        projected_credit = float(sums["credit"] or 0)
-        projected_debit = float(sums["debit"] or 0)
-        projected_balance = projected_credit - projected_debit
-
-        if projected_balance < 0:
-            risk_level = "high"
-        elif projected_credit > 0 and (projected_balance / projected_credit) < 0.1:
-            risk_level = "medium"
-        else:
-            risk_level = "low"
-
-        data.append(
-            {
-                "month": month_start.strftime("%Y-%m"),
-                "projected_credit": projected_credit,
-                "projected_debit": projected_debit,
-                "projected_balance": projected_balance,
-                "risk_level": risk_level,
-            }
-        )
-
     return JsonResponse(
-        {
-            "data": data,
-            "assumptions": {
-                "includes_open_payments": True,
-                "includes_fixed_entries": True,
-            },
-        }
+        ReportBalanceProjectionUseCase().execute(
+            user=user,
+            start_date=serializer.validated_data["date_from_parsed"],
+            months_ahead=months_ahead,
+        )
     )
 
 

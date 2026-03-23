@@ -642,6 +642,51 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(no_to.status_code, 400)
         self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
 
+    def test_report_balance_projection_view_returns_months_and_risk_levels(self):
+        queryset = MagicMock()
+        queryset.aggregate.side_effect = [
+            {"credit": Decimal("100.00"), "debit": Decimal("40.00")},
+            {"credit": Decimal("50.00"), "debit": Decimal("80.00")},
+        ]
+
+        with patch("financial.views.Payment.objects.filter", return_value=queryset):
+            response = self._call(
+                views.report_balance_projection_view,
+                data={"date_from": "2026-01-15", "months_ahead": "2"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(len(payload["data"]), 2)
+        self.assertEqual(payload["data"][0]["month"], "2026-01")
+        self.assertEqual(payload["data"][0]["risk_level"], "low")
+        self.assertEqual(payload["data"][1]["month"], "2026-02")
+        self.assertEqual(payload["data"][1]["risk_level"], "high")
+        self.assertEqual(payload["assumptions"]["includes_open_payments"], True)
+        self.assertEqual(payload["assumptions"]["includes_fixed_entries"], True)
+
+    def test_report_balance_projection_view_requires_date_from(self):
+        response = self._call(views.report_balance_projection_view, data={})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content), {"msg": "date_from is required"})
+
+    def test_report_balance_projection_view_respects_months_ahead_minimum(self):
+        queryset = MagicMock()
+        queryset.aggregate.side_effect = [
+            {"credit": Decimal("0"), "debit": Decimal("0")}
+        ] * 6
+
+        with patch("financial.views.Payment.objects.filter", return_value=queryset):
+            response = self._call(
+                views.report_balance_projection_view,
+                data={"date_from": "2026-01-01", "months_ahead": "0"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(len(payload["data"]), 6)
+
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(
             name="C1", user=self.user, value=10, value_open=8, value_closed=2

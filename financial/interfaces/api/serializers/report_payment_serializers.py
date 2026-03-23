@@ -48,3 +48,17 @@ class RequiredPeriodQuerySerializer(serializers.Serializer):
         attrs["date_from_parsed"] = date_from_parsed
         attrs["date_to_parsed"] = date_to_parsed
         return attrs
+
+
+class DateFromRequiredQuerySerializer(serializers.Serializer):
+    date_from = serializers.CharField(required=False, allow_blank=True)
+    months_ahead = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        date_from_raw = attrs.get("date_from")
+        date_from_parsed = format_date(date_from_raw) if date_from_raw else None
+        if not date_from_parsed:
+            raise serializers.ValidationError("date_from is required")
+
+        attrs["date_from_parsed"] = date_from_parsed
+        return attrs
