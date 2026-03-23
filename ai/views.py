@@ -9,6 +9,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
+from ai.application.use_cases.metrics_overview import MetricsOverviewUseCase
+from ai.interfaces.api.serializers.metrics_overview_serializers import (
+    MetricsOverviewResponseSerializer,
+)
 from ai.models import AIExecutionEvent
 from kawori.decorators import validate_user
 
@@ -19,68 +23,18 @@ DEFAULT_LOOKBACK_DAYS = 7
 @validate_user("admin")
 def metrics_overview(request, user):
     queryset, period = _build_filtered_queryset(request)
-    summary = queryset.aggregate(
-        total_calls=Count("id"),
-        total_cost=Sum("cost_estimate"),
-        success_calls=Count("id", filter=_q(success=True)),
-        failed_calls=Count("id", filter=_q(success=False)),
-        fallback_calls=Count("id", filter=_q(used_fallback=True)),
-        retry_attempts=Sum("retry_count"),
-        cache_hits=Count("id", filter=_q(cache_status="hit")),
-        cache_misses=Count("id", filter=_q(cache_status="miss")),
-        cache_bypass=Count("id", filter=_q(cache_status="bypass")),
-        avg_latency_ms=Avg("latency_ms"),
-        prompt_tokens=Sum("prompt_tokens"),
-        completion_tokens=Sum("completion_tokens"),
-        total_tokens=Sum("total_tokens"),
+    payload, status_code = MetricsOverviewUseCase().execute(
+        queryset=queryset,
+        period=period,
+        q_fn=_q,
+        count_cls=Count,
+        sum_cls=Sum,
+        avg_cls=Avg,
+        to_float_fn=_to_float,
+        ratio_fn=_ratio,
     )
-
-    total_calls = int(summary.get("total_calls") or 0)
-    success_calls = int(summary.get("success_calls") or 0)
-    fallback_calls = int(summary.get("fallback_calls") or 0)
-    retry_attempts = int(summary.get("retry_attempts") or 0)
-    cache_hits = int(summary.get("cache_hits") or 0)
-
-    response = {
-        "period": period,
-        "totals": {
-            "calls": total_calls,
-            "success_calls": success_calls,
-            "failed_calls": int(summary.get("failed_calls") or 0),
-            "cost_usd": _to_float(summary.get("total_cost")),
-            "fallback_calls": fallback_calls,
-            "retry_attempts": retry_attempts,
-            "cache_hits": cache_hits,
-            "cache_misses": int(summary.get("cache_misses") or 0),
-            "cache_bypass": int(summary.get("cache_bypass") or 0),
-            "avg_latency_ms": _to_float(summary.get("avg_latency_ms")),
-            "prompt_tokens": int(summary.get("prompt_tokens") or 0),
-            "completion_tokens": int(summary.get("completion_tokens") or 0),
-            "total_tokens": int(summary.get("total_tokens") or 0),
-        },
-        "rates": {
-            "success_rate": _ratio(success_calls, total_calls),
-            "fallback_rate": _ratio(fallback_calls, total_calls),
-            "retry_rate": _ratio(retry_attempts, total_calls),
-            "cache_hit_rate": _ratio(cache_hits, total_calls),
-        },
-        "cardinality": {
-            "features": queryset.values("feature_name")
-            .exclude(feature_name="")
-            .distinct()
-            .count(),
-            "providers": queryset.values("provider")
-            .exclude(provider="")
-            .distinct()
-            .count(),
-            "models": queryset.values("model").exclude(model="").distinct().count(),
-            "task_types": queryset.values("task_type")
-            .exclude(task_type="")
-            .distinct()
-            .count(),
-        },
-    }
-    return JsonResponse({"data": response})
+    serializer = MetricsOverviewResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
