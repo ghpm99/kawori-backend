@@ -24,6 +24,9 @@ from authentication.models import (
     UserToken,
 )
 from authentication.application.use_cases.signout import SignoutUseCase
+from authentication.application.use_cases.request_password_reset import (
+    RequestPasswordResetUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -32,6 +35,9 @@ from authentication.interfaces.api.serializers.obtain_csrf_cookie_serializers im
 )
 from authentication.interfaces.api.serializers.signout_serializers import (
     SignoutResponseSerializer,
+)
+from authentication.interfaces.api.serializers.password_reset_request_serializers import (
+    PasswordResetRequestSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -366,34 +372,22 @@ def request_password_reset(request: HttpRequest) -> JsonResponse:
             {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
         )
 
-    email = data.get("email", "").strip().lower()
-    if not email:
+    serializer = PasswordResetRequestSerializer(data=data)
+    if not serializer.is_valid():
         return JsonResponse(
             {"msg": "E-mail é obrigatório."}, status=HTTPStatus.BAD_REQUEST
         )
 
-    ip_address = get_client_ip(request)
-
-    if UserToken.is_rate_limited_by_ip(ip_address, UserToken.TOKEN_TYPE_PASSWORD_RESET):
-        return JsonResponse(
-            {"msg": "Muitas tentativas. Tente novamente mais tarde."},
-            status=429,
-        )
-
-    try:
-        user = User.objects.get(email__iexact=email, is_active=True)
-    except User.DoesNotExist:
-        return JsonResponse({"msg": _RESET_GENERIC_MSG})
-
-    if UserToken.is_rate_limited_by_user(user, UserToken.TOKEN_TYPE_PASSWORD_RESET):
-        return JsonResponse({"msg": _RESET_GENERIC_MSG})
-
-    raw_token = UserToken.create_for_user(
-        user, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET, ip_address=ip_address
+    payload, status_code = RequestPasswordResetUseCase().execute(
+        email=serializer.validated_data["email"],
+        request=request,
+        user_model=User,
+        user_token_model=UserToken,
+        get_client_ip_fn=get_client_ip,
+        send_password_reset_email_async_fn=send_password_reset_email_async,
+        reset_generic_msg=_RESET_GENERIC_MSG,
     )
-    send_password_reset_email_async(user, raw_token)
-
-    return JsonResponse({"msg": _RESET_GENERIC_MSG})
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
