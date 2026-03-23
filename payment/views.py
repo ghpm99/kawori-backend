@@ -5,8 +5,6 @@ from typing import List
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.db.models import Case, Count, DecimalField, Sum, Value, When
-from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from rest_framework.exceptions import ParseError
@@ -30,6 +28,7 @@ from payment.application.use_cases.csv_resolve_imports import (
 )
 from payment.application.use_cases.get_all_scheduled import GetAllScheduledUseCase
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.application.use_cases.get_payments_month import GetPaymentsMonthUseCase
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
 from payment.application.use_cases.statement import StatementUseCase
 from payment.application.use_cases.statement_anomalies import (
@@ -49,6 +48,9 @@ from payment.interfaces.api.serializers.csv_import_serializers import (
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
 )
+from payment.interfaces.api.serializers.month_serializers import (
+    PaymentsMonthQuerySerializer,
+)
 from payment.interfaces.api.serializers.scheduled_serializers import (
     ScheduledPaymentsQuerySerializer,
 )
@@ -58,21 +60,6 @@ from payment.interfaces.api.serializers.statement_serializers import (
 )
 from payment.models import ImportedPayment, Payment
 from payment.utils import CSVMapping, PaymentImport, Row, process_csv_row
-
-MONTHS_PT_BR = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-]
 
 
 def get_status_filter(status_params):
@@ -225,96 +212,19 @@ def save_new_view(request, user):
 @require_GET
 @validate_user("financial")
 def get_payments_month(request, user):
-    date_from = (
-        format_date(request.GET.get("date_from"))
-        if request.GET.get("date_from")
-        else None
-    )
-    date_to = (
-        format_date(request.GET.get("date_to")) if request.GET.get("date_to") else None
-    )
-
-    if date_from and date_to and date_from > date_to:
+    serializer = PaymentsMonthQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
         return JsonResponse(
-            {"msg": "date_from must be less than or equal to date_to"}, status=400
+            {"msg": serializer.errors["non_field_errors"][0]}, status=400
         )
 
-    invoices_query = Payment.objects.filter(
-        invoice__active=True, invoice__user=user, active=True
+    return JsonResponse(
+        GetPaymentsMonthUseCase().execute(
+            user=user,
+            date_from=serializer.validated_data["date_from_parsed"],
+            date_to=serializer.validated_data["date_to_parsed"],
+        )
     )
-    if date_from:
-        invoices_query = invoices_query.filter(payment_date__gte=date_from)
-    if date_to:
-        invoices_query = invoices_query.filter(payment_date__lte=date_to)
-
-    invoices = (
-        invoices_query.annotate(payment_month=TruncMonth("payment_date"))
-        .values("payment_month")
-        .annotate(
-            total_value_credit=Sum(
-                Case(
-                    When(type=0, then="value"),
-                    default=Value(0),
-                    output_field=DecimalField(),
-                )
-            ),
-            total_value_debit=Sum(
-                Case(
-                    When(type=1, then="value"),
-                    default=Value(0),
-                    output_field=DecimalField(),
-                )
-            ),
-            total_value_open=Sum(
-                Case(
-                    When(status=Payment.STATUS_OPEN, then="value"),
-                    default=Value(0),
-                    output_field=DecimalField(),
-                )
-            ),
-            total_value_closed=Sum(
-                Case(
-                    When(status=Payment.STATUS_DONE, then="value"),
-                    default=Value(0),
-                    output_field=DecimalField(),
-                )
-            ),
-            total_payments=Count("id"),
-        )
-        .order_by("payment_month")
-    )
-
-    payments = []
-    for index, row in enumerate(invoices, start=1):
-        month_date = (
-            row["payment_month"].date()
-            if hasattr(row["payment_month"], "date")
-            else row["payment_month"]
-        )
-        total_value_credit = float(row["total_value_credit"] or 0)
-        total_value_debit = float(row["total_value_debit"] or 0)
-        total_value_open = float(row["total_value_open"] or 0)
-        total_value_closed = float(row["total_value_closed"] or 0)
-        total_payments = row["total_payments"]
-
-        payments.append(
-            {
-                "id": index,
-                "name": MONTHS_PT_BR[month_date.month - 1],
-                "date": month_date,
-                "dateTimestamp": int(
-                    datetime.combine(month_date, datetime.min.time()).timestamp()
-                ),
-                "total": total_value_credit + total_value_debit,
-                "total_value_credit": total_value_credit,
-                "total_value_debit": total_value_debit,
-                "total_value_open": total_value_open,
-                "total_value_closed": total_value_closed,
-                "total_payments": total_payments,
-            }
-        )
-
-    return JsonResponse({"data": payments})
 
 
 @require_GET
