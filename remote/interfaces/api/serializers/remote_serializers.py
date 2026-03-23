@@ -11,3 +11,8 @@ class HotkeyPayloadSerializer(serializers.Serializer):
 
 class KeyPressPayloadSerializer(serializers.Serializer):
     keys = serializers.JSONField(required=False)
+
+
+class MouseMovePayloadSerializer(serializers.Serializer):
+    x = serializers.JSONField(required=False)
+    y = serializers.JSONField(required=False)
