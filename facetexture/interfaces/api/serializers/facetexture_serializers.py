@@ -77,3 +77,13 @@ class ReorderCharacterRequestSerializer(serializers.Serializer):
 class ReorderCharacterResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class NewCharacterRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class NewCharacterResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
