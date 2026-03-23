@@ -46,6 +46,9 @@ from authentication.application.use_cases.social_providers import (
     SocialProvidersUseCase,
 )
 from authentication.application.use_cases.signup import SignupUseCase
+from authentication.application.use_cases.social_authorize import (
+    SocialAuthorizeUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -84,6 +87,9 @@ from authentication.interfaces.api.serializers.social_providers_serializers impo
 )
 from authentication.interfaces.api.serializers.signup_serializers import (
     SignupRequestSerializer,
+)
+from authentication.interfaces.api.serializers.social_authorize_serializers import (
+    SocialAuthorizeResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -478,46 +484,21 @@ def social_providers(request: HttpRequest) -> JsonResponse:
 @require_GET
 @audit_log_auth("social.authorize")
 def social_authorize(request: HttpRequest, provider: str) -> JsonResponse:
-    try:
-        provider_config = get_social_provider_config(provider)
-    except SocialOAuthError as exc:
-        return JsonResponse({"msg": exc.message}, status=exc.status_code)
-
-    current_user = _get_current_user_from_cookie(request)
-    requested_mode = (request.GET.get("mode") or "").strip().lower()
-    mode = (
-        SocialAuthState.MODE_LINK
-        if requested_mode == SocialAuthState.MODE_LINK
-        else SocialAuthState.MODE_LOGIN
-    )
-    if mode == SocialAuthState.MODE_LINK and not current_user:
-        return JsonResponse(
-            {"msg": "Usuário precisa estar autenticado para vincular."},
-            status=HTTPStatus.UNAUTHORIZED,
-        )
-
-    frontend_redirect_uri = (request.GET.get("frontend_redirect_uri") or "").strip()
-    redirect_uri = request.build_absolute_uri(
-        reverse("auth_social_callback", kwargs={"provider": provider})
-    )
-    raw_state = SocialAuthState.create_for_provider(
+    payload, status_code = SocialAuthorizeUseCase().execute(
+        request=request,
         provider=provider,
-        mode=mode,
-        user=current_user if mode == SocialAuthState.MODE_LINK else None,
-        frontend_redirect_uri=frontend_redirect_uri,
-        expiration_minutes=getattr(
+        get_social_provider_config_fn=get_social_provider_config,
+        social_oauth_error_cls=SocialOAuthError,
+        get_current_user_from_cookie_fn=_get_current_user_from_cookie,
+        social_auth_state_model=SocialAuthState,
+        social_auth_state_expiration_minutes=getattr(
             settings, "SOCIAL_AUTH_STATE_EXPIRATION_MINUTES", 10
         ),
+        reverse_fn=reverse,
+        build_social_authorize_url_fn=build_social_authorize_url,
     )
-    authorize_url = build_social_authorize_url(provider_config, raw_state, redirect_uri)
-
-    return JsonResponse(
-        {
-            "provider": provider,
-            "mode": mode,
-            "authorize_url": authorize_url,
-        }
-    )
+    serializer = SocialAuthorizeResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
