@@ -1,7 +1,7 @@
 import inspect
 import json
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
@@ -22,10 +22,18 @@ class AnalyticsViewsRegressionTestCase(TestCase):
         request = self.rf.get("/")
         expected_date = timezone.make_aware(datetime(2026, 1, 10, 0, 0, 0))
 
-        with patch("analytics.views.datetime") as mocked_datetime:
+        mock_qs = Mock()
+        mock_qs.count.return_value = 7
+
+        with patch("analytics.views.datetime") as mocked_datetime, patch(
+            "analytics.views.User.objects.filter", return_value=mock_qs
+        ) as mocked_filter:
             mocked_datetime.now.return_value = expected_date + timedelta(days=7)
             response = inspect.unwrap(views.get_new_users)(request, user=self.user)
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn("new_users", payload)
+        self.assertEqual(payload, {"new_users": 7})
+        mocked_filter.assert_called_once_with(
+            is_active=True, date_joined=expected_date
+        )
