@@ -18,11 +18,14 @@ from facetexture.application.use_cases.get_bdo_class import GetBDOClassUseCase
 from facetexture.application.use_cases.get_facetexture_config import (
     GetFacetextureConfigUseCase,
 )
+from facetexture.application.use_cases.get_symbol_class import GetSymbolClassUseCase
 from facetexture.application.use_cases.save_detail import SaveDetailUseCase
 from facetexture.application.use_cases.change_show_class_icon import (
     ChangeShowClassIconUseCase,
 )
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
+    ClassAssetErrorResponseSerializer,
+    ClassAssetPathSerializer,
     ChangeShowClassIconRequestSerializer,
     ChangeShowClassIconResponseSerializer,
     GetBDOClassQuerySerializer,
@@ -463,30 +466,24 @@ def delete_character(request, user, id):
 
 @require_GET
 def get_symbol_class_view(request, id):
+    path_serializer = ClassAssetPathSerializer(data={"id": id})
+    path_serializer.is_valid(raise_exception=True)
 
-    filters = {"id": id}
+    payload, status_code, image_buffer = GetSymbolClassUseCase().execute(
+        class_id=path_serializer.validated_data["id"],
+        bdo_class_model=BDOClass,
+        get_symbol_class_fn=get_symbol_class,
+        io_module=io,
+    )
+    if payload is not None:
+        serializer = ClassAssetErrorResponseSerializer(payload)
+        return JsonResponse(serializer.data, status=status_code)
 
-    data = BDOClass.objects.filter(**filters).first()
-
-    if data is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado classe com esse ID"}, status=404
-        )
-
-    class_image = get_symbol_class(data)
-
-    buffer = io.BytesIO()
-
-    class_image.save(buffer, format="PNG")
-
-    buffer.seek(0)
-
-    return FileResponse(buffer, content_type="image/png")
+    return FileResponse(image_buffer, content_type="image/png")
 
 
 @require_GET
 def get_image_class_view(request, id):
-
     filters = {"id": id}
 
     bdo_class_order = BDOClass.objects.filter(**filters).values("class_order")

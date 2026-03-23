@@ -33,3 +33,12 @@ class ChangeShowClassIconRequestSerializer(serializers.Serializer):
 class ChangeShowClassIconResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ClassAssetPathSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+
+
+class ClassAssetErrorResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
