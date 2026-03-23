@@ -15,9 +15,13 @@ from PIL import Image, ImageOps
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FACETEXTURE
 from facetexture.application.use_cases.get_bdo_class import GetBDOClassUseCase
+from facetexture.application.use_cases.get_facetexture_config import (
+    GetFacetextureConfigUseCase,
+)
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
+    GetFacetextureConfigResponseSerializer,
 )
 from facetexture.models import BDOClass, Character, Facetexture
 from kawori.decorators import validate_user
@@ -40,32 +44,13 @@ def verify_valid_symbol(symbol: str) -> bool:
 @require_GET
 @validate_user("blackdesert")
 def get_facetexture_config(request, user):
-
-    characters = (
-        Character.objects.filter(user=user, active=True).all().order_by("order")
+    payload = GetFacetextureConfigUseCase().execute(
+        user=user,
+        character_model=Character,
+        class_image_url_fn=get_bdo_class_image_url,
     )
-
-    data = []
-
-    for character in characters:
-        character_data = {
-            "id": character.id,  # type: ignore
-            "name": character.name,
-            "show": character.show,
-            "image": character.image,
-            "order": character.order,
-            "upload": character.upload,
-            "class": {
-                "id": character.bdoClass.id,  # type: ignore
-                "name": character.bdoClass.name,
-                "abbreviation": character.bdoClass.abbreviation,
-                "class_image": get_bdo_class_image_url(character.bdoClass.id),  # type: ignore
-            },
-        }
-
-        data.append(character_data)
-
-    return JsonResponse({"characters": data})
+    serializer = GetFacetextureConfigResponseSerializer(payload)
+    return JsonResponse(serializer.data)
 
 
 @require_POST

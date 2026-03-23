@@ -8,3 +8,8 @@ class GetBDOClassQuerySerializer(serializers.Serializer):
 class GetBDOClassResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class GetFacetextureConfigResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
