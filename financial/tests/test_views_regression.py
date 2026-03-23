@@ -491,6 +491,69 @@ class FinancialViewsRegressionTestCase(TestCase):
             {"msg": "date_from must be less than or equal to date_to"},
         )
 
+    def test_report_daily_cash_flow_view_returns_series_and_summary(self):
+        grouped_rows = [
+            {
+                "payment_date": datetime(2026, 8, 1),
+                "credit": Decimal("100.00"),
+                "debit": Decimal("20.00"),
+            },
+            {
+                "payment_date": datetime(2026, 8, 3),
+                "credit": Decimal("0.00"),
+                "debit": Decimal("10.00"),
+            },
+        ]
+        queryset = MagicMock()
+        queryset.values.return_value.annotate.return_value.order_by.return_value = (
+            grouped_rows
+        )
+
+        with patch("financial.views.Payment.objects.filter", return_value=queryset):
+            response = self._call(
+                views.report_daily_cash_flow_view,
+                data={"date_from": "2026-08-01", "date_to": "2026-08-03"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(len(payload["data"]), 3)
+        self.assertEqual(payload["data"][0]["credit"], 100.0)
+        self.assertEqual(payload["data"][0]["debit"], 20.0)
+        self.assertEqual(payload["data"][1]["credit"], 0)
+        self.assertEqual(payload["data"][1]["debit"], 0)
+        self.assertEqual(payload["data"][2]["debit"], 10.0)
+        self.assertEqual(payload["summary"]["total_credit"], 100.0)
+        self.assertEqual(payload["summary"]["total_debit"], 30.0)
+        self.assertEqual(payload["summary"]["net"], 70.0)
+
+    def test_report_daily_cash_flow_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_daily_cash_flow_view,
+            data={"date_from": "2026-08-03", "date_to": "2026-08-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
+    def test_report_daily_cash_flow_view_requires_date_from_and_date_to(self):
+        no_from = self._call(
+            views.report_daily_cash_flow_view,
+            data={"date_to": "2026-08-01"},
+        )
+        self.assertEqual(no_from.status_code, 400)
+        self.assertEqual(json.loads(no_from.content), {"msg": "date_from is required"})
+
+        no_to = self._call(
+            views.report_daily_cash_flow_view,
+            data={"date_from": "2026-08-01"},
+        )
+        self.assertEqual(no_to.status_code, 400)
+        self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
+
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(
             name="C1", user=self.user, value=10, value_open=8, value_closed=2

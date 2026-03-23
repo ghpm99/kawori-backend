@@ -30,6 +30,9 @@ from financial.application.use_cases.report_amount_payment_open import (
 from financial.application.use_cases.report_count_payment import (
     ReportCountPaymentUseCase,
 )
+from financial.application.use_cases.report_daily_cash_flow import (
+    ReportDailyCashFlowUseCase,
+)
 from financial.application.use_cases.report_forecast_amount_value import (
     ReportForecastAmountValueUseCase,
 )
@@ -41,6 +44,7 @@ from financial.interfaces.api.serializers.report_ai_insights_serializers import 
 )
 from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportPaymentPeriodQuerySerializer,
+    RequiredPeriodQuerySerializer,
 )
 from financial.utils import (
     calculate_installments,
@@ -1007,64 +1011,19 @@ def get_metrics_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_daily_cash_flow_view(request, user):
-    filters, error_response = parse_period_filters(request, required=True)
-    if error_response:
-        return error_response
-
-    grouped = (
-        Payment.objects.filter(
-            user=user,
-            active=True,
-            payment_date__range=(filters["begin"], filters["end"]),
+    serializer = RequiredPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
         )
-        .values("payment_date")
-        .annotate(
-            credit=Coalesce(
-                Sum("value", filter=Q(type=Payment.TYPE_CREDIT)), Decimal("0")
-            ),
-            debit=Coalesce(
-                Sum("value", filter=Q(type=Payment.TYPE_DEBIT)), Decimal("0")
-            ),
-        )
-        .order_by("payment_date")
-    )
-
-    by_date = {row["payment_date"]: row for row in grouped}
-    cursor = filters["begin"]
-    accumulated = 0.0
-    data = []
-    total_credit = 0.0
-    total_debit = 0.0
-
-    while cursor <= filters["end"]:
-        row = by_date.get(cursor)
-        credit = float((row or {}).get("credit") or 0)
-        debit = float((row or {}).get("debit") or 0)
-        net = credit - debit
-        accumulated += net
-        total_credit += credit
-        total_debit += debit
-
-        data.append(
-            {
-                "date": cursor,
-                "credit": credit,
-                "debit": debit,
-                "net": net,
-                "accumulated": accumulated,
-            }
-        )
-        cursor += timedelta(days=1)
 
     return JsonResponse(
-        {
-            "data": data,
-            "summary": {
-                "total_credit": total_credit,
-                "total_debit": total_debit,
-                "net": total_credit - total_debit,
-            },
-        }
+        ReportDailyCashFlowUseCase().execute(
+            user=user,
+            date_from=serializer.validated_data["date_from_parsed"],
+            date_to=serializer.validated_data["date_to_parsed"],
+        )
     )
 
 
