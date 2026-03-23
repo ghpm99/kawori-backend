@@ -28,6 +28,7 @@ from payment.application.use_cases.csv_resolve_imports import (
 )
 from payment.application.use_cases.get_all_scheduled import GetAllScheduledUseCase
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
+from payment.application.use_cases.get_payment_detail import GetPaymentDetailUseCase
 from payment.application.use_cases.get_payments_month import GetPaymentsMonthUseCase
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
 from payment.application.use_cases.statement import StatementUseCase
@@ -47,6 +48,9 @@ from payment.interfaces.api.serializers.csv_import_serializers import (
 )
 from payment.interfaces.api.serializers.csv_mapping_serializers import (
     CSVMappingInputSerializer,
+)
+from payment.interfaces.api.serializers.detail_serializers import (
+    PaymentDetailPathSerializer,
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
@@ -230,27 +234,17 @@ def get_payments_month(request, user):
 @require_GET
 @validate_user("financial")
 def detail_view(request, id, user):
-    data = Payment.objects.filter(id=id, user=user, active=True).first()
+    serializer = PaymentDetailPathSerializer(data={"id": id})
+    serializer.is_valid(raise_exception=False)
+    data = GetPaymentDetailUseCase().execute(
+        user=user,
+        payment_id=serializer.validated_data["id"],
+    )
 
     if data is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
 
-    payment = {
-        "id": data.id,
-        "status": data.status,
-        "type": data.type,
-        "name": data.name,
-        "date": data.date,
-        "installments": data.installments,
-        "payment_date": data.payment_date,
-        "fixed": data.fixed,
-        "active": data.active,
-        "value": float(data.value or 0),
-        "invoice": data.invoice.id,
-        "invoice_name": data.invoice.name,
-    }
-
-    return JsonResponse({"data": payment})
+    return JsonResponse({"data": data})
 
 
 @require_POST
