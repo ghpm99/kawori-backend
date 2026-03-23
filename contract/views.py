@@ -6,6 +6,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
+from contract.application.use_cases.create_contract import CreateContractUseCase
 from contract.application.use_cases.get_all_contracts import GetAllContractsUseCase
 from contract.application.use_cases.get_contract_detail import GetContractDetailUseCase
 from contract.interfaces.api.serializers.contract_serializers import (
@@ -41,20 +42,12 @@ def get_all_contract_view(request, user):
 @audit_log("contract.create", CATEGORY_FINANCIAL, "Contract")
 def save_new_contract_view(request, user):
     data = json.loads(request.body)
-    contract = Contract(name=data.get("name"), user=user)
-    contract.save()
-
-    return JsonResponse(
-        {
-            "data": {
-                "id": contract.id,
-                "name": contract.name,
-                "value": float(contract.value or 0),
-                "value_open": float(contract.value_open or 0),
-                "value_closed": float(contract.value_closed or 0),
-            }
-        }
+    payload = CreateContractUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        payload=data,
     )
+    return JsonResponse(payload)
 
 
 @require_GET
