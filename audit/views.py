@@ -8,8 +8,12 @@ from django.views.decorators.http import require_GET
 
 from audit.ai_assist import build_audit_ai_insights
 from audit.application.use_cases.get_audit_logs import GetAuditLogsUseCase
+from audit.application.use_cases.get_audit_stats import GetAuditStatsUseCase
 from audit.interfaces.api.serializers.audit_logs_serializers import (
     AuditLogsResponseSerializer,
+)
+from audit.interfaces.api.serializers.audit_stats_serializers import (
+    AuditStatsResponseSerializer,
 )
 from audit.models import AuditLog
 from kawori.decorators import validate_user
@@ -33,55 +37,14 @@ def get_audit_logs(request, user):
 @require_GET
 @validate_user("admin")
 def get_audit_stats(request, user):
-    now = timezone.now()
-    last_24h = now - timedelta(hours=24)
-    last_7d = now - timedelta(days=7)
-
-    by_category_24h = (
-        AuditLog.objects.filter(created_at__gte=last_24h)
-        .values("category")
-        .annotate(count=Count("id"))
+    payload, status_code = GetAuditStatsUseCase().execute(
+        audit_log_model=AuditLog,
+        now_fn=timezone.now,
+        timedelta_cls=timedelta,
+        count_cls=Count,
     )
-
-    by_result_24h = (
-        AuditLog.objects.filter(created_at__gte=last_24h)
-        .values("result")
-        .annotate(count=Count("id"))
-    )
-
-    by_category_7d = (
-        AuditLog.objects.filter(created_at__gte=last_7d)
-        .values("category")
-        .annotate(count=Count("id"))
-    )
-
-    by_result_7d = (
-        AuditLog.objects.filter(created_at__gte=last_7d)
-        .values("result")
-        .annotate(count=Count("id"))
-    )
-
-    failed_logins_24h = AuditLog.objects.filter(
-        created_at__gte=last_24h,
-        action="login",
-        result="failure",
-    ).count()
-
-    return JsonResponse(
-        {
-            "data": {
-                "last_24h": {
-                    "by_category": list(by_category_24h),
-                    "by_result": list(by_result_24h),
-                },
-                "last_7d": {
-                    "by_category": list(by_category_7d),
-                    "by_result": list(by_result_7d),
-                },
-                "failed_logins_24h": failed_logins_24h,
-            }
-        }
-    )
+    serializer = AuditStatsResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
