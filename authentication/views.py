@@ -52,6 +52,7 @@ from authentication.application.use_cases.social_authorize import (
 from authentication.application.use_cases.social_accounts_list import (
     SocialAccountsListUseCase,
 )
+from authentication.application.use_cases.social_callback import SocialCallbackUseCase
 from authentication.application.use_cases.social_account_unlink import (
     SocialAccountUnlinkUseCase,
 )
@@ -99,6 +100,9 @@ from authentication.interfaces.api.serializers.social_authorize_serializers impo
 )
 from authentication.interfaces.api.serializers.social_accounts_list_serializers import (
     SocialAccountsListResponseSerializer,
+)
+from authentication.interfaces.api.serializers.social_callback_serializers import (
+    SocialCallbackQuerySerializer,
 )
 from authentication.interfaces.api.serializers.social_account_unlink_serializers import (
     SocialAccountUnlinkResponseSerializer,
@@ -516,197 +520,29 @@ def social_authorize(request: HttpRequest, provider: str) -> JsonResponse:
 @require_GET
 @audit_log_auth("social.callback")
 def social_callback(request: HttpRequest, provider: str):
-    code = (request.GET.get("code") or "").strip()
-    state_raw = (request.GET.get("state") or "").strip()
-    provider_error = (request.GET.get("error") or "").strip()
-
-    try:
-        provider_config = get_social_provider_config(provider)
-    except SocialOAuthError as exc:
-        return JsonResponse({"msg": exc.message}, status=exc.status_code)
-
-    if provider_error:
-        return JsonResponse(
-            {"msg": f"Erro retornado pelo provedor: {provider_error}"},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    if not code or not state_raw:
-        return JsonResponse(
-            {"msg": "Parâmetros OAuth inválidos."}, status=HTTPStatus.BAD_REQUEST
-        )
-
-    state_hash = SocialAuthState.hash_state(state_raw)
-    state_obj = (
-        SocialAuthState.objects.select_related("user")
-        .filter(provider=provider, state_hash=state_hash)
-        .first()
+    serializer = SocialCallbackQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
+    return SocialCallbackUseCase().execute(
+        request=request,
+        provider=provider,
+        social_oauth_error_cls=SocialOAuthError,
+        get_social_provider_config_fn=get_social_provider_config,
+        json_response_cls=JsonResponse,
+        http_status_module=HTTPStatus,
+        social_auth_state_model=SocialAuthState,
+        reverse_fn=reverse,
+        exchange_social_code_for_token_fn=exchange_social_code_for_token,
+        fetch_social_profile_fn=fetch_social_profile,
+        redirect_or_json_fn=_redirect_or_json,
+        transaction_module=transaction,
+        social_account_model=SocialAccount,
+        user_model=User,
+        create_user_from_social_profile_fn=_create_user_from_social_profile,
+        timezone_module=timezone,
+        email_verification_model=EmailVerification,
+        build_auth_response_fn=_build_auth_response,
+        http_response_redirect_cls=HttpResponseRedirect,
     )
-    if not state_obj or not state_obj.is_valid():
-        return JsonResponse(
-            {"msg": "Estado OAuth inválido ou expirado."}, status=HTTPStatus.BAD_REQUEST
-        )
-
-    try:
-        redirect_uri = request.build_absolute_uri(
-            reverse("auth_social_callback", kwargs={"provider": provider})
-        )
-        token_data = exchange_social_code_for_token(provider_config, code, redirect_uri)
-        profile = fetch_social_profile(provider_config, token_data)
-    except SocialOAuthError as exc:
-        state_obj.consume()
-        return _redirect_or_json(
-            state_obj,
-            {"status": "error", "msg": exc.message},
-            status_code=exc.status_code,
-        )
-    except Exception:
-        state_obj.consume()
-        return _redirect_or_json(
-            state_obj,
-            {"status": "error", "msg": "Falha ao concluir login social."},
-            status_code=400,
-        )
-
-    provider_user_id = (profile.get("provider_user_id") or "").strip()
-    if not provider_user_id:
-        state_obj.consume()
-        return _redirect_or_json(
-            state_obj,
-            {"status": "error", "msg": "Perfil social sem identificador único."},
-            status_code=400,
-        )
-
-    with transaction.atomic():
-        social_account = (
-            SocialAccount.objects.select_related("user")
-            .filter(provider=provider, provider_user_id=provider_user_id)
-            .first()
-        )
-
-        email = (profile.get("email") or "").strip().lower()
-        is_new_user = False
-        linked_existing_user = False
-
-        if state_obj.mode == SocialAuthState.MODE_LINK:
-            if not state_obj.user or not state_obj.user.is_active:
-                state_obj.consume()
-                return _redirect_or_json(
-                    state_obj,
-                    {
-                        "status": "error",
-                        "msg": "Usuário autenticado inválido para vínculo.",
-                    },
-                    status_code=HTTPStatus.FORBIDDEN,
-                )
-
-            target_user = state_obj.user
-            if social_account and social_account.user_id != target_user.id:
-                state_obj.consume()
-                return _redirect_or_json(
-                    state_obj,
-                    {
-                        "status": "error",
-                        "msg": "Esta conta social já está vinculada a outro usuário.",
-                    },
-                    status_code=HTTPStatus.CONFLICT,
-                )
-        else:
-            if social_account:
-                target_user = social_account.user
-                if not target_user.is_active:
-                    state_obj.consume()
-                    return _redirect_or_json(
-                        state_obj,
-                        {"status": "error", "msg": "Usuário vinculado está inativo."},
-                        status_code=HTTPStatus.FORBIDDEN,
-                    )
-            else:
-                target_user = None
-                if email:
-                    target_user = User.objects.filter(email__iexact=email).first()
-                    linked_existing_user = bool(target_user)
-
-                if target_user is None:
-                    target_user = _create_user_from_social_profile(profile, provider)
-                    is_new_user = True
-
-        social_defaults = {
-            "email": email,
-            "is_email_verified": bool(profile.get("is_email_verified")),
-            "full_name": profile.get("full_name", "") or "",
-            "avatar_url": profile.get("avatar_url", "") or "",
-            "profile_data": profile.get("raw", {}),
-            "last_login_at": timezone.now(),
-        }
-
-        user_provider_link = SocialAccount.objects.filter(
-            user=target_user, provider=provider
-        ).first()
-        if (
-            user_provider_link
-            and user_provider_link.provider_user_id != provider_user_id
-        ):
-            state_obj.consume()
-            return _redirect_or_json(
-                state_obj,
-                {
-                    "status": "error",
-                    "msg": "Usuário já possui outra conta vinculada neste provedor.",
-                },
-                status_code=HTTPStatus.CONFLICT,
-            )
-
-        if social_account:
-            for key, value in social_defaults.items():
-                setattr(social_account, key, value)
-            social_account.user = target_user
-            social_account.save()
-        else:
-            social_account = SocialAccount.objects.create(
-                user=target_user,
-                provider=provider,
-                provider_user_id=provider_user_id,
-                **social_defaults,
-            )
-
-        if (
-            social_defaults["is_email_verified"]
-            and target_user.email
-            and target_user.email.lower() == email
-        ):
-            verification, _ = EmailVerification.objects.get_or_create(user=target_user)
-            if not verification.is_verified:
-                verification.is_verified = True
-                verification.verified_at = timezone.now()
-                verification.save(update_fields=["is_verified", "verified_at"])
-
-        state_obj.consume()
-
-    response_payload = {
-        "status": "success",
-        "provider": provider,
-        "mode": state_obj.mode,
-        "is_new_user": is_new_user,
-        "linked_existing_user": linked_existing_user,
-        "msg": (
-            "Conta social vinculada com sucesso."
-            if state_obj.mode == SocialAuthState.MODE_LINK
-            else "Login social concluído."
-        ),
-    }
-
-    if state_obj.mode == SocialAuthState.MODE_LINK:
-        return _redirect_or_json(state_obj, response_payload)
-
-    response = _redirect_or_json(state_obj, response_payload)
-    if isinstance(response, HttpResponseRedirect):
-        cookie_response = _build_auth_response(target_user, payload={})
-        for cookie_key in cookie_response.cookies:
-            response.cookies[cookie_key] = cookie_response.cookies[cookie_key]
-        return response
-
-    return _build_auth_response(target_user, payload=response_payload)
 
 
 @require_GET
