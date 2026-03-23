@@ -7,6 +7,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from audit.ai_assist import build_audit_ai_insights
+from audit.application.use_cases.get_audit_logs import GetAuditLogsUseCase
+from audit.interfaces.api.serializers.audit_logs_serializers import (
+    AuditLogsResponseSerializer,
+)
 from audit.models import AuditLog
 from kawori.decorators import validate_user
 from kawori.utils import format_date, paginate
@@ -15,59 +19,15 @@ from kawori.utils import format_date, paginate
 @require_GET
 @validate_user("admin")
 def get_audit_logs(request, user):
-    req = request.GET
-    filters = {}
-
-    if req.get("action"):
-        filters["action"] = req.get("action")
-    if req.get("category"):
-        filters["category"] = req.get("category")
-    if req.get("result"):
-        filters["result"] = req.get("result")
-    if req.get("user_id"):
-        filters["user_id"] = req.get("user_id")
-    if req.get("username"):
-        filters["username__icontains"] = req.get("username")
-    if req.get("ip_address"):
-        filters["ip_address"] = req.get("ip_address")
-    if req.get("date_from"):
-        date_from = format_date(req.get("date_from"))
-        if date_from:
-            filters["created_at__gte"] = date_from
-    if req.get("date_to"):
-        date_to = format_date(req.get("date_to"))
-        if date_to:
-            filters["created_at__lte"] = date_to + timedelta(days=1)
-
-    logs = AuditLog.objects.filter(**filters)
-    page_size = req.get("page_size", 50)
-    data = paginate(logs, req.get("page", 1), page_size)
-
-    logs_data = [
-        {
-            "id": log.id,
-            "action": log.action,
-            "category": log.category,
-            "result": log.result,
-            "user_id": log.user_id,
-            "username": log.username,
-            "ip_address": log.ip_address,
-            "user_agent": log.user_agent,
-            "path": log.path,
-            "method": log.method,
-            "target_model": log.target_model,
-            "target_id": log.target_id,
-            "detail": log.detail,
-            "response_status": log.response_status,
-            "created_at": log.created_at.isoformat(),
-        }
-        for log in data.get("data")
-    ]
-
-    data["page_size"] = page_size
-    data["data"] = logs_data
-
-    return JsonResponse({"data": data})
+    payload, status_code = GetAuditLogsUseCase().execute(
+        request_get=request.GET,
+        audit_log_model=AuditLog,
+        format_date_fn=format_date,
+        paginate_fn=paginate,
+        timedelta_cls=timedelta,
+    )
+    serializer = AuditLogsResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
