@@ -30,6 +30,9 @@ from authentication.application.use_cases.request_password_reset import (
 from authentication.application.use_cases.validate_reset_token import (
     ValidateResetTokenUseCase,
 )
+from authentication.application.use_cases.confirm_password_reset import (
+    ConfirmPasswordResetUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -44,6 +47,9 @@ from authentication.interfaces.api.serializers.password_reset_request_serializer
 )
 from authentication.interfaces.api.serializers.password_reset_validate_serializers import (
     PasswordResetValidateSerializer,
+)
+from authentication.interfaces.api.serializers.password_reset_confirm_serializers import (
+    PasswordResetConfirmSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -431,48 +437,24 @@ def confirm_password_reset(request: HttpRequest) -> JsonResponse:
             {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
         )
 
-    raw_token = data.get("token", "").strip()
-    new_password = data.get("new_password", "")
-
-    if not raw_token or not new_password:
+    serializer = PasswordResetConfirmSerializer(data=data)
+    if not serializer.is_valid():
         return JsonResponse(
             {"msg": "Token e nova senha são obrigatórios."},
             status=HTTPStatus.BAD_REQUEST,
         )
 
-    token_hash = UserToken.hash_token(raw_token)
-
-    try:
-        token_obj = UserToken.objects.select_related("user").get(
-            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
-        )
-    except UserToken.DoesNotExist:
-        return JsonResponse(
-            {"msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    if not token_obj.is_valid():
-        return JsonResponse(
-            {"msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    user = token_obj.user
-
-    try:
-        validate_password(new_password, user)
-    except ValidationError as e:
-        return JsonResponse({"msg": list(e.messages)}, status=HTTPStatus.BAD_REQUEST)
-
-    with transaction.atomic():
-        user.set_password(new_password)
-        user.save(update_fields=["password"])
-
-        ip_address = get_client_ip(request)
-        token_obj.consume(ip_address)
-
-    return JsonResponse({"msg": "Senha redefinida com sucesso."})
+    payload, status_code = ConfirmPasswordResetUseCase().execute(
+        raw_token=serializer.validated_data["token"],
+        new_password=serializer.validated_data["new_password"],
+        request=request,
+        user_token_model=UserToken,
+        validate_password_fn=validate_password,
+        validation_error_cls=ValidationError,
+        transaction_module=transaction,
+        get_client_ip_fn=get_client_ip,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 # ─── Email verification ──────────────────────────────────────────────────────
