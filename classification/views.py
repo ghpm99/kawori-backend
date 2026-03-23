@@ -6,6 +6,12 @@ from django.views.decorators.http import require_GET, require_POST
 from audit.decorators import audit_log
 from audit.models import CATEGORY_CLASSIFICATION
 from classification.application.use_cases.get_bdo_class import GetBDOClassUseCase
+from classification.application.use_cases.get_all_questions import (
+    GetAllQuestionsUseCase,
+)
+from classification.interfaces.api.serializers.get_all_questions_serializers import (
+    GetAllQuestionsResponseSerializer,
+)
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
 )
@@ -22,19 +28,9 @@ from kawori.decorators import validate_user
 @require_GET
 @validate_user("blackdesert")
 def get_all_questions(request, user):
-    question_list = Question.objects.order_by("id")
-
-    data = [
-        {
-            "id": question.id,
-            "question_text": question.question_text,
-            "question_details": question.question_details,
-            "pub_date": question.pub_date,
-        }
-        for question in question_list
-    ]
-
-    return JsonResponse({"data": data})
+    payload, status_code = GetAllQuestionsUseCase().execute(question_model=Question)
+    serializer = GetAllQuestionsResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
