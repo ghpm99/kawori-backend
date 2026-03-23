@@ -15,7 +15,7 @@ from audit.models import CATEGORY_FINANCIAL
 from financial.utils import calculate_installments, generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
-from kawori.utils import boolean, format_date, paginate
+from kawori.utils import boolean, format_date
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
 from payment.application.use_cases.csv_ai_reconcile import CSVAIReconcileUseCase
@@ -26,6 +26,7 @@ from payment.application.use_cases.csv_import import CSVImportUseCase
 from payment.application.use_cases.csv_resolve_imports import (
     CSVResolveImportsUseCase,
 )
+from payment.application.use_cases.get_all_payments import GetAllPaymentsUseCase
 from payment.application.use_cases.get_all_scheduled import GetAllScheduledUseCase
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.application.use_cases.get_payment_detail import GetPaymentDetailUseCase
@@ -51,6 +52,9 @@ from payment.interfaces.api.serializers.csv_mapping_serializers import (
 )
 from payment.interfaces.api.serializers.detail_serializers import (
     PaymentDetailPathSerializer,
+)
+from payment.interfaces.api.serializers.get_all_serializers import (
+    PaymentGetAllQuerySerializer,
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
@@ -82,80 +86,14 @@ def get_status_filter(status_params):
 @require_GET
 @validate_user("financial")
 def get_all_view(request, user):
-    req = request.GET
-    filters = {}
-
-    if req.get("status"):
-        status_filter = get_status_filter(req.get("status"))
-        if status_filter is not None:
-            filters["status"] = status_filter
-    if req.get("type"):
-        filters["type"] = req.get("type")
-    if req.get("name__icontains"):
-        filters["name__icontains"] = req.get("name__icontains")
-    if req.get("date__gte"):
-        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
-    if req.get("date__lte"):
-        filters["date__lte"] = format_date(
-            req.get("date__lte")
-        ) or datetime.now() + timedelta(days=1)
-    if req.get("installments"):
-        filters["installments"] = req.get("installments")
-    if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(
-            req.get("payment_date__gte")
-        ) or datetime(2018, 1, 1)
-    if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(
-            req.get("payment_date__lte")
-        ) or datetime.now() + timedelta(days=1)
-    if req.get("fixed"):
-        filters["fixed"] = boolean(req.get("fixed"))
-    if req.get("active"):
-        filters["active"] = boolean(req.get("active"))
-    if req.get("invoice_id"):
-        filters["invoice_id"] = req.get("invoice_id")
-    if req.get("invoice"):
-        filters["invoice__name__icontains"] = req.get("invoice")
-
-    payments_query = Payment.objects.filter(**filters, user=user).order_by(
-        "payment_date", "id"
+    serializer = PaymentGetAllQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
+    return JsonResponse(
+        GetAllPaymentsUseCase(get_status_filter=get_status_filter).execute(
+            user=user,
+            params=serializer.validated_data,
+        )
     )
-    page_size = req.get("page_size", 10)
-
-    data = paginate(payments_query, req.get("page", 1), page_size)
-
-    payments = [
-        {
-            "id": payment.id,
-            "status": payment.status,
-            "type": payment.type,
-            "name": payment.name,
-            "date": payment.date,
-            "installments": payment.installments,
-            "payment_date": payment.payment_date,
-            "fixed": payment.fixed,
-            "active": payment.active,
-            "value": float(payment.value or 0),
-            "invoice_id": payment.invoice.id,
-            "invoice_name": payment.invoice.name,
-            "tags": [
-                {
-                    "id": tag.id,
-                    "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
-                    "color": tag.color,
-                    "is_budget": hasattr(tag, "budget"),
-                }
-                for tag in payment.invoice.tags.all().order_by("budget", "name")
-            ],
-        }
-        for payment in data.get("data")
-    ]
-
-    data["page_size"] = page_size
-    data["data"] = payments
-
-    return JsonResponse({"data": data})
 
 
 @require_POST
