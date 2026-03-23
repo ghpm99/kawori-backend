@@ -9,3 +9,8 @@ class SaveNewPaymentInputSerializer(serializers.Serializer):
     installments = serializers.JSONField(required=False)
     fixed = serializers.JSONField(required=False)
     value = serializers.JSONField(required=False)
+
+
+class SaveNewPaymentResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

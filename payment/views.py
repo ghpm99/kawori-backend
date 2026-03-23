@@ -74,6 +74,7 @@ from payment.interfaces.api.serializers.save_detail_serializers import (
 )
 from payment.interfaces.api.serializers.save_new_serializers import (
     SaveNewPaymentInputSerializer,
+    SaveNewPaymentResponseSerializer,
 )
 from payment.interfaces.api.serializers.scheduled_serializers import (
     ScheduledPaymentsQuerySerializer,
@@ -134,7 +135,8 @@ def save_new_view(request, user):
             status=result["error"]["status"],
         )
 
-    return JsonResponse(result["payload"])
+    response_serializer = SaveNewPaymentResponseSerializer(result["payload"])
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
