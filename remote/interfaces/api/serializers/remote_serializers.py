@@ -16,3 +16,7 @@ class KeyPressPayloadSerializer(serializers.Serializer):
 class MouseMovePayloadSerializer(serializers.Serializer):
     x = serializers.JSONField(required=False)
     y = serializers.JSONField(required=False)
+
+
+class MouseButtonPayloadSerializer(serializers.Serializer):
+    button = serializers.JSONField(required=False)
