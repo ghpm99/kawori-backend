@@ -12,6 +12,7 @@ from financial.utils import generate_payments
 from invoice.application.use_cases.get_all_invoices import GetAllInvoicesUseCase
 from invoice.application.use_cases.get_invoice_detail import GetInvoiceDetailUseCase
 from invoice.application.use_cases.get_invoice_payments import GetInvoicePaymentsUseCase
+from invoice.application.use_cases.save_invoice_tags import SaveInvoiceTagsUseCase
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
@@ -88,27 +89,15 @@ def detail_invoice_payments_view(request, id, user):
 @validate_user("financial")
 @audit_log("invoice.update_tags", CATEGORY_FINANCIAL, "Invoice")
 def save_tag_invoice_view(request, id, user):
-
     data = json.loads(request.body)
-
-    if data is None:
-        return JsonResponse({"msg": "Etiquetas não encontradas"}, status=404)
-
-    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
-    if invoice is None:
-        return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
-
-    tags = Tag.objects.filter(id__in=data, user=user)
-    if tags.count() != len(set(data)):
-        return JsonResponse(
-            {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
-        )
-
-    with transaction.atomic():
-        invoice.tags.set(tags)
-        invoice.save()
-
-    return JsonResponse({"msg": "Etiquetas atualizadas com sucesso"})
+    payload, status_code = SaveInvoiceTagsUseCase().execute(
+        user=user,
+        invoice_model=Invoice,
+        tag_model=Tag,
+        invoice_id=id,
+        payload=data,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
