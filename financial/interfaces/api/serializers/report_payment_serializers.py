@@ -102,3 +102,8 @@ class ReportForecastAmountValueResponseSerializer(serializers.Serializer):
 class ReportMetricsResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ReportDailyCashFlowResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

@@ -56,6 +56,7 @@ from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportAmountInvoiceByTagResponseSerializer,
     ReportForecastAmountValueResponseSerializer,
     ReportMetricsResponseSerializer,
+    ReportDailyCashFlowResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -1044,13 +1045,13 @@ def report_daily_cash_flow_view(request, user):
             status=400,
         )
 
-    return JsonResponse(
-        ReportDailyCashFlowUseCase().execute(
-            user=user,
-            date_from=serializer.validated_data["date_from_parsed"],
-            date_to=serializer.validated_data["date_to_parsed"],
-        )
+    payload = ReportDailyCashFlowUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
     )
+    response_serializer = ReportDailyCashFlowResponseSerializer(payload)
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
