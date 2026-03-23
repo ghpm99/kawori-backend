@@ -14,6 +14,9 @@ from contract.models import Contract
 from financial.application.use_cases.report_ai_insights import (
     ReportAIInsightsUseCase,
 )
+from financial.application.use_cases.report_count_payment import (
+    ReportCountPaymentUseCase,
+)
 from financial.application.use_cases.report_payment_summary import (
     ReportPaymentSummaryUseCase,
 )
@@ -794,39 +797,21 @@ def save_tag_invoice_view(request, id, user):
 @require_GET
 @validate_user("financial")
 def report_count_payment_view(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
-    query_params = {"user_id": user.id}
-    if params["begin"] and params["end"]:
-        query_params.update({"begin": params["begin"], "end": params["end"]})
-        count_payment = """
-            SELECT
-                COALESCE(COUNT(id), 0) as payment_total
-            FROM
-                financial_payment fp
-            WHERE
-                user_id=%(user_id)s
-                AND active=true
-                AND fp."payment_date" BETWEEN %(begin)s AND %(end)s;
-        """
-    else:
-        count_payment = """
-            SELECT
-                COALESCE(COUNT(id), 0) as payment_total
-            FROM
-                financial_payment fp
-            WHERE
-                user_id=%(user_id)s
-                AND active=true;
-        """
+    data = ReportCountPaymentUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        cursor_factory=connection.cursor,
+    )
 
-    with connection.cursor() as cursor:
-        cursor.execute(count_payment, query_params)
-        payment_total = cursor.fetchone()
-
-    return JsonResponse({"data": int(payment_total[0])})
+    return JsonResponse({"data": data})
 
 
 @require_GET
