@@ -13,6 +13,7 @@ from classification.application.use_cases.get_all_answers import GetAllAnswersUs
 from classification.application.use_cases.get_answer_summary import (
     GetAnswerSummaryUseCase,
 )
+from classification.application.use_cases.answer_by_class import AnswerByClassUseCase
 from classification.interfaces.api.serializers.get_all_questions_serializers import (
     GetAllQuestionsResponseSerializer,
 )
@@ -21,6 +22,9 @@ from classification.interfaces.api.serializers.get_all_answers_serializers impor
 )
 from classification.interfaces.api.serializers.get_answer_summary_serializers import (
     GetAnswerSummaryResponseSerializer,
+)
+from classification.interfaces.api.serializers.answer_by_class_serializers import (
+    AnswerByClassResponseSerializer,
 )
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
@@ -119,20 +123,12 @@ def total_votes(request):
 
 @require_GET
 def answer_by_class(request):
-    bdo_classes = BDOClass.objects.order_by("abbreviation")
-
-    data = []
-    for bdo_class in bdo_classes:
-        answers_count = Answer.objects.filter(bdo_class=bdo_class).count()
-        data.append(
-            {
-                "class": bdo_class.abbreviation,
-                "answers_count": answers_count,
-                "color": bdo_class.color if bdo_class.color else "",
-            }
-        )
-
-    return JsonResponse({"data": data})
+    payload, status_code = AnswerByClassUseCase().execute(
+        bdo_class_model=BDOClass,
+        answer_model=Answer,
+    )
+    serializer = AnswerByClassResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 def process_style_resume(resume):
