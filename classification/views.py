@@ -14,6 +14,7 @@ from classification.application.use_cases.get_answer_summary import (
     GetAnswerSummaryUseCase,
 )
 from classification.application.use_cases.answer_by_class import AnswerByClassUseCase
+from classification.application.use_cases.register_answer import RegisterAnswerUseCase
 from classification.interfaces.api.serializers.get_all_questions_serializers import (
     GetAllQuestionsResponseSerializer,
 )
@@ -25,6 +26,9 @@ from classification.interfaces.api.serializers.get_answer_summary_serializers im
 )
 from classification.interfaces.api.serializers.answer_by_class_serializers import (
     AnswerByClassResponseSerializer,
+)
+from classification.interfaces.api.serializers.register_answer_serializers import (
+    RegisterAnswerRequestSerializer,
 )
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
@@ -63,44 +67,17 @@ def get_all_answers(request, user):
 @audit_log("answer.register", CATEGORY_CLASSIFICATION, "Answer")
 def register_answer(request, user):
     data = json.loads(request.body)
+    serializer = RegisterAnswerRequestSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
 
-    question_id = data.get("question_id")
-    if not question_id:
-        return JsonResponse({"msg": "ID da questão não informado!"}, status=400)
-
-    question = Question.objects.get(id=question_id)
-    if not question:
-        return JsonResponse({"msg": "Questão não encontrada!"}, status=404)
-
-    combat_style = data.get("combat_style")
-    if not combat_style:
-        return JsonResponse({"msg": "Estilo de combate não informado!"}, status=400)
-    if isinstance(combat_style, int) is False:
-        return JsonResponse({"msg": "Estilo de combate invalido"}, status=400)
-
-    bdo_class_id = data.get("bdo_class_id")
-    if not bdo_class_id:
-        return JsonResponse({"msg": "ID da classe não informado!"}, status=400)
-
-    bdo_class = BDOClass.objects.get(id=bdo_class_id)
-    if not bdo_class:
-        return JsonResponse({"msg": "Classe não encontrada!"}, status=404)
-
-    vote = data.get("vote")
-    if not vote:
-        return JsonResponse({"msg": "Voto não informado!"}, status=400)
-    if isinstance(vote, int) is False:
-        return JsonResponse({"msg": "Voto deve ser um número inteiro!"}, status=400)
-
-    Answer.objects.create(
-        question_id=question_id,
-        bdo_class_id=bdo_class_id,
-        combat_style=combat_style,
+    payload, status_code = RegisterAnswerUseCase().execute(
+        payload=data,
         user=user,
-        vote=vote,
+        question_model=Question,
+        bdo_class_model=BDOClass,
+        answer_model=Answer,
     )
-
-    return JsonResponse({"msg": "Voto registrado com sucesso!"})
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
