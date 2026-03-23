@@ -87,3 +87,13 @@ class NewCharacterRequestSerializer(serializers.Serializer):
 class NewCharacterResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class PreviewBackgroundRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class PreviewBackgroundResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

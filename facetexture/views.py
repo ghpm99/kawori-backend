@@ -33,6 +33,7 @@ from facetexture.application.use_cases.change_class_character import (
 from facetexture.application.use_cases.delete_character import DeleteCharacterUseCase
 from facetexture.application.use_cases.reorder_character import ReorderCharacterUseCase
 from facetexture.application.use_cases.new_character import NewCharacterUseCase
+from facetexture.application.use_cases.preview_background import PreviewBackgroundUseCase
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
@@ -48,6 +49,8 @@ from facetexture.interfaces.api.serializers.facetexture_serializers import (
     GetFacetextureConfigResponseSerializer,
     NewCharacterRequestSerializer,
     NewCharacterResponseSerializer,
+    PreviewBackgroundRequestSerializer,
+    PreviewBackgroundResponseSerializer,
     ReorderCharacterRequestSerializer,
     ReorderCharacterResponseSerializer,
     SaveDetailRequestSerializer,
@@ -119,59 +122,23 @@ def get_bdo_class(request, user):
 @validate_user("blackdesert")
 @audit_log("facetexture.preview", CATEGORY_FACETEXTURE, "Facetexture")
 def preview_background(request, user):
-    req_files = request.FILES
-    if not req_files.get("background"):
-        return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
+    request_serializer = PreviewBackgroundRequestSerializer(data=request.POST)
+    request_serializer.is_valid(raise_exception=True)
 
-    characters = (
-        Character.objects.filter(user=user, active=True).order_by("order").all()
+    payload, status_code, background = PreviewBackgroundUseCase().execute(
+        user=user,
+        request_files=request.FILES,
+        request_post=request_serializer.validated_data,
+        character_model=Character,
+        image_module=Image,
+        image_ops_module=ImageOps,
+        get_symbol_class_fn=get_symbol_class,
+        verify_valid_symbol_fn=verify_valid_symbol,
+        math_module=math,
     )
-    if not characters:
-        return JsonResponse({"msg": "Facetexture nao encontrado"}, status=400)
-
-    file = request.FILES.get("background").file
-    image = Image.open(file)
-
-    icon_style = request.POST.get("icon_style", "P")
-    if not verify_valid_symbol(icon_style):
-        return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
-
-    image = image.resize(size=(920, 1157))
-
-    width = 125
-    height = 160
-
-    countX = 0
-    countY = 0
-
-    height_background = math.ceil(characters.__len__() / 7)
-
-    background = Image.new(mode="RGB", size=(930, height_background * 170))
-
-    for index, character in enumerate(characters):
-        x = countX * (width + 5) + 11
-        y = countY * (height + 5) + 11
-
-        if (index % 7) == 6:
-            countX = 0
-            countY = countY + 1
-        else:
-            countX = countX + 1
-
-        imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
-
-        if character.show is True:
-            classImage = get_symbol_class(
-                character.bdoClass, symbol_style=icon_style
-            ).convert("RGBA")
-
-            imageCrop.paste(classImage, (10, 10), classImage)
-
-        if character.name.__len__() < 20:
-            imageCrop = ImageOps.expand(imageCrop, border=(3, 3, 3, 3), fill="red")
-            background.paste(im=imageCrop, box=(x - 3, y - 3))
-        else:
-            background.paste(im=imageCrop, box=(x, y))
+    if payload is not None:
+        response_serializer = PreviewBackgroundResponseSerializer(payload)
+        return JsonResponse(response_serializer.data, status=status_code)
 
     response = HttpResponse(content_type="image/png")
     background.save(response, "PNG")
