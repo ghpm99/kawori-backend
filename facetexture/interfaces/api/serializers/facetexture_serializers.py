@@ -97,3 +97,13 @@ class PreviewBackgroundRequestSerializer(serializers.Serializer):
 class PreviewBackgroundResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class DownloadBackgroundRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class DownloadBackgroundResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

@@ -34,6 +34,9 @@ from facetexture.application.use_cases.delete_character import DeleteCharacterUs
 from facetexture.application.use_cases.reorder_character import ReorderCharacterUseCase
 from facetexture.application.use_cases.new_character import NewCharacterUseCase
 from facetexture.application.use_cases.preview_background import PreviewBackgroundUseCase
+from facetexture.application.use_cases.download_background import (
+    DownloadBackgroundUseCase,
+)
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
@@ -44,6 +47,8 @@ from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ChangeShowClassIconRequestSerializer,
     ChangeShowClassIconResponseSerializer,
     DeleteCharacterResponseSerializer,
+    DownloadBackgroundRequestSerializer,
+    DownloadBackgroundResponseSerializer,
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
     GetFacetextureConfigResponseSerializer,
@@ -149,68 +154,31 @@ def preview_background(request, user):
 @validate_user("blackdesert")
 @audit_log("facetexture.download", CATEGORY_FACETEXTURE, "Facetexture")
 def download_background(request, user):
-    req_files = request.FILES
-    if not req_files.get("background"):
-        return JsonResponse({"msg": "Nao existe nenhum background"}, status=400)
+    request_serializer = DownloadBackgroundRequestSerializer(data=request.POST)
+    request_serializer.is_valid(raise_exception=True)
 
-    characters = (
-        Character.objects.filter(user=user, active=True).order_by("order").all()
+    payload, status_code, export_path = DownloadBackgroundUseCase().execute(
+        user=user,
+        request_files=request.FILES,
+        request_post=request_serializer.validated_data,
+        character_model=Character,
+        image_module=Image,
+        get_symbol_class_fn=get_symbol_class,
+        verify_valid_symbol_fn=verify_valid_symbol,
+        io_module=io,
+        zipfile_class=ZipFile,
     )
-    if not characters:
-        return JsonResponse({"msg": "Facetexture nao encontrado"}, status=404)
+    if payload is not None:
+        response_serializer = DownloadBackgroundResponseSerializer(payload)
+        return JsonResponse(response_serializer.data, status=status_code)
 
-    file = request.FILES.get("background").file
-    image = Image.open(file)
-    icon_style = request.POST.get("icon_style", "P")
-    if not verify_valid_symbol(icon_style):
-        return JsonResponse({"msg": "Estilo de simbolo invalido"}, status=400)
-
-    image = image.resize(size=(920, 1157))
-
-    width = 125
-    height = 160
-
-    countX = 0
-    countY = 0
-
-    backgrounds = []
-
-    for index, character in enumerate(characters):
-        x = countX * (width + 5) + 11
-        y = countY * (height + 5) + 11
-
-        if (index % 7) == 6:
-            countX = 0
-            countY = countY + 1
-        else:
-            countX = countX + 1
-
-        imageCrop = image.crop((x, y, x + width, y + height)).convert("RGBA")
-
-        if character.show is True:
-            classImage = get_symbol_class(
-                character.bdoClass, symbol_style=icon_style
-            ).convert("RGBA")
-
-            imageCrop.paste(classImage, (10, 10), classImage)
-
-        backgrounds.append({"name": character.name, "image": imageCrop})
-
-    with ZipFile("export.zip", "w") as export_zip:
-        for index, background in enumerate(backgrounds):
-            file_object = io.BytesIO()
-            background["image"].save(file_object, "PNG")
-            file_object.seek(0)
-
-            export_zip.writestr(background["name"], file_object.getvalue())
-
-    wrapper = FileWrapper(open("export.zip", "rb"))
+    wrapper = FileWrapper(open(export_path, "rb"))
     content_type = "application/zip"
     content_disposition = "attachment; filename=export.zip"
 
     response = HttpResponse(wrapper, content_type=content_type)
     response["Content-Disposition"] = content_disposition
-    os.remove("export.zip")
+    os.remove(export_path)
     return response
 
 
