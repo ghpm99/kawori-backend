@@ -13,3 +13,13 @@ class GetBDOClassResponseSerializer(serializers.Serializer):
 class GetFacetextureConfigResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class SaveDetailRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class SaveDetailResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

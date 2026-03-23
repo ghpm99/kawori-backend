@@ -18,10 +18,13 @@ from facetexture.application.use_cases.get_bdo_class import GetBDOClassUseCase
 from facetexture.application.use_cases.get_facetexture_config import (
     GetFacetextureConfigUseCase,
 )
+from facetexture.application.use_cases.save_detail import SaveDetailUseCase
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
     GetFacetextureConfigResponseSerializer,
+    SaveDetailRequestSerializer,
+    SaveDetailResponseSerializer,
 )
 from facetexture.models import BDOClass, Character, Facetexture
 from kawori.decorators import validate_user
@@ -57,19 +60,17 @@ def get_facetexture_config(request, user):
 @validate_user("blackdesert")
 @audit_log("facetexture.save", CATEGORY_FACETEXTURE, "Facetexture")
 def save_detail_view(request, user):
-
     data = json.loads(request.body)
-    facetexture = Facetexture.objects.filter(user=user).first()
+    request_serializer = SaveDetailRequestSerializer(data=data)
+    request_serializer.is_valid(raise_exception=True)
 
-    if facetexture is None:
-        facetexture = Facetexture(user=user, characters=data)
-        facetexture.save()
-        return JsonResponse({"msg": "Facetexture criado com sucesso"}, status=201)
-
-    facetexture.characters = data
-    facetexture.save()
-
-    return JsonResponse({"msg": "Facetexture atualizado com sucesso"})
+    payload, status_code = SaveDetailUseCase().execute(
+        user=user,
+        data=request_serializer.validated_data,
+        facetexture_model=Facetexture,
+    )
+    response_serializer = SaveDetailResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_GET
