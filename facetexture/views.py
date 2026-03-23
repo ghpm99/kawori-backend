@@ -27,9 +27,14 @@ from facetexture.application.use_cases.change_show_class_icon import (
 from facetexture.application.use_cases.change_character_name import (
     ChangeCharacterNameUseCase,
 )
+from facetexture.application.use_cases.change_class_character import (
+    ChangeClassCharacterUseCase,
+)
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
+    ChangeClassCharacterRequestSerializer,
+    ChangeClassCharacterResponseSerializer,
     ChangeCharacterNameRequestSerializer,
     ChangeCharacterNameResponseSerializer,
     ChangeShowClassIconRequestSerializer,
@@ -324,35 +329,20 @@ def reorder_character(request, user, id):
 @validate_user("blackdesert")
 @audit_log("character.change_class", CATEGORY_FACETEXTURE, "Character")
 def change_class_character(request, user, id):
-
     data = json.loads(request.body)
-    new_class = data.get("new_class")
+    request_serializer = ChangeClassCharacterRequestSerializer(data=data)
+    request_serializer.is_valid(raise_exception=True)
 
-    character = Character.objects.filter(id=id, user=user).first()
-
-    if character is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado personagem com esse ID"}, status=404
-        )
-
-    bdo_class = BDOClass.objects.filter(id=new_class).first()
-
-    if bdo_class is None:
-        return JsonResponse({"data": "Não foi encontrado classe"}, status=400)
-
-    character.bdoClass = bdo_class
-    character.save()
-
-    return JsonResponse(
-        {
-            "class": {
-                "id": bdo_class.id,
-                "name": bdo_class.name,
-                "abbreviation": bdo_class.abbreviation,
-                "class_image": get_bdo_class_image_url(bdo_class.id),
-            }
-        }
+    payload, status_code = ChangeClassCharacterUseCase().execute(
+        user=user,
+        character_id=id,
+        data=request_serializer.validated_data,
+        character_model=Character,
+        bdo_class_model=BDOClass,
+        class_image_fn=get_bdo_class_image_url,
     )
+    response_serializer = ChangeClassCharacterResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_POST
