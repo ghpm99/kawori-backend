@@ -26,3 +26,8 @@ class PaymentsMonthQuerySerializer(serializers.Serializer):
         attrs["date_from_parsed"] = date_from_parsed
         attrs["date_to_parsed"] = date_to_parsed
         return attrs
+
+
+class PaymentsMonthResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

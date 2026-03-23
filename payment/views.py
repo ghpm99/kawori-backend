@@ -61,6 +61,7 @@ from payment.interfaces.api.serializers.get_all_serializers import (
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
+    PaymentsMonthResponseSerializer,
 )
 from payment.interfaces.api.serializers.payoff_detail_serializers import (
     PayoffDetailPaymentPathSerializer,
@@ -145,13 +146,13 @@ def get_payments_month(request, user):
             {"msg": serializer.errors["non_field_errors"][0]}, status=400
         )
 
-    return JsonResponse(
-        GetPaymentsMonthUseCase().execute(
-            user=user,
-            date_from=serializer.validated_data["date_from_parsed"],
-            date_to=serializer.validated_data["date_to_parsed"],
-        )
+    payload = GetPaymentsMonthUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
     )
+    response_serializer = PaymentsMonthResponseSerializer(payload)
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
