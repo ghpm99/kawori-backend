@@ -11,7 +11,12 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from contract.models import Contract
-from financial.ai_features import generate_financial_ai_insights
+from financial.application.use_cases.report_ai_insights import (
+    ReportAIInsightsUseCase,
+)
+from financial.interfaces.api.serializers.report_ai_insights_serializers import (
+    ReportAIInsightsPayloadSerializer,
+)
 from financial.utils import (
     calculate_installments,
     generate_payments,
@@ -424,10 +429,13 @@ def report_ai_insights_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=400)
 
-    if not isinstance(payload, dict):
+    serializer = ReportAIInsightsPayloadSerializer(data=payload)
+    if not serializer.is_valid():
         return JsonResponse({"msg": "JSON inválido"}, status=400)
 
-    result = generate_financial_ai_insights(user=user, payload=payload)
+    result = ReportAIInsightsUseCase().execute(
+        user=user, payload=serializer.validated_data
+    )
     return JsonResponse(result)
 
 
