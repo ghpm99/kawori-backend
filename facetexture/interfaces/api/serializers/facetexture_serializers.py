@@ -62,3 +62,8 @@ class ChangeClassCharacterRequestSerializer(serializers.Serializer):
 class ChangeClassCharacterResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class DeleteCharacterResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

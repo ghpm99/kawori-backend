@@ -30,6 +30,7 @@ from facetexture.application.use_cases.change_character_name import (
 from facetexture.application.use_cases.change_class_character import (
     ChangeClassCharacterUseCase,
 )
+from facetexture.application.use_cases.delete_character import DeleteCharacterUseCase
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
@@ -39,6 +40,7 @@ from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ChangeCharacterNameResponseSerializer,
     ChangeShowClassIconRequestSerializer,
     ChangeShowClassIconResponseSerializer,
+    DeleteCharacterResponseSerializer,
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
     GetFacetextureConfigResponseSerializer,
@@ -444,17 +446,13 @@ def change_show_class_icon(request, user, id):
 @validate_user("blackdesert")
 @audit_log("character.delete", CATEGORY_FACETEXTURE, "Character")
 def delete_character(request, user, id):
-    character = Character.objects.filter(id=id, user=user).first()
-
-    if character is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado personagem com esse ID"}, status=404
-        )
-
-    character.active = False
-    character.save()
-
-    return JsonResponse({"data": "Personagem deletado com sucesso"})
+    payload, status_code = DeleteCharacterUseCase().execute(
+        user=user,
+        character_id=id,
+        character_model=Character,
+    )
+    response_serializer = DeleteCharacterResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_GET
