@@ -27,6 +27,9 @@ from authentication.application.use_cases.signout import SignoutUseCase
 from authentication.application.use_cases.request_password_reset import (
     RequestPasswordResetUseCase,
 )
+from authentication.application.use_cases.validate_reset_token import (
+    ValidateResetTokenUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -38,6 +41,9 @@ from authentication.interfaces.api.serializers.signout_serializers import (
 )
 from authentication.interfaces.api.serializers.password_reset_request_serializers import (
     PasswordResetRequestSerializer,
+)
+from authentication.interfaces.api.serializers.password_reset_validate_serializers import (
+    PasswordResetValidateSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -397,32 +403,18 @@ def validate_reset_token(request: HttpRequest) -> JsonResponse:
     Valida se um token de reset ainda é válido (não usado e não expirado).
     Usado pelo frontend para verificar o token antes de exibir o formulário de nova senha.
     """
-    raw_token = request.GET.get("token", "").strip()
-    if not raw_token:
+    serializer = PasswordResetValidateSerializer(data=request.GET)
+    if not serializer.is_valid():
         return JsonResponse(
             {"valid": False, "msg": "Token é obrigatório."},
             status=HTTPStatus.BAD_REQUEST,
         )
 
-    token_hash = UserToken.hash_token(raw_token)
-
-    try:
-        token_obj = UserToken.objects.get(
-            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_PASSWORD_RESET
-        )
-    except UserToken.DoesNotExist:
-        return JsonResponse(
-            {"valid": False, "msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    if not token_obj.is_valid():
-        return JsonResponse(
-            {"valid": False, "msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    return JsonResponse({"valid": True})
+    payload, status_code = ValidateResetTokenUseCase().execute(
+        raw_token=serializer.validated_data["token"],
+        user_token_model=UserToken,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
