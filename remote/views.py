@@ -11,6 +11,7 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
 from lib import pusher
+from remote.application.use_cases.get_keyboard_keys import GetKeyboardKeysUseCase
 from remote.application.use_cases.get_screen_size import GetScreenSizeUseCase
 from remote.application.use_cases.mouse_button import MouseButtonUseCase
 from remote.application.use_cases.mouse_move import MouseMoveUseCase
@@ -374,4 +375,4 @@ def keyboard_keys(request, user):
         "optionright",
     ]
 
-    return JsonResponse({"data": keys})
+    return JsonResponse(GetKeyboardKeysUseCase().execute(keys=keys))
