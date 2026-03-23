@@ -17,6 +17,7 @@ from remote.application.use_cases.mouse_button import MouseButtonUseCase
 from remote.application.use_cases.mouse_move import MouseMoveUseCase
 from remote.application.use_cases.mouse_move_and_button import MouseMoveAndButtonUseCase
 from remote.application.use_cases.mouse_scroll import MouseScrollUseCase
+from remote.application.use_cases.save_screenshot import SaveScreenshotUseCase
 from remote.application.use_cases.send_command import SendCommandUseCase
 from remote.application.use_cases.send_hotkey import SendHotkeyUseCase
 from remote.application.use_cases.send_key_press import SendKeyPressUseCase
@@ -122,27 +123,16 @@ def mouse_button_view(request, user):
 @validate_user("admin")
 @audit_log("remote.save_screenshot", CATEGORY_REMOTE)
 def save_screenshot_view(request, user):
-    req_files = request.FILES
-    if not req_files.get("image"):
-        return JsonResponse({"msg": "Nao existe nenhuma imagem anexo"}, status=400)
-
-    fullname = os.path.join(settings.MEDIA_ROOT, "screenshot/screenshot.png")
-
-    if os.path.exists(fullname):
-        os.remove(fullname)
-
-    file = request.FILES.get("image").file
-
-    screenshot = Screenshot.objects.filter(id=1).first()
-
-    if screenshot is None:
-        screenshot = Screenshot()
-
-    screenshot.image.save("screenshot.png", File(file), save=True)
-
-    pusher.notify_screenshot()
-
-    return JsonResponse({"msg": "Ok"})
+    payload, status_code = SaveScreenshotUseCase().execute(
+        request_files=request.FILES,
+        media_root=settings.MEDIA_ROOT,
+        os_path=os.path,
+        os_remove_fn=os.remove,
+        screenshot_model=Screenshot,
+        file_class=File,
+        notify_screenshot_fn=pusher.notify_screenshot,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
