@@ -6,9 +6,13 @@ from django.views.decorators.http import require_GET, require_POST
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from kawori.decorators import validate_user
+from tag.application.use_cases.create_tag import CreateTagUseCase
 from tag.application.use_cases.get_all_tags import GetAllTagsUseCase
 from tag.application.use_cases.get_tag_detail import GetTagDetailUseCase
-from tag.interfaces.api.serializers.tag_serializers import TagListQuerySerializer
+from tag.interfaces.api.serializers.tag_serializers import (
+    TagCreatePayloadSerializer,
+    TagListQuerySerializer,
+)
 from tag.models import Tag
 
 
@@ -44,23 +48,29 @@ def include_new_tag_view(request, user):
     tag_name = data.get("name")
     tag_color = data.get("color")
 
-    tag_in_database = Tag.objects.filter(name=tag_name, user=user).first()
+    payload, status_code = CreateTagUseCase().validate_uniqueness(
+        user=user,
+        tag_model=Tag,
+        name=tag_name,
+    )
+    if status_code is not None:
+        return JsonResponse(payload, status=status_code)
 
-    if tag_in_database is not None:
-        return JsonResponse({"msg": "Tag já existe"}, status=404)
+    serializer = TagCreatePayloadSerializer(data=data)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
-    if not tag_name or tag_name.strip() == "":
-        return JsonResponse({"msg": "Nome da tag é obrigatório"}, status=400)
+    payload, status_code = CreateTagUseCase().create(
+        user=user,
+        tag_model=Tag,
+        name=tag_name,
+        color=tag_color,
+    )
 
-    if tag_name.startswith("#"):
-        return JsonResponse({"msg": "Nome da tag não pode iniciar com #"}, status=400)
-
-    if not tag_color:
-        return JsonResponse({"msg": "Cor da tag é obrigatória"}, status=400)
-
-    Tag.objects.create(name=tag_name, color=tag_color, user=user)
-
-    return JsonResponse({"msg": "Tag inclusa com sucesso"})
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
