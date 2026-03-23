@@ -23,6 +23,10 @@ from authentication.models import (
     SocialAuthState,
     UserToken,
 )
+from authentication.application.use_cases.signout import SignoutUseCase
+from authentication.interfaces.api.serializers.signout_serializers import (
+    SignoutResponseSerializer,
+)
 from authentication.utils import (
     SocialOAuthError,
     build_social_authorize_url,
@@ -181,22 +185,16 @@ def obtain_token_pair(request: HttpRequest) -> JsonResponse:
 @require_GET
 @audit_log_auth("logout")
 def signout_view(request: HttpRequest) -> JsonResponse:
-    response = JsonResponse({"msg": "Deslogou"})
-
-    response.delete_cookie(
-        settings.ACCESS_TOKEN_NAME,
-        domain=settings.COOKIE_DOMAIN,
+    payload, status_code, delete_cookie_instructions = SignoutUseCase().execute(
+        access_token_name=settings.ACCESS_TOKEN_NAME,
+        refresh_token_name=settings.REFRESH_TOKEN_NAME,
+        cookie_domain=settings.COOKIE_DOMAIN,
+        refresh_path=reverse("da_token_refresh"),
     )
-    response.delete_cookie(
-        settings.REFRESH_TOKEN_NAME,
-        path=reverse("da_token_refresh"),
-        domain=settings.COOKIE_DOMAIN,
-    )
-    response.delete_cookie(
-        "lifetimetoken",
-        domain=settings.COOKIE_DOMAIN,
-    )
-
+    serializer = SignoutResponseSerializer(payload)
+    response = JsonResponse(serializer.data, status=status_code)
+    for instruction in delete_cookie_instructions:
+        response.delete_cookie(**instruction)
     return response
 
 
