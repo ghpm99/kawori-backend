@@ -4,8 +4,12 @@ from kawori.utils import format_date
 
 
 class PaymentsMonthQuerySerializer(serializers.Serializer):
-    date_from = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
-    date_to = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+    date_from = serializers.CharField(
+        required=False, allow_blank=True, trim_whitespace=False
+    )
+    date_to = serializers.CharField(
+        required=False, allow_blank=True, trim_whitespace=False
+    )
 
     def validate(self, attrs):
         date_from_raw = attrs.get("date_from")

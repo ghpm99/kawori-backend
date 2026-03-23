@@ -9,6 +9,7 @@ from rest_framework.parsers import JSONParser
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
+from financial.utils import generate_payments
 from kawori.decorators import validate_user
 from kawori.utils import format_date
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
@@ -204,6 +205,7 @@ def payoff_detail_view(request, id, user):
     result = PayoffPaymentDetailUseCase().execute(
         user=user,
         payment_id=serializer.validated_data["id"],
+        generate_payments_func=generate_payments,
     )
     if result.get("error"):
         return JsonResponse(

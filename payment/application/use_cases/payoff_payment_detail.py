@@ -2,13 +2,12 @@ from datetime import datetime, timedelta
 
 from django.db import transaction
 
-from financial.utils import generate_payments
 from invoice.models import Invoice
 from payment.models import Payment
 
 
 class PayoffPaymentDetailUseCase:
-    def execute(self, user, payment_id):
+    def execute(self, user, payment_id, generate_payments_func):
         if payment_id <= 0:
             return {
                 "error": {"payload": {"msg": "Pagamento não encontrado"}, "status": 404}
@@ -22,7 +21,9 @@ class PayoffPaymentDetailUseCase:
             }
 
         if payment.status == 1:
-            return {"error": {"payload": {"msg": "Pagamento ja baixado"}, "status": 400}}
+            return {
+                "error": {"payload": {"msg": "Pagamento ja baixado"}, "status": 400}
+            }
 
         with transaction.atomic():
             if payment.invoice.fixed is True:
@@ -42,7 +43,7 @@ class PayoffPaymentDetailUseCase:
 
                 tags = [tag.id for tag in payment.invoice.tags.all()]
                 new_invoice.tags.set(tags)
-                generate_payments(new_invoice)
+                generate_payments_func(new_invoice)
 
             payment.status = Payment.STATUS_DONE
             payment.save()

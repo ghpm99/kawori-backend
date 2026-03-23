@@ -28,14 +28,20 @@ class PaymentGetAllQuerySerializer(serializers.Serializer):
 
         date_lte = attrs.get("date__lte")
         if date_lte:
-            attrs["date__lte_parsed"] = format_date(date_lte) or datetime.now() + timedelta(days=1)
+            attrs["date__lte_parsed"] = format_date(
+                date_lte
+            ) or datetime.now() + timedelta(days=1)
 
         payment_date_gte = attrs.get("payment_date__gte")
         if payment_date_gte:
-            attrs["payment_date__gte_parsed"] = format_date(payment_date_gte) or datetime(2018, 1, 1)
+            attrs["payment_date__gte_parsed"] = format_date(
+                payment_date_gte
+            ) or datetime(2018, 1, 1)
 
         payment_date_lte = attrs.get("payment_date__lte")
         if payment_date_lte:
-            attrs["payment_date__lte_parsed"] = format_date(payment_date_lte) or datetime.now() + timedelta(days=1)
+            attrs["payment_date__lte_parsed"] = format_date(
+                payment_date_lte
+            ) or datetime.now() + timedelta(days=1)
 
         return attrs

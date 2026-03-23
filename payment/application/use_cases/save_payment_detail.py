@@ -19,7 +19,9 @@ class SavePaymentDetailUseCase:
         if data.get("payment_date"):
             payment_date = format_date(data.get("payment_date"))
             if payment_date is None:
-                return {"error": {"payload": {"msg": "Payment not found"}, "status": 500}}
+                return {
+                    "error": {"payload": {"msg": "Payment not found"}, "status": 500}
+                }
 
         with transaction.atomic():
             if data.get("type") is not None:
@@ -50,7 +52,9 @@ class SavePaymentDetailUseCase:
                 if isinstance(new_value, str):
                     new_value = float(new_value)
 
-                invoice_value = float(payment.invoice.value_open - old_value) + new_value
+                invoice_value = (
+                    float(payment.invoice.value_open - old_value) + new_value
+                )
                 payment.invoice.value_open = invoice_value
                 payment.invoice.save()
 
@@ -59,6 +63,8 @@ class SavePaymentDetailUseCase:
             try:
                 payment.save()
             except Exception:
-                return {"error": {"payload": {"msg": "Payment not found"}, "status": 500}}
+                return {
+                    "error": {"payload": {"msg": "Payment not found"}, "status": 500}
+                }
 
         return {"payload": {"msg": "Pagamento atualizado com sucesso"}}
