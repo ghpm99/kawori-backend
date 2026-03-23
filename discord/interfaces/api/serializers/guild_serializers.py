@@ -9,3 +9,8 @@ class GetAllGuildsResponseSerializer(serializers.Serializer):
 class GetAllMembersResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class GetAllRolesResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
