@@ -24,9 +24,14 @@ from facetexture.application.use_cases.save_detail import SaveDetailUseCase
 from facetexture.application.use_cases.change_show_class_icon import (
     ChangeShowClassIconUseCase,
 )
+from facetexture.application.use_cases.change_character_name import (
+    ChangeCharacterNameUseCase,
+)
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
+    ChangeCharacterNameRequestSerializer,
+    ChangeCharacterNameResponseSerializer,
     ChangeShowClassIconRequestSerializer,
     ChangeShowClassIconResponseSerializer,
     GetBDOClassQuerySerializer,
@@ -354,21 +359,18 @@ def change_class_character(request, user, id):
 @validate_user("blackdesert")
 @audit_log("character.change_name", CATEGORY_FACETEXTURE, "Character")
 def change_character_name(request, user, id):
-
     data = json.loads(request.body)
-    new_name = data.get("name")
+    request_serializer = ChangeCharacterNameRequestSerializer(data=data)
+    request_serializer.is_valid(raise_exception=True)
 
-    character = Character.objects.filter(id=id, user=user).first()
-
-    if character is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado personagem com esse ID"}, status=404
-        )
-
-    character.name = new_name
-    character.save()
-
-    return JsonResponse({"data": "Nome atualizado com sucesso"})
+    payload, status_code = ChangeCharacterNameUseCase().execute(
+        user=user,
+        character_id=id,
+        data=request_serializer.validated_data,
+        character_model=Character,
+    )
+    response_serializer = ChangeCharacterNameResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_POST

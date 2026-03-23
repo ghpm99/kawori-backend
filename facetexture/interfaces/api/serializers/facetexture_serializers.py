@@ -42,3 +42,13 @@ class ClassAssetPathSerializer(serializers.Serializer):
 class ClassAssetErrorResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ChangeCharacterNameRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class ChangeCharacterNameResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
