@@ -64,6 +64,7 @@ from payment.interfaces.api.serializers.month_serializers import (
 )
 from payment.interfaces.api.serializers.payoff_detail_serializers import (
     PayoffDetailPaymentPathSerializer,
+    PayoffDetailPaymentResponseSerializer,
 )
 from payment.interfaces.api.serializers.save_detail_serializers import (
     SaveDetailPaymentInputSerializer,
@@ -216,7 +217,8 @@ def payoff_detail_view(request, id, user):
             status=result["error"]["status"],
         )
 
-    return JsonResponse(result["payload"])
+    response_serializer = PayoffDetailPaymentResponseSerializer(result["payload"])
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
