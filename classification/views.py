@@ -9,8 +9,12 @@ from classification.application.use_cases.get_bdo_class import GetBDOClassUseCas
 from classification.application.use_cases.get_all_questions import (
     GetAllQuestionsUseCase,
 )
+from classification.application.use_cases.get_all_answers import GetAllAnswersUseCase
 from classification.interfaces.api.serializers.get_all_questions_serializers import (
     GetAllQuestionsResponseSerializer,
+)
+from classification.interfaces.api.serializers.get_all_answers_serializers import (
+    GetAllAnswersResponseSerializer,
 )
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
@@ -36,21 +40,12 @@ def get_all_questions(request, user):
 @require_GET
 @validate_user("blackdesert")
 def get_all_answers(request, user):
-    answer_list = Answer.objects.filter(user=user).order_by("-id")
-
-    data = [
-        {
-            "id": answer.id,
-            "question": answer.question.question_text,
-            "vote": answer.vote,
-            "bdo_class": answer.bdo_class.abbreviation,
-            "combat_style": answer.combat_style,
-            "created_at": answer.created_at,
-        }
-        for answer in answer_list
-    ]
-
-    return JsonResponse({"data": data})
+    payload, status_code = GetAllAnswersUseCase().execute(
+        user=user,
+        answer_model=Answer,
+    )
+    serializer = GetAllAnswersResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_POST
