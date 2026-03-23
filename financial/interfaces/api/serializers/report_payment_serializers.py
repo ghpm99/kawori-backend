@@ -97,3 +97,8 @@ class ReportAmountInvoiceByTagResponseSerializer(serializers.Serializer):
 class ReportForecastAmountValueResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ReportMetricsResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

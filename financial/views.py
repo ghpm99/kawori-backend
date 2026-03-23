@@ -55,6 +55,7 @@ from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportAmountPaymentClosedResponseSerializer,
     ReportAmountInvoiceByTagResponseSerializer,
     ReportForecastAmountValueResponseSerializer,
+    ReportMetricsResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -1029,7 +1030,8 @@ def get_metrics_view(request, user):
         get_total_payment_from_date_fn=get_total_payment_from_date,
     )
 
-    return JsonResponse(data)
+    response_serializer = ReportMetricsResponseSerializer(data)
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
