@@ -14,6 +14,11 @@ from PIL import Image, ImageOps
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FACETEXTURE
+from facetexture.application.use_cases.get_bdo_class import GetBDOClassUseCase
+from facetexture.interfaces.api.serializers.facetexture_serializers import (
+    GetBDOClassQuerySerializer,
+    GetBDOClassResponseSerializer,
+)
 from facetexture.models import BDOClass, Character, Facetexture
 from kawori.decorators import validate_user
 from kawori.utils import get_image_class, get_symbol_class
@@ -85,31 +90,16 @@ def save_detail_view(request, user):
 @require_GET
 @validate_user("blackdesert")
 def get_bdo_class(request, user):
+    query_serializer = GetBDOClassQuerySerializer(data=request.GET)
+    query_serializer.is_valid(raise_exception=True)
 
-    def orderFunc(e):
-        return e["name"]
-
-    req = request.GET
-    filters = {}
-
-    if req.get("id"):
-        filters["id"] = req.get("id")
-
-    bdo_classes = BDOClass.objects.filter(**filters).all()
-
-    bdo_class = [
-        {
-            "id": bdo_class.id,  # type: ignore
-            "name": bdo_class.name,
-            "abbreviation": bdo_class.abbreviation,
-            "class_image": get_bdo_class_image_url(bdo_class.id),  # type: ignore
-        }
-        for bdo_class in bdo_classes
-    ]
-
-    bdo_class.sort(key=orderFunc)
-
-    return JsonResponse({"class": bdo_class})
+    payload = GetBDOClassUseCase().execute(
+        validated_data=query_serializer.validated_data,
+        bdo_class_model=BDOClass,
+        class_image_url_fn=get_bdo_class_image_url,
+    )
+    response_serializer = GetBDOClassResponseSerializer(payload)
+    return JsonResponse(response_serializer.data)
 
 
 @require_POST
