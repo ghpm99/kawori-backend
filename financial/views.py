@@ -58,6 +58,7 @@ from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportMetricsResponseSerializer,
     ReportDailyCashFlowResponseSerializer,
     ReportTopExpensesResponseSerializer,
+    ReportBalanceProjectionResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -1092,13 +1093,13 @@ def report_balance_projection_view(request, user):
         request.GET.get("months_ahead"), default=6, minimum=1
     )
 
-    return JsonResponse(
-        ReportBalanceProjectionUseCase().execute(
-            user=user,
-            start_date=serializer.validated_data["date_from_parsed"],
-            months_ahead=months_ahead,
-        )
+    payload = ReportBalanceProjectionUseCase().execute(
+        user=user,
+        start_date=serializer.validated_data["date_from_parsed"],
+        months_ahead=months_ahead,
     )
+    response_serializer = ReportBalanceProjectionResponseSerializer(payload)
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
