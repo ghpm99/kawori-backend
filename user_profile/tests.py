@@ -30,12 +30,31 @@ class UserProfileViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
+        self.assertEqual(
+            set(payload.keys()),
+            {
+                "id",
+                "name",
+                "username",
+                "first_name",
+                "last_name",
+                "email",
+                "is_staff",
+                "is_active",
+                "is_superuser",
+                "last_login",
+                "date_joined",
+            },
+        )
         self.assertEqual(payload["id"], self.user.id)
         self.assertEqual(payload["name"], self.user.get_full_name())
         self.assertEqual(payload["username"], self.user.username)
+        self.assertEqual(payload["first_name"], self.user.first_name)
+        self.assertEqual(payload["last_name"], self.user.last_name)
         self.assertEqual(payload["email"], self.user.email)
         self.assertFalse(payload["is_staff"])
         self.assertTrue(payload["is_active"])
+        self.assertFalse(payload["is_superuser"])
 
     def test_user_groups_returns_group_names(self):
         request = self.rf.get("/")

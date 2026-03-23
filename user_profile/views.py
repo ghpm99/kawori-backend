@@ -3,27 +3,14 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET
 
 from kawori.decorators import validate_user
+from user_profile.application.use_cases.user_view import UserViewUseCase
 
 
 @require_GET
 @validate_user("user")
 def user_view(request: HttpRequest, user: User) -> JsonResponse:
-
-    return JsonResponse(
-        {
-            "id": user.id,
-            "name": user.get_full_name(),
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "is_staff": user.is_staff,
-            "is_active": user.is_active,
-            "is_superuser": user.is_superuser,
-            "last_login": user.last_login,
-            "date_joined": user.date_joined,
-        }
-    )
+    payload = UserViewUseCase().execute(user=user)
+    return JsonResponse(payload)
 
 
 @require_GET
