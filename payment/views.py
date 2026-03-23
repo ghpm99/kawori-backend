@@ -1,9 +1,7 @@
 import json
-from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import List
 
-from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from rest_framework.exceptions import ParseError
@@ -11,8 +9,6 @@ from rest_framework.parsers import JSONParser
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
-from financial.utils import generate_payments
-from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import format_date
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
@@ -30,6 +26,9 @@ from payment.application.use_cases.get_all_scheduled import GetAllScheduledUseCa
 from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.application.use_cases.get_payment_detail import GetPaymentDetailUseCase
 from payment.application.use_cases.get_payments_month import GetPaymentsMonthUseCase
+from payment.application.use_cases.payoff_payment_detail import (
+    PayoffPaymentDetailUseCase,
+)
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
 from payment.application.use_cases.save_new_payment import SaveNewPaymentUseCase
 from payment.application.use_cases.save_payment_detail import SavePaymentDetailUseCase
@@ -59,6 +58,9 @@ from payment.interfaces.api.serializers.get_all_serializers import (
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
+)
+from payment.interfaces.api.serializers.payoff_detail_serializers import (
+    PayoffDetailPaymentPathSerializer,
 )
 from payment.interfaces.api.serializers.save_detail_serializers import (
     SaveDetailPaymentInputSerializer,
@@ -196,43 +198,20 @@ def save_detail_view(request, id, user):
 @validate_user("financial")
 @audit_log("payment.payoff", CATEGORY_FINANCIAL, "Payment")
 def payoff_detail_view(request, id, user):
-    if id <= 0:
-        return JsonResponse({"msg": "Pagamento não encontrado"}, status=404)
+    serializer = PayoffDetailPaymentPathSerializer(data={"id": id})
+    serializer.is_valid(raise_exception=False)
 
-    payment = Payment.objects.filter(id=id, user=user, active=True).first()
+    result = PayoffPaymentDetailUseCase().execute(
+        user=user,
+        payment_id=serializer.validated_data["id"],
+    )
+    if result.get("error"):
+        return JsonResponse(
+            result["error"]["payload"],
+            status=result["error"]["status"],
+        )
 
-    if payment is None:
-        return JsonResponse({"msg": "Pagamento não encontrado"}, status=400)
-
-    if payment.status == 1:
-        return JsonResponse({"msg": "Pagamento ja baixado"}, status=400)
-
-    with transaction.atomic():
-        if payment.invoice.fixed is True:
-            future_payment = payment.payment_date + timedelta(days=32)
-
-            new_invoice = Invoice.objects.create(
-                type=payment.invoice.type,
-                name=payment.invoice.name,
-                date=datetime.now(),
-                installments=payment.invoice.installments,
-                payment_date=future_payment,
-                fixed=payment.invoice.fixed,
-                value=payment.invoice.value,
-                value_open=payment.invoice.value,
-                user=user,
-            )
-
-            tags = [tag.id for tag in payment.invoice.tags.all()]
-            new_invoice.tags.set(tags)
-            generate_payments(new_invoice)
-
-        payment.status = Payment.STATUS_DONE
-        payment.save()
-
-        payment.invoice.close_value(payment.value)
-
-    return JsonResponse({"msg": "Pagamento baixado"})
+    return JsonResponse(result["payload"])
 
 
 @require_GET
