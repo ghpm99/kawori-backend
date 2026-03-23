@@ -479,6 +479,18 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(data["growth"]["value"], 0)
         self.assertEqual(mocked_total.call_count, 2)
 
+    def test_get_metrics_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.get_metrics_view,
+            data={"date_from": "2026-03-02", "date_to": "2026-03-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(
             name="C1", user=self.user, value=10, value_open=8, value_closed=2

@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from contract.models import Contract
+from financial.application.use_cases.get_metrics import GetMetricsUseCase
 from financial.application.use_cases.report_ai_insights import (
     ReportAIInsightsUseCase,
 )
@@ -985,56 +986,20 @@ def get_total_payment(user_id, type):
 @require_GET
 @validate_user("financial")
 def get_metrics_view(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
-
-    def percent_change(current, previous):
-        if previous == 0:
-            return 0
-        return round(((current - previous) / abs(previous)) * 100, 2)
-
-    if params["begin"] and params["end"]:
-        begin = params["begin"]
-        end = params["end"]
-        revenues_current, revenues_last_month = get_total_payment_from_date(
-            begin, end, user.id, Payment.TYPE_CREDIT
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
         )
-        expenses_current, expenses_last_month = get_total_payment_from_date(
-            begin, end, user.id, Payment.TYPE_DEBIT
-        )
-    else:
-        revenues_current = get_total_payment(user.id, Payment.TYPE_CREDIT)
-        expenses_current = get_total_payment(user.id, Payment.TYPE_DEBIT)
-        revenues_last_month = 0
-        expenses_last_month = 0
 
-    revenue_data = {
-        "value": revenues_current,
-        "metric_value": percent_change(revenues_current, revenues_last_month),
-    }
-
-    expenses_data = {
-        "value": expenses_current,
-        "metric_value": percent_change(expenses_current, expenses_last_month),
-    }
-
-    profit_current = revenues_current - expenses_current
-    profit_last_month = revenues_last_month - expenses_last_month
-
-    profit_data = {
-        "value": profit_current,
-        "metric_value": percent_change(profit_current, profit_last_month),
-    }
-
-    growth_data = {"value": percent_change(profit_current, profit_last_month)}
-
-    data = {
-        "revenues": revenue_data,
-        "expenses": expenses_data,
-        "profit": profit_data,
-        "growth": growth_data,
-    }
+    data = GetMetricsUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        get_total_payment_fn=get_total_payment,
+        get_total_payment_from_date_fn=get_total_payment_from_date,
+    )
 
     return JsonResponse(data)
 
