@@ -45,6 +45,7 @@ from authentication.application.use_cases.refresh_token import RefreshTokenUseCa
 from authentication.application.use_cases.social_providers import (
     SocialProvidersUseCase,
 )
+from authentication.application.use_cases.signup import SignupUseCase
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -80,6 +81,9 @@ from authentication.interfaces.api.serializers.refresh_token_serializers import 
 )
 from authentication.interfaces.api.serializers.social_providers_serializers import (
     SocialProvidersResponseSerializer,
+)
+from authentication.interfaces.api.serializers.signup_serializers import (
+    SignupRequestSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -286,66 +290,21 @@ def refresh_token(request: HttpRequest) -> JsonResponse:
 @audit_log_auth("signup")
 def signup_view(request: HttpRequest) -> JsonResponse:
     data = json.loads(request.body)
+    serializer = SignupRequestSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
 
-    required_fields = ["username", "password", "email", "name", "last_name"]
-    for field in required_fields:
-        if not data.get(field):
-            return JsonResponse(
-                {"msg": "Todos os campos são obrigatórios."},
-                status=HTTPStatus.BAD_REQUEST,
-            )
-
-    username = data["username"]
-    password = data["password"]
-    email = data["email"]
-    name = data["name"]
-    last_name = data["last_name"]
-
-    username_exists = User.objects.filter(username=username).exists()
-
-    if username_exists:
-        return JsonResponse(
-            {"msg": "Usuário já cadastrado"}, status=HTTPStatus.BAD_REQUEST
-        )
-
-    email_exists = User.objects.filter(email=email).exists()
-
-    if email_exists:
-        return JsonResponse(
-            {"msg": "E-mail já cadastrado"}, status=HTTPStatus.BAD_REQUEST
-        )
-
-    with transaction.atomic():
-        user = User.objects.create_user(
-            username=username, password=password, email=email
-        )
-        user.first_name = name
-        user.last_name = last_name
-        user.save()
-
-        register_groups(user)
-
-        try:
-            from budget.services import create_default_budgets_for_user
-
-            create_default_budgets_for_user(user)
-        except Exception:  # nosec B110
-            pass
-
-        EmailVerification.objects.create(user=user)
-
-    try:
-        ip_address = get_client_ip(request)
-        raw_token = UserToken.create_for_user(
-            user,
-            token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION,
-            ip_address=ip_address,
-        )
-        send_verification_email_async(user, raw_token)
-    except Exception:  # nosec B110
-        pass
-
-    return JsonResponse({"msg": "Usuário criado com sucesso!"})
+    payload, status_code = SignupUseCase().execute(
+        payload=data,
+        request=request,
+        user_model=User,
+        transaction_module=transaction,
+        register_groups_fn=register_groups,
+        email_verification_model=EmailVerification,
+        get_client_ip_fn=get_client_ip,
+        user_token_model=UserToken,
+        send_verification_email_async_fn=send_verification_email_async,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @ensure_csrf_cookie
