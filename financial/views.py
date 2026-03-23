@@ -39,6 +39,9 @@ from financial.application.use_cases.report_forecast_amount_value import (
 from financial.application.use_cases.report_payment_summary import (
     ReportPaymentSummaryUseCase,
 )
+from financial.application.use_cases.report_top_expenses import (
+    ReportTopExpensesUseCase,
+)
 from financial.interfaces.api.serializers.report_ai_insights_serializers import (
     ReportAIInsightsPayloadSerializer,
 )
@@ -1030,44 +1033,21 @@ def report_daily_cash_flow_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_top_expenses_view(request, user):
-    filters, error_response = parse_period_filters(request, required=True)
-    if error_response:
-        return error_response
+    serializer = RequiredPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
     limit = parse_int_query_param(request.GET.get("limit"), default=10, minimum=1)
-
-    payments = (
-        Payment.objects.filter(
-            user=user,
-            active=True,
-            type=Payment.TYPE_DEBIT,
-            payment_date__range=(filters["begin"], filters["end"]),
-        )
-        .select_related("invoice")
-        .prefetch_related("invoice__tags")
-        .order_by("-value", "payment_date")[:limit]
+    data = ReportTopExpensesUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        limit=limit,
+        payment_status_to_label_fn=payment_status_to_label,
     )
-
-    data = []
-    for payment in payments:
-        category = None
-        if payment.invoice_id:
-            category = (
-                payment.invoice.tags.order_by("name")
-                .values_list("name", flat=True)
-                .first()
-            )
-
-        data.append(
-            {
-                "id": payment.id,
-                "description": payment.description or payment.name,
-                "category": category,
-                "amount": float(payment.value or 0),
-                "due_date": payment.payment_date,
-                "status": payment_status_to_label(payment.status),
-            }
-        )
 
     return JsonResponse({"data": data})
 

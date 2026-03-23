@@ -554,6 +554,94 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(no_to.status_code, 400)
         self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
 
+    def test_report_top_expenses_view_returns_ordered_limited_data(self):
+        contract = Contract.objects.create(name="TE", user=self.user)
+        invoice = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="TE Inv",
+            date=date(2026, 9, 1),
+            installments=1,
+            payment_date=date(2026, 9, 1),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        tag = Tag.objects.create(name="Moradia", color="#123", user=self.user)
+        invoice.tags.add(tag)
+
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Despesa Menor",
+            description="Conta de agua",
+            date=date(2026, 9, 1),
+            installments=1,
+            payment_date=date(2026, 9, 1),
+            fixed=False,
+            active=True,
+            value=Decimal("50.00"),
+            status=Payment.STATUS_DONE,
+            reference="x1",
+            invoice=invoice,
+            user=self.user,
+        )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="Despesa Maior",
+            description="Aluguel",
+            date=date(2026, 9, 2),
+            installments=1,
+            payment_date=date(2026, 9, 2),
+            fixed=False,
+            active=True,
+            value=Decimal("120.00"),
+            status=Payment.STATUS_OPEN,
+            reference="x2",
+            invoice=invoice,
+            user=self.user,
+        )
+
+        response = self._call(
+            views.report_top_expenses_view,
+            data={"date_from": "2026-09-01", "date_to": "2026-09-30", "limit": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)["data"]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["description"], "Aluguel")
+        self.assertEqual(data[0]["category"], "Moradia")
+        self.assertEqual(data[0]["amount"], 120.0)
+
+    def test_report_top_expenses_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_top_expenses_view,
+            data={"date_from": "2026-09-02", "date_to": "2026-09-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
+    def test_report_top_expenses_view_requires_date_from_and_date_to(self):
+        no_from = self._call(
+            views.report_top_expenses_view,
+            data={"date_to": "2026-09-01"},
+        )
+        self.assertEqual(no_from.status_code, 400)
+        self.assertEqual(json.loads(no_from.content), {"msg": "date_from is required"})
+
+        no_to = self._call(
+            views.report_top_expenses_view,
+            data={"date_from": "2026-09-01"},
+        )
+        self.assertEqual(no_to.status_code, 400)
+        self.assertEqual(json.loads(no_to.content), {"msg": "date_to is required"})
+
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(
             name="C1", user=self.user, value=10, value_open=8, value_closed=2
