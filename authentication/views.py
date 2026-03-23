@@ -49,6 +49,9 @@ from authentication.application.use_cases.signup import SignupUseCase
 from authentication.application.use_cases.social_authorize import (
     SocialAuthorizeUseCase,
 )
+from authentication.application.use_cases.social_accounts_list import (
+    SocialAccountsListUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -90,6 +93,9 @@ from authentication.interfaces.api.serializers.signup_serializers import (
 )
 from authentication.interfaces.api.serializers.social_authorize_serializers import (
     SocialAuthorizeResponseSerializer,
+)
+from authentication.interfaces.api.serializers.social_accounts_list_serializers import (
+    SocialAccountsListResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -701,23 +707,12 @@ def social_callback(request: HttpRequest, provider: str):
 @validate_user("user")
 @audit_log("social.accounts.list", CATEGORY_AUTH)
 def social_accounts_list(request: HttpRequest, user: User) -> JsonResponse:
-    accounts = SocialAccount.objects.filter(user=user).order_by("provider")
-    payload = []
-    for account in accounts:
-        payload.append(
-            {
-                "provider": account.provider,
-                "email": account.email,
-                "is_email_verified": account.is_email_verified,
-                "full_name": account.full_name,
-                "avatar_url": account.avatar_url,
-                "linked_at": account.linked_at.isoformat(),
-                "last_login_at": (
-                    account.last_login_at.isoformat() if account.last_login_at else None
-                ),
-            }
-        )
-    return JsonResponse({"accounts": payload})
+    payload, status_code = SocialAccountsListUseCase().execute(
+        user=user,
+        social_account_model=SocialAccount,
+    )
+    serializer = SocialAccountsListResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_POST
