@@ -9,7 +9,11 @@ from audit.models import CATEGORY_FINANCIAL
 from contract.application.use_cases.create_contract import CreateContractUseCase
 from contract.application.use_cases.get_all_contracts import GetAllContractsUseCase
 from contract.application.use_cases.get_contract_detail import GetContractDetailUseCase
+from contract.application.use_cases.get_contract_invoices import (
+    GetContractInvoicesUseCase,
+)
 from contract.interfaces.api.serializers.contract_serializers import (
+    ContractInvoicesQuerySerializer,
     ContractListQuerySerializer,
 )
 from contract.models import Contract
@@ -67,35 +71,18 @@ def detail_contract_view(request, id, user):
 @require_GET
 @validate_user("financial")
 def detail_contract_invoices_view(request, id, user):
-    req = request.GET
+    serializer = ContractInvoicesQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
 
-    invoices_query = Invoice.objects.filter(
-        contract=id, user=user, active=True
-    ).order_by("id")
-
-    data = paginate(invoices_query, req.get("page"), req.get("page_size"))
-
-    invoices = [
-        {
-            "id": invoice.id,
-            "status": invoice.status,
-            "name": invoice.name,
-            "installments": invoice.installments,
-            "value": float(invoice.value or 0),
-            "value_open": float(invoice.value_open or 0),
-            "value_closed": float(invoice.value_closed or 0),
-            "date": invoice.date,
-            "tags": [
-                {"id": tag.id, "name": tag.name, "color": tag.color}
-                for tag in invoice.tags.all()
-            ],
-        }
-        for invoice in data.get("data")
-    ]
-
-    data["data"] = invoices
-
-    return JsonResponse({"data": data})
+    payload = GetContractInvoicesUseCase().execute(
+        user=user,
+        invoice_model=Invoice,
+        paginate_fn=paginate,
+        contract_id=id,
+        page=serializer.validated_data.get("page"),
+        page_size=serializer.validated_data.get("page_size"),
+    )
+    return JsonResponse(payload)
 
 
 @require_POST
