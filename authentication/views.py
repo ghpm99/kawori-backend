@@ -33,6 +33,7 @@ from authentication.application.use_cases.validate_reset_token import (
 from authentication.application.use_cases.confirm_password_reset import (
     ConfirmPasswordResetUseCase,
 )
+from authentication.application.use_cases.verify_email import VerifyEmailUseCase
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -50,6 +51,9 @@ from authentication.interfaces.api.serializers.password_reset_validate_serialize
 )
 from authentication.interfaces.api.serializers.password_reset_confirm_serializers import (
     PasswordResetConfirmSerializer,
+)
+from authentication.interfaces.api.serializers.verify_email_serializers import (
+    VerifyEmailSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -473,42 +477,22 @@ def verify_email(request: HttpRequest) -> JsonResponse:
             {"msg": "Requisição inválida."}, status=HTTPStatus.BAD_REQUEST
         )
 
-    raw_token = data.get("token", "").strip()
-    if not raw_token:
+    serializer = VerifyEmailSerializer(data=data)
+    if not serializer.is_valid():
         return JsonResponse(
             {"msg": "Token é obrigatório."}, status=HTTPStatus.BAD_REQUEST
         )
 
-    token_hash = UserToken.hash_token(raw_token)
-
-    try:
-        token_obj = UserToken.objects.select_related("user").get(
-            token_hash=token_hash, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION
-        )
-    except UserToken.DoesNotExist:
-        return JsonResponse(
-            {"msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    if not token_obj.is_valid():
-        return JsonResponse(
-            {"msg": "Token inválido ou expirado."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    user = token_obj.user
-
-    with transaction.atomic():
-        verification, _ = EmailVerification.objects.get_or_create(user=user)
-        verification.is_verified = True
-        verification.verified_at = timezone.now()
-        verification.save(update_fields=["is_verified", "verified_at"])
-
-        ip_address = get_client_ip(request)
-        token_obj.consume(ip_address)
-
-    return JsonResponse({"msg": "Email verificado com sucesso."})
+    payload, status_code = VerifyEmailUseCase().execute(
+        raw_token=serializer.validated_data["token"],
+        request=request,
+        user_token_model=UserToken,
+        email_verification_model=EmailVerification,
+        transaction_module=transaction,
+        timezone_module=timezone,
+        get_client_ip_fn=get_client_ip,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
