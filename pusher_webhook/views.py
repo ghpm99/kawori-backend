@@ -4,12 +4,16 @@ from audit.decorators import audit_log, audit_log_auth
 from audit.models import CATEGORY_PUSHER
 from kawori.decorators import validate_user
 from lib import pusher
+from pusher_webhook.application.use_cases.pusher_webhook import PusherWebhookUseCase
 
 
 @require_POST
 @audit_log_auth("pusher.webhook")
 def pusher_webhook(request):
-    return pusher.webhook(request)
+    return PusherWebhookUseCase().execute(
+        request=request,
+        webhook_fn=pusher.webhook,
+    )
 
 
 @require_POST
