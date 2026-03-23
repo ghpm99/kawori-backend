@@ -23,3 +23,13 @@ class SaveDetailRequestSerializer(serializers.Serializer):
 class SaveDetailResponseSerializer(serializers.Serializer):
     def to_representation(self, payload):
         return payload
+
+
+class ChangeShowClassIconRequestSerializer(serializers.Serializer):
+    def to_internal_value(self, data):
+        return data
+
+
+class ChangeShowClassIconResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload

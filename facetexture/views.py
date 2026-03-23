@@ -19,7 +19,12 @@ from facetexture.application.use_cases.get_facetexture_config import (
     GetFacetextureConfigUseCase,
 )
 from facetexture.application.use_cases.save_detail import SaveDetailUseCase
+from facetexture.application.use_cases.change_show_class_icon import (
+    ChangeShowClassIconUseCase,
+)
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
+    ChangeShowClassIconRequestSerializer,
+    ChangeShowClassIconResponseSerializer,
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
     GetFacetextureConfigResponseSerializer,
@@ -425,21 +430,18 @@ def new_character(request, user):
 @validate_user("blackdesert")
 @audit_log("character.toggle_icon", CATEGORY_FACETEXTURE, "Character")
 def change_show_class_icon(request, user, id):
-
     data = json.loads(request.body)
-    new_value = data.get("show")
+    request_serializer = ChangeShowClassIconRequestSerializer(data=data)
+    request_serializer.is_valid(raise_exception=True)
 
-    character = Character.objects.filter(id=id, user=user).first()
-
-    if character is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado personagem com esse ID"}, status=404
-        )
-
-    character.show = new_value
-    character.save()
-
-    return JsonResponse({"data": "Visibilidade atualizado com sucesso"})
+    payload, status_code = ChangeShowClassIconUseCase().execute(
+        user=user,
+        character_id=id,
+        data=request_serializer.validated_data,
+        character_model=Character,
+    )
+    response_serializer = ChangeShowClassIconResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_POST
