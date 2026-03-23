@@ -37,6 +37,9 @@ from authentication.application.use_cases.verify_email import VerifyEmailUseCase
 from authentication.application.use_cases.resend_verification_email import (
     ResendVerificationEmailUseCase,
 )
+from authentication.application.use_cases.obtain_token_pair import (
+    ObtainTokenPairUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -60,6 +63,9 @@ from authentication.interfaces.api.serializers.verify_email_serializers import (
 )
 from authentication.interfaces.api.serializers.resend_verification_email_serializers import (
     ResendVerificationEmailResponseSerializer,
+)
+from authentication.interfaces.api.serializers.obtain_token_pair_serializers import (
+    ObtainTokenPairRequestSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -195,25 +201,16 @@ def _redirect_or_json(
 @audit_log_auth("login")
 def obtain_token_pair(request: HttpRequest) -> JsonResponse:
     req = json.loads(request.body)
-    err = []
+    serializer = ObtainTokenPairRequestSerializer(data=req)
+    serializer.is_valid(raise_exception=False)
 
-    if not req.get("username"):
-        err.append({"username": "Este campo é obrigatório"})
-    if not req.get("password"):
-        err.append({"password": "Este campo é obrigatório"})  # nosec B105
-    if err:
-        return JsonResponse({"errors": err}, status=HTTPStatus.BAD_REQUEST)
-
-    user = authenticate(username=req.get("username"), password=req.get("password"))
-
-    if not user:
-        return JsonResponse({"msg": "Dados incorretos."}, status=HTTPStatus.NOT_FOUND)
-    if not user.is_active:
-        return JsonResponse(
-            {"msg": "Este usuário não está ativo."}, status=HTTPStatus.FORBIDDEN
-        )
-
-    return _build_auth_response(user)
+    payload, status_code, user = ObtainTokenPairUseCase().execute(
+        payload=req,
+        authenticate_fn=authenticate,
+    )
+    if user is not None:
+        return _build_auth_response(user, payload=payload)
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
