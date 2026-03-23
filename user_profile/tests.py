@@ -62,4 +62,5 @@ class UserProfileViewsRegressionTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
+        self.assertEqual(set(payload.keys()), {"data"})
         self.assertEqual(set(payload["data"]), {"user", "financial"})
