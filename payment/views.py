@@ -56,6 +56,7 @@ from payment.interfaces.api.serializers.detail_serializers import (
 )
 from payment.interfaces.api.serializers.get_all_serializers import (
     PaymentGetAllQuerySerializer,
+    PaymentGetAllResponseSerializer,
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
@@ -99,12 +100,12 @@ def get_status_filter(status_params):
 def get_all_view(request, user):
     serializer = PaymentGetAllQuerySerializer(data=request.GET)
     serializer.is_valid(raise_exception=False)
-    return JsonResponse(
-        GetAllPaymentsUseCase(get_status_filter=get_status_filter).execute(
-            user=user,
-            params=serializer.validated_data,
-        )
+    payload = GetAllPaymentsUseCase(get_status_filter=get_status_filter).execute(
+        user=user,
+        params=serializer.validated_data,
     )
+    response_serializer = PaymentGetAllResponseSerializer(payload)
+    return JsonResponse(response_serializer.data)
 
 
 @require_POST

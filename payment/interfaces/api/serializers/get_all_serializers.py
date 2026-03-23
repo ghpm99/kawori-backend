@@ -45,3 +45,8 @@ class PaymentGetAllQuerySerializer(serializers.Serializer):
             ) or datetime.now() + timedelta(days=1)
 
         return attrs
+
+
+class PaymentGetAllResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
