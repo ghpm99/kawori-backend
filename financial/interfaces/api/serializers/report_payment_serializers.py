@@ -62,3 +62,8 @@ class DateFromRequiredQuerySerializer(serializers.Serializer):
 
         attrs["date_from_parsed"] = date_from_parsed
         return attrs
+
+
+class ReportPaymentSummaryResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
