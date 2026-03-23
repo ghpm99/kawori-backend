@@ -10,6 +10,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from ai.application.use_cases.metrics_overview import MetricsOverviewUseCase
+from ai.application.use_cases.metrics_breakdown import MetricsBreakdownUseCase
+from ai.interfaces.api.serializers.metrics_breakdown_serializers import (
+    MetricsBreakdownResponseSerializer,
+)
 from ai.interfaces.api.serializers.metrics_overview_serializers import (
     MetricsOverviewResponseSerializer,
 )
@@ -41,65 +45,19 @@ def metrics_overview(request, user):
 @validate_user("admin")
 def metrics_breakdown(request, user):
     queryset, period = _build_filtered_queryset(request)
-    group_by = str(request.GET.get("group_by") or "feature_name").strip()
-    allowed_groups = {
-        "feature_name",
-        "provider",
-        "model",
-        "task_type",
-        "cache_status",
-        "success",
-    }
-    if group_by not in allowed_groups:
-        return JsonResponse({"msg": "group_by inválido"}, status=400)
-
-    rows = (
-        queryset.values(group_by)
-        .annotate(
-            calls=Count("id"),
-            success_calls=Count("id", filter=_q(success=True)),
-            failed_calls=Count("id", filter=_q(success=False)),
-            fallback_calls=Count("id", filter=_q(used_fallback=True)),
-            retry_attempts=Sum("retry_count"),
-            cost_usd=Sum("cost_estimate"),
-            avg_latency_ms=Avg("latency_ms"),
-            prompt_tokens=Sum("prompt_tokens"),
-            completion_tokens=Sum("completion_tokens"),
-            total_tokens=Sum("total_tokens"),
-        )
-        .order_by("-calls", group_by)
+    payload, status_code = MetricsBreakdownUseCase().execute(
+        queryset=queryset,
+        period=period,
+        group_by=request.GET.get("group_by"),
+        q_fn=_q,
+        count_cls=Count,
+        sum_cls=Sum,
+        avg_cls=Avg,
+        to_float_fn=_to_float,
+        ratio_fn=_ratio,
     )
-
-    data = []
-    for row in rows:
-        calls = int(row.get("calls") or 0)
-        success_calls = int(row.get("success_calls") or 0)
-        data.append(
-            {
-                "group": row.get(group_by),
-                "calls": calls,
-                "success_calls": success_calls,
-                "failed_calls": int(row.get("failed_calls") or 0),
-                "success_rate": _ratio(success_calls, calls),
-                "fallback_calls": int(row.get("fallback_calls") or 0),
-                "retry_attempts": int(row.get("retry_attempts") or 0),
-                "cost_usd": _to_float(row.get("cost_usd")),
-                "avg_latency_ms": _to_float(row.get("avg_latency_ms")),
-                "prompt_tokens": int(row.get("prompt_tokens") or 0),
-                "completion_tokens": int(row.get("completion_tokens") or 0),
-                "total_tokens": int(row.get("total_tokens") or 0),
-            }
-        )
-
-    return JsonResponse(
-        {
-            "data": {
-                "group_by": group_by,
-                "period": period,
-                "rows": data,
-            }
-        }
-    )
+    serializer = MetricsBreakdownResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
