@@ -12,6 +12,7 @@ from financial.utils import generate_payments
 from invoice.application.use_cases.get_all_invoices import GetAllInvoicesUseCase
 from invoice.application.use_cases.get_invoice_detail import GetInvoiceDetailUseCase
 from invoice.application.use_cases.get_invoice_payments import GetInvoicePaymentsUseCase
+from invoice.application.use_cases.save_invoice_detail import SaveInvoiceDetailUseCase
 from invoice.application.use_cases.save_invoice_tags import SaveInvoiceTagsUseCase
 from invoice.models import Invoice
 from kawori.decorators import validate_user
@@ -167,32 +168,11 @@ def include_new_invoice_view(request, user):
 @audit_log("invoice.update", CATEGORY_FINANCIAL, "Invoice")
 def save_detail_view(request, id, user):
     data = json.loads(request.body)
-    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
-
-    if data is None or invoice is None:
-        return JsonResponse({"msg": "Nota nao encontrada"}, status=404)
-
-    if data.get("tags") is not None:
-        tag_ids = data.get("tags")
-        tags = Tag.objects.filter(id__in=tag_ids, user=user)
-        if tags.count() != len(set(tag_ids)):
-            return JsonResponse(
-                {"msg": "Uma ou mais tags não pertencem ao usuário"}, status=400
-            )
-
-    with transaction.atomic():
-        if data.get("name") is not None:
-            invoice.name = data.get("name")
-
-        if data.get("date") is not None:
-            invoice.date = data.get("date")
-
-        if data.get("active") is not None:
-            invoice.active = data.get("active")
-
-        if data.get("tags") is not None:
-            invoice.tags.set(tags)
-
-        invoice.save()
-
-    return JsonResponse({"msg": "Nota atualizada com sucesso"})
+    payload, status_code = SaveInvoiceDetailUseCase().execute(
+        user=user,
+        invoice_model=Invoice,
+        tag_model=Tag,
+        invoice_id=id,
+        payload=data,
+    )
+    return JsonResponse(payload, status=status_code)
