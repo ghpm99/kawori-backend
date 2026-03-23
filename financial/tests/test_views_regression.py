@@ -1,6 +1,6 @@
 import inspect
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -694,6 +694,128 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertEqual(len(payload["data"]), 6)
+
+    def test_report_overdue_health_view_returns_expected_metrics(self):
+        today = date.today()
+        contract = Contract.objects.create(name="OH", user=self.user)
+        invoice_a = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="OH Inv A",
+            date=today - timedelta(days=10),
+            installments=1,
+            payment_date=today - timedelta(days=3),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        invoice_b = Invoice.objects.create(
+            type=Invoice.Type.DEBIT,
+            name="OH Inv B",
+            date=today - timedelta(days=9),
+            installments=1,
+            payment_date=today - timedelta(days=1),
+            fixed=False,
+            active=True,
+            value=Decimal("0"),
+            value_open=Decimal("0"),
+            contract=contract,
+            user=self.user,
+        )
+        tag_a = Tag.objects.create(name="A", color="#aaa", user=self.user)
+        tag_b = Tag.objects.create(name="B", color="#bbb", user=self.user)
+        invoice_a.tags.add(tag_a, tag_b)
+        invoice_b.tags.add(tag_a)
+
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="OH P1",
+            date=today - timedelta(days=10),
+            installments=1,
+            payment_date=today - timedelta(days=3),
+            fixed=False,
+            active=True,
+            value=Decimal("100.00"),
+            status=Payment.STATUS_OPEN,
+            reference="oh1",
+            invoice=invoice_a,
+            user=self.user,
+        )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="OH P2",
+            date=today - timedelta(days=9),
+            installments=1,
+            payment_date=today - timedelta(days=1),
+            fixed=False,
+            active=True,
+            value=Decimal("50.00"),
+            status=Payment.STATUS_OPEN,
+            reference="oh2",
+            invoice=invoice_b,
+            user=self.user,
+        )
+        Payment.objects.create(
+            type=Payment.TYPE_DEBIT,
+            name="OH P3",
+            date=today - timedelta(days=8),
+            installments=1,
+            payment_date=today - timedelta(days=2),
+            fixed=False,
+            active=True,
+            value=Decimal("50.00"),
+            status=Payment.STATUS_DONE,
+            reference="oh3",
+            invoice=invoice_a,
+            user=self.user,
+        )
+
+        response = self._call(
+            views.report_overdue_health_view,
+            data={
+                "date_from": (today - timedelta(days=30)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)["data"]
+        self.assertEqual(data["overdue_count"], 2)
+        self.assertEqual(data["overdue_amount"], 150.0)
+        self.assertEqual(data["average_delay_days"], 2.0)
+        self.assertEqual(data["overdue_ratio"], 75.0)
+        self.assertEqual(len(data["critical_categories"]), 2)
+        self.assertEqual(data["critical_categories"][0]["category"], "A")
+        self.assertEqual(data["critical_categories"][0]["amount"], 150.0)
+        self.assertEqual(data["critical_categories"][0]["count"], 2)
+        self.assertEqual(data["critical_categories"][1]["category"], "B")
+        self.assertEqual(data["critical_categories"][1]["amount"], 100.0)
+        self.assertEqual(data["critical_categories"][1]["count"], 1)
+
+    def test_report_overdue_health_view_requires_date_from_and_date_to(self):
+        response = self._call(
+            views.report_overdue_health_view,
+            data={"date_from": "2026-01-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content), {"msg": "date_from and date_to are required"}
+        )
+
+    def test_report_overdue_health_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_overdue_health_view,
+            data={"date_from": "2026-10-02", "date_to": "2026-10-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
 
     def test_contract_views_list_detail_and_create(self):
         c1 = Contract.objects.create(

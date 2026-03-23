@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -12,9 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from contract.models import Contract
 from financial.application.use_cases.get_metrics import GetMetricsUseCase
-from financial.application.use_cases.report_ai_insights import (
-    ReportAIInsightsUseCase,
-)
+from financial.application.use_cases.report_ai_insights import ReportAIInsightsUseCase
 from financial.application.use_cases.report_amount_invoice_by_tag import (
     ReportAmountInvoiceByTagUseCase,
 )
@@ -39,12 +36,13 @@ from financial.application.use_cases.report_daily_cash_flow import (
 from financial.application.use_cases.report_forecast_amount_value import (
     ReportForecastAmountValueUseCase,
 )
+from financial.application.use_cases.report_overdue_health import (
+    ReportOverdueHealthUseCase,
+)
 from financial.application.use_cases.report_payment_summary import (
     ReportPaymentSummaryUseCase,
 )
-from financial.application.use_cases.report_top_expenses import (
-    ReportTopExpensesUseCase,
-)
+from financial.application.use_cases.report_top_expenses import ReportTopExpensesUseCase
 from financial.interfaces.api.serializers.report_ai_insights_serializers import (
     ReportAIInsightsPayloadSerializer,
 )
@@ -1082,82 +1080,19 @@ def report_balance_projection_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_overdue_health_view(request, user):
-    filters, error_response = parse_period_filters(request, required=True)
-    if error_response:
-        return error_response
-
-    today = date.today()
-
-    overdue_payments = (
-        Payment.objects.filter(
-            user=user,
-            active=True,
-            type=Payment.TYPE_DEBIT,
-            status=Payment.STATUS_OPEN,
-            payment_date__range=(filters["begin"], filters["end"]),
-            payment_date__lt=today,
+    serializer = RequiredPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
         )
-        .select_related("invoice")
-        .prefetch_related("invoice__tags")
-    )
-
-    overdue_count = overdue_payments.count()
-    overdue_amount = float(
-        overdue_payments.aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
-        or 0
-    )
-
-    delays = [(today - payment.payment_date).days for payment in overdue_payments]
-    average_delay_days = round((sum(delays) / len(delays)), 1) if delays else 0
-
-    total_period_amount = float(
-        Payment.objects.filter(
-            user=user,
-            active=True,
-            type=Payment.TYPE_DEBIT,
-            payment_date__range=(filters["begin"], filters["end"]),
-        ).aggregate(total=Coalesce(Sum("value"), Decimal("0")))["total"]
-        or 0
-    )
-    overdue_ratio = (
-        round((overdue_amount / total_period_amount) * 100, 1)
-        if total_period_amount
-        else 0
-    )
-
-    critical_map = defaultdict(
-        lambda: {"category": "", "amount": 0.0, "payment_ids": set()}
-    )
-    for payment in overdue_payments:
-        for tag in payment.invoice.tags.all():
-            item = critical_map[tag.id]
-            item["category"] = tag.name
-            item["amount"] += float(payment.value or 0)
-            item["payment_ids"].add(payment.id)
-
-    critical_categories = sorted(
-        (
-            {
-                "category": item["category"],
-                "amount": item["amount"],
-                "count": len(item["payment_ids"]),
-            }
-            for item in critical_map.values()
-        ),
-        key=lambda value: value["amount"],
-        reverse=True,
-    )[:3]
 
     return JsonResponse(
-        {
-            "data": {
-                "overdue_count": overdue_count,
-                "overdue_amount": overdue_amount,
-                "average_delay_days": average_delay_days,
-                "overdue_ratio": overdue_ratio,
-                "critical_categories": critical_categories,
-            }
-        }
+        ReportOverdueHealthUseCase().execute(
+            user=user,
+            date_from=serializer.validated_data["date_from_parsed"],
+            date_to=serializer.validated_data["date_to_parsed"],
+        )
     )
 
 
