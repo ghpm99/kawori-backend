@@ -14,8 +14,14 @@ from contract.models import Contract
 from financial.application.use_cases.report_ai_insights import (
     ReportAIInsightsUseCase,
 )
+from financial.application.use_cases.report_payment_summary import (
+    ReportPaymentSummaryUseCase,
+)
 from financial.interfaces.api.serializers.report_ai_insights_serializers import (
     ReportAIInsightsPayloadSerializer,
+)
+from financial.interfaces.api.serializers.report_payment_serializers import (
+    ReportPaymentPeriodQuerySerializer,
 )
 from financial.utils import (
     calculate_installments,
@@ -442,134 +448,19 @@ def report_ai_insights_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_payment_view(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
+        )
 
-    if params["begin"] and params["end"]:
-        query_payments = """
-            SELECT
-                fp.payments_date AS payments_date,
-                fp.debit AS debit_total,
-                fp.credit AS credit_total,
-                fp.total AS total,
-                fp.dif AS dif,
-                fp.accumulated AS accumulated
-            FROM
-                financial_paymentsummary fp
-            WHERE
-                fp.user_id = %(user_id)s
-                AND fp.payments_date BETWEEN %(begin)s
-                AND %(end)s
-            ORDER BY
-                fp.payments_date
-        """
-    else:
-        query_payments = """
-            SELECT
-                fp.payments_date AS payments_date,
-                fp.debit AS debit_total,
-                fp.credit AS credit_total,
-                fp.total AS total,
-                fp.dif AS dif,
-                fp.accumulated AS accumulated
-            FROM
-                financial_paymentsummary fp
-            WHERE
-                fp.user_id = %(user_id)s
-            ORDER BY
-                fp.payments_date
-        """
-
-    filters = {"user_id": user.id}
-    if params["begin"] and params["end"]:
-        filters.update({"begin": params["begin"], "end": params["end"]})
-
-    with connection.cursor() as cursor:
-        cursor.execute(query_payments, filters)
-        payments = cursor.fetchall()
-
-    payments_data = [
-        {
-            "label": data[0],
-            "debit": float(data[1] or 0),
-            "credit": float(data[2] or 0),
-            "total": data[3],
-            "difference": float(data[4] or 0),
-            "accumulated": float(data[5] or 0),
-        }
-        for data in payments
-    ]
-
-    if params["begin"] and params["end"]:
-        query_fixed_debit = """
-            SELECT
-                SUM(value) as fixed_debit_total
-            FROM
-                financial_payment AS fixed_debit
-            WHERE
-                user_id=%(user_id)s
-                AND type=1
-                AND status=0
-                AND active=true
-                AND fixed=true
-                AND "payment_date" BETWEEN %(begin)s AND %(end)s;
-        """
-    else:
-        query_fixed_debit = """
-            SELECT
-                SUM(value) as fixed_debit_total
-            FROM
-                financial_payment AS fixed_debit
-            WHERE
-                user_id=%(user_id)s
-                AND type=1
-                AND status=0
-                AND active=true
-                AND fixed=true;
-        """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query_fixed_debit, filters)
-        fixed_debit = cursor.fetchone()
-
-    if params["begin"] and params["end"]:
-        query_fixed_credit = """
-            SELECT
-                SUM(value) as fixed_credit_total
-            FROM
-                financial_payment AS fixed_credit
-            WHERE
-                user_id=%(user_id)s
-                AND type=0
-                AND status=0
-                AND active=true
-                AND fixed=true
-                AND "payment_date" BETWEEN %(begin)s AND %(end)s;
-        """
-    else:
-        query_fixed_credit = """
-            SELECT
-                SUM(value) as fixed_credit_total
-            FROM
-                financial_payment AS fixed_credit
-            WHERE
-                user_id=%(user_id)s
-                AND type=0
-                AND status=0
-                AND active=true
-                AND fixed=true;
-        """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query_fixed_credit, filters)
-        fixed_credit = cursor.fetchone()
-
-    data = {
-        "payments": payments_data,
-        "fixed_debit": float(fixed_debit[0] or 0),
-        "fixed_credit": float(fixed_credit[0] or 0),
-    }
+    data = ReportPaymentSummaryUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        cursor_factory=connection.cursor,
+    )
 
     return JsonResponse({"data": data})
 

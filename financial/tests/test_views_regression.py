@@ -326,6 +326,18 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertEqual(cursor.execute.call_args_list[1].args[1], expected_params)
         self.assertEqual(cursor.execute.call_args_list[2].args[1], expected_params)
 
+    def test_report_payment_view_returns_error_when_period_is_invalid(self):
+        response = self._call(
+            views.report_payment_view,
+            data={"date_from": "2026-02-01", "date_to": "2026-01-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
+        )
+
     def test_get_total_payment_from_date_reads_current_and_last_month(self):
         ctx, cursor = self._mock_cursor(fetchone_side_effect=[(200,), (50,)])
         with patch("financial.views.connection.cursor", return_value=ctx):
