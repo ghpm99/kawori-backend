@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from financial.utils import generate_payments
+from invoice.application.use_cases.get_invoice_detail import GetInvoiceDetailUseCase
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date, paginate
@@ -100,35 +101,13 @@ def get_all_invoice_view(request, user):
 @require_GET
 @validate_user("financial")
 def detail_invoice_view(request, id, user):
-
-    invoice = Invoice.objects.filter(id=id, user=user, active=True).first()
-
+    invoice = GetInvoiceDetailUseCase().execute(
+        user=user,
+        invoice_model=Invoice,
+        invoice_id=id,
+    )
     if invoice is None:
         return JsonResponse({"msg": "Invoice not found"}, status=404)
-
-    tags = [
-        {
-            "id": tag.id,
-            "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
-            "color": tag.color,
-            "is_budget": hasattr(tag, "budget"),
-        }
-        for tag in invoice.tags.all().order_by("budget", "name")
-    ]
-
-    invoice = {
-        "id": invoice.id,
-        "status": invoice.status,
-        "name": invoice.name,
-        "installments": invoice.installments,
-        "value": float(invoice.value or 0),
-        "value_open": float(invoice.value_open or 0),
-        "value_closed": float(invoice.value_closed or 0),
-        "date": invoice.date,
-        "next_payment": invoice.payment_date,
-        "tags": tags,
-        "active": invoice.active,
-    }
 
     return JsonResponse({"data": invoice})
 
