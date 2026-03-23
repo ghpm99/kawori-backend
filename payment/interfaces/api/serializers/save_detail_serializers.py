@@ -12,3 +12,8 @@ class SaveDetailPaymentInputSerializer(serializers.Serializer):
     fixed = serializers.JSONField(required=False)
     active = serializers.JSONField(required=False)
     value = serializers.JSONField(required=False)
+
+
+class SaveDetailPaymentResponseSerializer(serializers.Serializer):
+    def to_representation(self, payload):
+        return payload
