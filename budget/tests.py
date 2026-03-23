@@ -215,6 +215,21 @@ class BudgetViewsRegressionTestCase(TestCase):
         budget.refresh_from_db()
         self.assertEqual(budget.allocation_percentage, Decimal("20.00"))
 
+    def test_ai_allocation_suggestions_view_passes_period_and_returns_payload(self):
+        expected = {"data": [{"name": "Conforto", "allocation_percentage": 20.0}]}
+        with patch(
+            "budget.views.build_budget_allocation_suggestions", return_value=expected
+        ) as mocked_builder:
+            response = self._call(
+                views.ai_allocation_suggestions_view,
+                method="get",
+                data={"period": "01/2026"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), expected)
+        mocked_builder.assert_called_once_with(user=self.user, period="01/2026")
+
 
 class BudgetServicesRegressionTestCase(TestCase):
     @classmethod

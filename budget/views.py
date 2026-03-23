@@ -9,6 +9,9 @@ from django.views.decorators.http import require_GET, require_POST
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from budget.ai_features import build_budget_allocation_suggestions
+from budget.application.use_cases.get_ai_allocation_suggestions import (
+    GetAIAllocationSuggestionsUseCase,
+)
 from budget.application.use_cases.get_all_budgets import GetAllBudgetsUseCase
 from budget.application.use_cases.reset_budget_allocation import (
     ResetBudgetAllocationUseCase,
@@ -90,6 +93,12 @@ def reset_budget_allocation_view(request, user):
 @require_GET
 @validate_user("financial")
 def ai_allocation_suggestions_view(request, user):
-    period = request.GET.get("period")
-    result = build_budget_allocation_suggestions(user=user, period=period)
-    return JsonResponse(result)
+    serializer = BudgetPeriodQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
+    return JsonResponse(
+        GetAIAllocationSuggestionsUseCase().execute(
+            user=user,
+            period=serializer.validated_data.get("period"),
+            build_budget_allocation_suggestions_fn=build_budget_allocation_suggestions,
+        )
+    )
