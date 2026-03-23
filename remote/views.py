@@ -13,6 +13,7 @@ from kawori.decorators import validate_user
 from lib import pusher
 from remote.application.use_cases.mouse_button import MouseButtonUseCase
 from remote.application.use_cases.mouse_move import MouseMoveUseCase
+from remote.application.use_cases.mouse_scroll import MouseScrollUseCase
 from remote.application.use_cases.send_command import SendCommandUseCase
 from remote.application.use_cases.send_hotkey import SendHotkeyUseCase
 from remote.application.use_cases.send_key_press import SendKeyPressUseCase
@@ -21,6 +22,7 @@ from remote.interfaces.api.serializers.remote_serializers import (
     KeyPressPayloadSerializer,
     MouseButtonPayloadSerializer,
     MouseMovePayloadSerializer,
+    MouseScrollPayloadSerializer,
     SendCommandPayloadSerializer,
 )
 from remote.models import Config, Screenshot
@@ -141,9 +143,14 @@ def save_screenshot_view(request, user):
 @audit_log("remote.mouse_scroll", CATEGORY_REMOTE)
 def mouse_scroll_view(request, user):
     data = json.loads(request.body)
-    value = data.get("value")
-    pusher.mouse_scroll(value)
-    return JsonResponse({"msg": "Ok"})
+    serializer = MouseScrollPayloadSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+
+    payload, status_code = MouseScrollUseCase().execute(
+        payload=data,
+        mouse_scroll_fn=pusher.mouse_scroll,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
