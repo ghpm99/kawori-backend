@@ -10,11 +10,17 @@ from classification.application.use_cases.get_all_questions import (
     GetAllQuestionsUseCase,
 )
 from classification.application.use_cases.get_all_answers import GetAllAnswersUseCase
+from classification.application.use_cases.get_answer_summary import (
+    GetAnswerSummaryUseCase,
+)
 from classification.interfaces.api.serializers.get_all_questions_serializers import (
     GetAllQuestionsResponseSerializer,
 )
 from classification.interfaces.api.serializers.get_all_answers_serializers import (
     GetAllAnswersResponseSerializer,
+)
+from classification.interfaces.api.serializers.get_answer_summary_serializers import (
+    GetAnswerSummaryResponseSerializer,
 )
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
@@ -152,17 +158,9 @@ def process_resume(resume):
 
 @require_GET
 def get_answer_summary(request):
-    answers = AnswerSummary.objects.all()
-
-    data = []
-    for answer in answers:
-        data.append(
-            {
-                "id": answer.id,
-                "bdo_class": answer.bdo_class.id,
-                "updated_at": answer.updated_at,
-                "resume": process_resume(answer.resume),
-            }
-        )
-
-    return JsonResponse({"data": data})
+    payload, status_code = GetAnswerSummaryUseCase().execute(
+        answer_summary_model=AnswerSummary,
+        process_resume_fn=process_resume,
+    )
+    serializer = GetAnswerSummaryResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
