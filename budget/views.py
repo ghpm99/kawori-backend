@@ -1,16 +1,18 @@
 import calendar
 import json
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import date, datetime
 
 from django.db import transaction
-from django.db.models import Max, Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from budget.ai_features import build_budget_allocation_suggestions
+from budget.application.use_cases.get_all_budgets import GetAllBudgetsUseCase
+from budget.interfaces.api.serializers.budget_serializers import (
+    BudgetPeriodQuerySerializer,
+)
 from budget.models import Budget
 from budget.services import DEFAULT_BUDGETS
 from kawori.decorators import validate_user
@@ -41,89 +43,19 @@ def get_period_filter(query_params: dict) -> dict:
 @require_GET
 @validate_user("financial")
 def get_all_budgets_view(request, user):
-    filters = get_period_filter(query_params=request.GET)
+    serializer = BudgetPeriodQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
 
-    budgets = (
-        Budget.objects.filter(user=user)
-        .exclude(tag__name__icontains="Entradas")
-        .select_related("tag")
+    return JsonResponse(
+        GetAllBudgetsUseCase().execute(
+            user=user,
+            period_query=serializer.validated_data.get("period"),
+            budget_model=Budget,
+            payment_model=Payment,
+            get_period_filter_fn=get_period_filter,
+            date_class=date,
+        )
     )
-
-    total_earned = Payment.objects.filter(
-        payment_date__gte=filters["start"],
-        payment_date__lte=filters["end"],
-        type=Payment.TYPE_CREDIT,
-        user=user,
-        active=True,
-    ).aggregate(total=Sum("value"))["total"] or Decimal(0)
-
-    if total_earned == 0:
-        today = date.today()
-        start_current_month = date(today.year, today.month, 1)
-        start_previous_month = (start_current_month - timedelta(days=1)).replace(day=1)
-
-        recent_fixed = Payment.objects.filter(
-            user=user,
-            type=Payment.TYPE_CREDIT,
-            fixed=True,
-            active=True,
-            payment_date__gte=start_previous_month,
-        )
-
-        last_fixed = (
-            recent_fixed.order_by("name")
-            .values("name")
-            .annotate(last_date=Max("payment_date"))
-        )
-
-        last_dates = [item["last_date"] for item in last_fixed]
-
-        predicted_fixed_total = Payment.objects.filter(
-            type=Payment.TYPE_CREDIT,
-            user=user,
-            fixed=True,
-            payment_date__in=last_dates,
-            active=True,
-        ).aggregate(total=Sum("value"))["total"] or Decimal(0)
-
-        total_earned = predicted_fixed_total
-
-    debit_totals = (
-        Payment.objects.filter(
-            payment_date__gte=filters["start"],
-            payment_date__lte=filters["end"],
-            type=Payment.TYPE_DEBIT,
-            user=user,
-            active=True,
-        )
-        .values("invoice__tags")
-        .annotate(total=Sum("value"))
-    )
-
-    debit_map = {
-        item["invoice__tags"]: item["total"] or Decimal(0) for item in debit_totals
-    }
-
-    data = []
-    for budget in budgets:
-        tag_id = budget.tag_id
-
-        allocation_percentage = float(budget.allocation_percentage)
-        estimated_expense = float((budget.allocation_percentage / 100) * total_earned)
-        actual_expense = float(debit_map.get(tag_id, Decimal(0)))
-
-        data.append(
-            {
-                "id": budget.id,
-                "name": budget.tag.name,
-                "color": budget.tag.color,
-                "allocation_percentage": allocation_percentage,
-                "estimated_expense": estimated_expense,
-                "actual_expense": actual_expense,
-            }
-        )
-
-    return JsonResponse({"data": data})
 
 
 @require_POST
