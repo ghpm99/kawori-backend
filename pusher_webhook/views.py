@@ -4,6 +4,7 @@ from audit.decorators import audit_log, audit_log_auth
 from audit.models import CATEGORY_PUSHER
 from kawori.decorators import validate_user
 from lib import pusher
+from pusher_webhook.application.use_cases.pusher_auth import PusherAuthUseCase
 from pusher_webhook.application.use_cases.pusher_webhook import PusherWebhookUseCase
 
 
@@ -20,14 +21,7 @@ def pusher_webhook(request):
 @validate_user("admin")
 @audit_log("pusher.auth", CATEGORY_PUSHER)
 def pusher_auth(request, user):
-    values = request.body.decode("utf-8").split("&")
-    socket_id = ""
-    channel_name = ""
-    for value in values:
-        if value.startswith("socket_id"):
-            socket_id = value.split("=")[1]
-
-        elif value.startswith("channel_name"):
-            channel_name = value.split("=")[1]
-
-    return pusher.auth(request, channel_name, socket_id)
+    return PusherAuthUseCase().execute(
+        request=request,
+        auth_fn=pusher.auth,
+    )
