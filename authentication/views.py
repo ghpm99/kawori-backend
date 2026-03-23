@@ -34,6 +34,9 @@ from authentication.application.use_cases.confirm_password_reset import (
     ConfirmPasswordResetUseCase,
 )
 from authentication.application.use_cases.verify_email import VerifyEmailUseCase
+from authentication.application.use_cases.resend_verification_email import (
+    ResendVerificationEmailUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -54,6 +57,9 @@ from authentication.interfaces.api.serializers.password_reset_confirm_serializer
 )
 from authentication.interfaces.api.serializers.verify_email_serializers import (
     VerifyEmailSerializer,
+)
+from authentication.interfaces.api.serializers.resend_verification_email_serializers import (
+    ResendVerificationEmailResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -502,27 +508,16 @@ def resend_verification_email(request: HttpRequest, user: User) -> JsonResponse:
     """
     Reenvia o email de verificação para o usuário autenticado.
     """
-    try:
-        verification = EmailVerification.objects.get(user=user)
-    except EmailVerification.DoesNotExist:
-        verification = EmailVerification.objects.create(user=user)
-
-    if verification.is_verified:
-        return JsonResponse({"msg": "Email já verificado."})
-
-    if UserToken.is_rate_limited_by_user(user, UserToken.TOKEN_TYPE_EMAIL_VERIFICATION):
-        return JsonResponse(
-            {"msg": "Muitas tentativas. Tente novamente mais tarde."},
-            status=429,
-        )
-
-    ip_address = get_client_ip(request)
-    raw_token = UserToken.create_for_user(
-        user, token_type=UserToken.TOKEN_TYPE_EMAIL_VERIFICATION, ip_address=ip_address
+    payload, status_code = ResendVerificationEmailUseCase().execute(
+        user=user,
+        request=request,
+        email_verification_model=EmailVerification,
+        user_token_model=UserToken,
+        get_client_ip_fn=get_client_ip,
+        send_verification_email_async_fn=send_verification_email_async,
     )
-    send_verification_email_async(user, raw_token)
-
-    return JsonResponse({"msg": "Email de verificação reenviado."})
+    serializer = ResendVerificationEmailResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 # ─── Social login ────────────────────────────────────────────────────────────
