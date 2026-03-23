@@ -53,6 +53,7 @@ from payment.interfaces.api.serializers.csv_mapping_serializers import (
 )
 from payment.interfaces.api.serializers.detail_serializers import (
     PaymentDetailPathSerializer,
+    PaymentDetailResponseSerializer,
 )
 from payment.interfaces.api.serializers.get_all_serializers import (
     PaymentGetAllQuerySerializer,
@@ -164,7 +165,8 @@ def detail_view(request, id, user):
     if data is None:
         return JsonResponse({"msg": "Payment not found"}, status=404)
 
-    return JsonResponse({"data": data})
+    response_serializer = PaymentDetailResponseSerializer({"data": data})
+    return JsonResponse(response_serializer.data)
 
 
 @require_POST
