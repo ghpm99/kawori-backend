@@ -1,51 +1,26 @@
 import json
 
-from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from kawori.decorators import validate_user
+from tag.application.use_cases.get_all_tags import GetAllTagsUseCase
+from tag.interfaces.api.serializers.tag_serializers import TagListQuerySerializer
 from tag.models import Tag
 
 
 @require_GET
 @validate_user("financial")
 def get_all_tag_view(request, user):
-    req = request.GET
-    filters = {}
+    serializer = TagListQuerySerializer(data=request.GET)
+    serializer.is_valid(raise_exception=False)
 
-    if req.get("name__icontains"):
-        filters["name__icontains"] = req.get("name__icontains")
-
-    datas = (
-        Tag.objects.filter(**filters, user=user)
-        .annotate(
-            total_payments=Count(
-                "invoices", filter=Q(invoices__active=True), distinct=True
-            ),
-            total_value=Sum("invoices__value", filter=Q(invoices__active=True)),
-            total_open=Sum("invoices__value_open", filter=Q(invoices__active=True)),
-            total_closed=Sum("invoices__value_closed", filter=Q(invoices__active=True)),
-        )
-        .order_by("budget", "name")
+    tags = GetAllTagsUseCase().execute(
+        user=user,
+        name_icontains=serializer.validated_data.get("name__icontains"),
     )
-
-    tags = [
-        {
-            "id": data.id,
-            "name": f"# {data.name}" if hasattr(data, "budget") else data.name,
-            "color": data.color,
-            "total_payments": data.total_payments or 0,
-            "total_value": data.total_value or 0,
-            "total_open": data.total_open or 0,
-            "total_closed": data.total_closed or 0,
-            "is_budget": hasattr(data, "budget"),
-        }
-        for data in datas
-    ]
-
     return JsonResponse({"data": tags})
 
 
