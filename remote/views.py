@@ -12,7 +12,9 @@ from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
 from lib import pusher
 from remote.application.use_cases.send_command import SendCommandUseCase
+from remote.application.use_cases.send_hotkey import SendHotkeyUseCase
 from remote.interfaces.api.serializers.remote_serializers import (
+    HotkeyPayloadSerializer,
     SendCommandPayloadSerializer,
 )
 from remote.models import Config, Screenshot
@@ -46,9 +48,14 @@ def screen_size_view(request, user):
 @audit_log("remote.hotkey", CATEGORY_REMOTE)
 def hotkey_view(request, user):
     data = json.loads(request.body)
-    hotkey = data.get("hotkey")
-    pusher.send_hotkey(hotkey)
-    return JsonResponse({"msg": "Ok"})
+    serializer = HotkeyPayloadSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+
+    payload, status_code = SendHotkeyUseCase().execute(
+        payload=data,
+        send_hotkey_fn=pusher.send_hotkey,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
