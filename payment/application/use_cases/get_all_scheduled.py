@@ -25,7 +25,9 @@ class GetAllScheduledUseCase:
                 2018, 1, 1
             )
         if params.get("date__lte"):
-            filters["date__lte"] = format_date(params.get("date__lte")) or datetime.now() + timedelta(days=1)
+            filters["date__lte"] = format_date(
+                params.get("date__lte")
+            ) or datetime.now() + timedelta(days=1)
         if params.get("installments"):
             filters["installments"] = params.get("installments")
         if params.get("payment_date__gte"):
