@@ -7,6 +7,7 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from kawori.decorators import validate_user
 from tag.application.use_cases.get_all_tags import GetAllTagsUseCase
+from tag.application.use_cases.get_tag_detail import GetTagDetailUseCase
 from tag.interfaces.api.serializers.tag_serializers import TagListQuerySerializer
 from tag.models import Tag
 
@@ -27,16 +28,9 @@ def get_all_tag_view(request, user):
 @require_GET
 @validate_user("financial")
 def detail_tag_view(request, id, user):
-    tag = Tag.objects.filter(id=id, user=user).first()
-
+    tag = GetTagDetailUseCase().execute(user=user, tag_model=Tag, tag_id=id)
     if tag is None:
         return JsonResponse({"msg": "Tag não encontrada"}, status=404)
-
-    tag = {
-        "id": tag.id,
-        "name": tag.name,
-        "color": tag.color,
-    }
 
     return JsonResponse({"data": tag})
 
