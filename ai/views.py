@@ -10,10 +10,14 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from ai.application.use_cases.metrics_breakdown import MetricsBreakdownUseCase
+from ai.application.use_cases.metrics_events import MetricsEventsUseCase
 from ai.application.use_cases.metrics_overview import MetricsOverviewUseCase
 from ai.application.use_cases.metrics_timeseries import MetricsTimeseriesUseCase
 from ai.interfaces.api.serializers.metrics_breakdown_serializers import (
     MetricsBreakdownResponseSerializer,
+)
+from ai.interfaces.api.serializers.metrics_events_serializers import (
+    MetricsEventsResponseSerializer,
 )
 from ai.interfaces.api.serializers.metrics_overview_serializers import (
     MetricsOverviewResponseSerializer,
@@ -89,52 +93,16 @@ def metrics_timeseries(request, user):
 @validate_user("admin")
 def metrics_events(request, user):
     queryset, period = _build_filtered_queryset(request)
-
-    page = _to_positive_int(request.GET.get("page"), default=1)
-    page_size = _to_positive_int(request.GET.get("page_size"), default=50)
-    page_size = min(page_size, 200)
-
-    total = queryset.count()
-    offset = (page - 1) * page_size
-    events = queryset.order_by("-created_at")[offset : offset + page_size]
-
-    data = [
-        {
-            "id": event.id,
-            "created_at": event.created_at.isoformat() if event.created_at else None,
-            "trace_id": event.trace_id,
-            "feature_name": event.feature_name,
-            "task_type": event.task_type,
-            "provider": event.provider,
-            "model": event.model,
-            "success": event.success,
-            "attempts": event.attempts,
-            "retry_count": event.retry_count,
-            "used_fallback": event.used_fallback,
-            "latency_ms": event.latency_ms,
-            "cache_status": event.cache_status,
-            "prompt_tokens": event.prompt_tokens,
-            "completion_tokens": event.completion_tokens,
-            "total_tokens": event.total_tokens,
-            "cost_estimate": _to_float(event.cost_estimate),
-            "error_message": event.error_message,
-            "metadata": event.metadata,
-            "user_id": event.user_id,
-        }
-        for event in events
-    ]
-
-    return JsonResponse(
-        {
-            "data": {
-                "period": period,
-                "page": page,
-                "page_size": page_size,
-                "total": total,
-                "rows": data,
-            }
-        }
+    payload, status_code = MetricsEventsUseCase().execute(
+        queryset=queryset,
+        period=period,
+        page=request.GET.get("page"),
+        page_size=request.GET.get("page_size"),
+        to_positive_int_fn=_to_positive_int,
+        to_float_fn=_to_float,
     )
+    serializer = MetricsEventsResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 def _build_filtered_queryset(request):
