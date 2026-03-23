@@ -14,7 +14,7 @@ from audit.models import CATEGORY_FINANCIAL
 from financial.utils import generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
-from kawori.utils import boolean, format_date
+from kawori.utils import format_date
 from payment.application.use_cases.csv_ai_map import CSVAIMapUseCase
 from payment.application.use_cases.csv_ai_normalize import CSVAINormalizeUseCase
 from payment.application.use_cases.csv_ai_reconcile import CSVAIReconcileUseCase
@@ -32,6 +32,7 @@ from payment.application.use_cases.get_payment_detail import GetPaymentDetailUse
 from payment.application.use_cases.get_payments_month import GetPaymentsMonthUseCase
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
 from payment.application.use_cases.save_new_payment import SaveNewPaymentUseCase
+from payment.application.use_cases.save_payment_detail import SavePaymentDetailUseCase
 from payment.application.use_cases.statement import StatementUseCase
 from payment.application.use_cases.statement_anomalies import (
     StatementAnomaliesUseCase,
@@ -58,6 +59,10 @@ from payment.interfaces.api.serializers.get_all_serializers import (
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
+)
+from payment.interfaces.api.serializers.save_detail_serializers import (
+    SaveDetailPaymentInputSerializer,
+    SaveDetailPaymentPathSerializer,
 )
 from payment.interfaces.api.serializers.save_new_serializers import (
     SaveNewPaymentInputSerializer,
@@ -167,60 +172,24 @@ def save_detail_view(request, id, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "Payment not found"}, status=500)
 
-    payment = Payment.objects.filter(id=id, user=user, active=True).first()
+    path_serializer = SaveDetailPaymentPathSerializer(data={"id": id})
+    path_serializer.is_valid(raise_exception=False)
 
-    if data is None or payment is None:
-        return JsonResponse({"msg": "Payment not found"}, status=404)
+    payload_serializer = SaveDetailPaymentInputSerializer(data=data)
+    payload_serializer.is_valid(raise_exception=False)
 
-    if payment.status == Payment.STATUS_DONE:
-        return JsonResponse({"msg": "Pagamento ja foi baixado"}, status=500)
+    result = SavePaymentDetailUseCase().execute(
+        user=user,
+        payment_id=path_serializer.validated_data["id"],
+        data=payload_serializer.validated_data,
+    )
+    if result.get("error"):
+        return JsonResponse(
+            result["error"]["payload"],
+            status=result["error"]["status"],
+        )
 
-    if data.get("payment_date"):
-        payment_date = format_date(data.get("payment_date"))
-        if payment_date is None:
-            return JsonResponse({"msg": "Payment not found"}, status=500)
-
-    with transaction.atomic():
-        if data.get("type") is not None:
-            field_type = data.get("type")
-            try:
-                payment.type = int(field_type)
-            except (TypeError, ValueError):
-                pass
-        if data.get("name"):
-            payment.name = data.get("name")
-        if data.get("payment_date"):
-            payment.payment_date = payment_date
-        if data.get("fixed") is not None:
-            payment.fixed = (
-                boolean(data.get("fixed"))
-                if not isinstance(data.get("fixed"), bool)
-                else data.get("fixed")
-            )
-        if data.get("active") is not None:
-            payment.active = (
-                boolean(data.get("active"))
-                if not isinstance(data.get("active"), bool)
-                else data.get("active")
-            )
-        if data.get("value") is not None:
-            old_value = payment.value
-            new_value = data.get("value")
-            if isinstance(new_value, str):
-                new_value = float(new_value)
-
-            invoice_value = float(payment.invoice.value_open - old_value) + new_value
-            payment.invoice.value_open = invoice_value
-            payment.invoice.save()
-
-            payment.value = new_value
-
-        try:
-            payment.save()
-        except Exception:
-            return JsonResponse({"msg": "Payment not found"}, status=500)
-
-    return JsonResponse({"msg": "Pagamento atualizado com sucesso"})
+    return JsonResponse(result["payload"])
 
 
 @require_POST
