@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import List
 
-from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
@@ -12,7 +11,7 @@ from rest_framework.parsers import JSONParser
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
-from financial.utils import calculate_installments, generate_payments
+from financial.utils import generate_payments
 from invoice.models import Invoice
 from kawori.decorators import validate_user
 from kawori.utils import boolean, format_date
@@ -32,6 +31,7 @@ from payment.application.use_cases.get_csv_mapping import GetCSVMappingUseCase
 from payment.application.use_cases.get_payment_detail import GetPaymentDetailUseCase
 from payment.application.use_cases.get_payments_month import GetPaymentsMonthUseCase
 from payment.application.use_cases.process_csv_upload import ProcessCSVUploadUseCase
+from payment.application.use_cases.save_new_payment import SaveNewPaymentUseCase
 from payment.application.use_cases.statement import StatementUseCase
 from payment.application.use_cases.statement_anomalies import (
     StatementAnomaliesUseCase,
@@ -58,6 +58,9 @@ from payment.interfaces.api.serializers.get_all_serializers import (
 )
 from payment.interfaces.api.serializers.month_serializers import (
     PaymentsMonthQuerySerializer,
+)
+from payment.interfaces.api.serializers.save_new_serializers import (
+    SaveNewPaymentInputSerializer,
 )
 from payment.interfaces.api.serializers.scheduled_serializers import (
     ScheduledPaymentsQuerySerializer,
@@ -105,50 +108,20 @@ def save_new_view(request, user):
     except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({"msg": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-    installments = data.get("installments")
-    payment_date = data.get("payment_date")
+    serializer = SaveNewPaymentInputSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
 
-    value = data.get("value")
-    if isinstance(value, str):
-        value = float(value)
-
-    if installments is None:
+    result = SaveNewPaymentUseCase().execute(
+        user=user,
+        data=serializer.validated_data,
+    )
+    if result.get("error"):
         return JsonResponse(
-            {"msg": "Erro ao incluir pagamento"},
-            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            result["error"]["payload"],
+            status=result["error"]["status"],
         )
 
-    if installments <= 0:
-        return JsonResponse({"msg": "Pagamento incluso com sucesso"})
-
-    value_installments = calculate_installments(value, installments)
-
-    date_format = "%Y-%m-%d"
-
-    try:
-        with transaction.atomic():
-            for i in range(installments):
-                payment = Payment(
-                    type=data.get("type"),
-                    name=data.get("name"),
-                    date=data.get("date"),
-                    installments=i + 1,
-                    payment_date=payment_date,
-                    fixed=data.get("fixed"),
-                    value=value_installments[i],
-                    user=user,
-                )
-                payment.save()
-                date_obj = datetime.strptime(payment_date, date_format)
-                future_payment = date_obj + relativedelta(months=1)
-                payment_date = future_payment.strftime(date_format)
-    except Exception:
-        return JsonResponse(
-            {"msg": "Erro ao incluir pagamento"},
-            status=HTTPStatus.INTERNAL_SERVER_ERROR,
-        )
-
-    return JsonResponse({"msg": "Pagamento incluso com sucesso"})
+    return JsonResponse(result["payload"])
 
 
 @require_GET
