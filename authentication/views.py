@@ -24,6 +24,12 @@ from authentication.models import (
     UserToken,
 )
 from authentication.application.use_cases.signout import SignoutUseCase
+from authentication.application.use_cases.obtain_csrf_cookie import (
+    ObtainCsrfCookieUseCase,
+)
+from authentication.interfaces.api.serializers.obtain_csrf_cookie_serializers import (
+    ObtainCsrfCookieResponseSerializer,
+)
 from authentication.interfaces.api.serializers.signout_serializers import (
     SignoutResponseSerializer,
 )
@@ -333,7 +339,9 @@ def signup_view(request: HttpRequest) -> JsonResponse:
 
 @ensure_csrf_cookie
 def obtain_csrf_cookie(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({"msg": "Token registrado"})
+    payload, status_code = ObtainCsrfCookieUseCase().execute()
+    serializer = ObtainCsrfCookieResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 # ─── Password reset ───────────────────────────────────────────────────────────
