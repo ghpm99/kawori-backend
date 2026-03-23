@@ -31,6 +31,7 @@ from facetexture.application.use_cases.change_class_character import (
     ChangeClassCharacterUseCase,
 )
 from facetexture.application.use_cases.delete_character import DeleteCharacterUseCase
+from facetexture.application.use_cases.reorder_character import ReorderCharacterUseCase
 from facetexture.interfaces.api.serializers.facetexture_serializers import (
     ClassAssetErrorResponseSerializer,
     ClassAssetPathSerializer,
@@ -44,6 +45,8 @@ from facetexture.interfaces.api.serializers.facetexture_serializers import (
     GetBDOClassQuerySerializer,
     GetBDOClassResponseSerializer,
     GetFacetextureConfigResponseSerializer,
+    ReorderCharacterRequestSerializer,
+    ReorderCharacterResponseSerializer,
     SaveDetailRequestSerializer,
     SaveDetailResponseSerializer,
 )
@@ -246,85 +249,19 @@ def download_background(request, user):
 @audit_log("character.reorder", CATEGORY_FACETEXTURE, "Character")
 def reorder_character(request, user, id):
     data = json.loads(request.body)
-    index_destination = data.get("index_destination")
+    request_serializer = ReorderCharacterRequestSerializer(data=data)
+    request_serializer.is_valid(raise_exception=True)
 
-    if index_destination is None:
-        return JsonResponse({"data": "Index de destino não informado"}, status=400)
-
-    character = Character.objects.filter(id=id, user=user).first()
-
-    if character is None:
-        return JsonResponse(
-            {"data": "Não foi encontrado personagem com esse ID"}, status=404
-        )
-
-    with transaction.atomic():
-        query = """
-            UPDATE
-                facetexture_character
-            SET
-                "order" = %(order)s
-            WHERE
-                1 = 1
-                AND id = %(id)s
-                AND user_id = %(user)s
-        """
-
-        with connection.cursor() as cursor:
-            cursor.execute(
-                query, {"order": index_destination, "id": id, "user": user.id}
-            )
-
-        query = """
-            UPDATE
-                facetexture_character
-            SET
-                "order" = (
-                    CASE
-                        WHEN %(new_order)s > %(current_order)s THEN ("order" - 1)
-                        WHEN %(new_order)s < %(current_order)s THEN ("order" + 1)
-                    END
-                )
-            WHERE
-                1 = 1
-                AND CASE
-                    WHEN %(new_order)s > %(current_order)s THEN (
-                        "order" <= %(new_order)s
-                        AND "order" > %(current_order)s
-                    )
-                    WHEN %(new_order)s < %(current_order)s THEN (
-                        "order" >= %(new_order)s
-                        AND "order" < %(current_order)s
-                    )
-                END
-                AND id <> %(id)s
-                AND active = true
-                AND user_id = %(user)s
-        """
-
-        with connection.cursor() as cursor:
-            cursor.execute(
-                query,
-                {
-                    "current_order": character.order,
-                    "new_order": index_destination,
-                    "id": id,
-                    "user": user.id,
-                },
-            )
-
-    characters = (
-        Character.objects.filter(user=user, active=True).all().order_by("order")
+    payload, status_code = ReorderCharacterUseCase().execute(
+        user=user,
+        character_id=id,
+        data=request_serializer.validated_data,
+        character_model=Character,
+        transaction_module=transaction,
+        connection_module=connection,
     )
-
-    data = []
-
-    for character in characters:
-        character_data = {"id": character.id, "order": character.order}
-
-        data.append(character_data)
-
-    return JsonResponse({"data": data})
+    response_serializer = ReorderCharacterResponseSerializer(payload)
+    return JsonResponse(response_serializer.data, status=status_code)
 
 
 @require_POST
