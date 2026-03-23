@@ -11,6 +11,10 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
 from lib import pusher
+from remote.application.use_cases.send_command import SendCommandUseCase
+from remote.interfaces.api.serializers.remote_serializers import (
+    SendCommandPayloadSerializer,
+)
 from remote.models import Config, Screenshot
 
 
@@ -18,8 +22,15 @@ from remote.models import Config, Screenshot
 @validate_user("admin")
 @audit_log("remote.send_command", CATEGORY_REMOTE)
 def send_command_view(request, user):
-    pusher.send_command(json.loads(request.body).get("cmd"))
-    return JsonResponse({"msg": "ok"})
+    data = json.loads(request.body)
+    serializer = SendCommandPayloadSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+
+    payload, status_code = SendCommandUseCase().execute(
+        payload=data,
+        send_command_fn=pusher.send_command,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET
