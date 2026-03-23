@@ -42,6 +42,9 @@ from authentication.application.use_cases.obtain_token_pair import (
 )
 from authentication.application.use_cases.verify_token import VerifyTokenUseCase
 from authentication.application.use_cases.refresh_token import RefreshTokenUseCase
+from authentication.application.use_cases.social_providers import (
+    SocialProvidersUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -74,6 +77,9 @@ from authentication.interfaces.api.serializers.verify_token_serializers import (
 )
 from authentication.interfaces.api.serializers.refresh_token_serializers import (
     RefreshTokenResponseSerializer,
+)
+from authentication.interfaces.api.serializers.social_providers_serializers import (
+    SocialProvidersResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -503,7 +509,11 @@ def resend_verification_email(request: HttpRequest, user: User) -> JsonResponse:
 @require_GET
 @audit_log_auth("social.providers")
 def social_providers(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({"providers": list_enabled_social_providers()})
+    payload, status_code = SocialProvidersUseCase().execute(
+        list_enabled_social_providers_fn=list_enabled_social_providers
+    )
+    serializer = SocialProvidersResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
 
 
 @require_GET
