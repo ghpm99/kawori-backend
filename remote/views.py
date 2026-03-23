@@ -11,6 +11,7 @@ from audit.decorators import audit_log
 from audit.models import CATEGORY_REMOTE
 from kawori.decorators import validate_user
 from lib import pusher
+from remote.application.use_cases.get_screen_size import GetScreenSizeUseCase
 from remote.application.use_cases.mouse_button import MouseButtonUseCase
 from remote.application.use_cases.mouse_move import MouseMoveUseCase
 from remote.application.use_cases.mouse_move_and_button import MouseMoveAndButtonUseCase
@@ -48,9 +49,12 @@ def send_command_view(request, user):
 @require_GET
 @validate_user("admin")
 def screen_size_view(request, user):
-    screen_size = get_object_or_404(Config, type=Config.CONFIG_SCREEN)
-    data = json.loads(screen_size.value)
-    return JsonResponse(data)
+    return JsonResponse(
+        GetScreenSizeUseCase().execute(
+            config_model=Config,
+            get_object_or_404_fn=get_object_or_404,
+        )
+    )
 
 
 @require_POST
