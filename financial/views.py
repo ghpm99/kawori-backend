@@ -57,6 +57,7 @@ from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportForecastAmountValueResponseSerializer,
     ReportMetricsResponseSerializer,
     ReportDailyCashFlowResponseSerializer,
+    ReportTopExpensesResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -1073,7 +1074,8 @@ def report_top_expenses_view(request, user):
         payment_status_to_label_fn=payment_status_to_label,
     )
 
-    return JsonResponse({"data": data})
+    response_serializer = ReportTopExpensesResponseSerializer({"data": data})
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
