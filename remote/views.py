@@ -13,6 +13,7 @@ from kawori.decorators import validate_user
 from lib import pusher
 from remote.application.use_cases.mouse_button import MouseButtonUseCase
 from remote.application.use_cases.mouse_move import MouseMoveUseCase
+from remote.application.use_cases.mouse_move_and_button import MouseMoveAndButtonUseCase
 from remote.application.use_cases.mouse_scroll import MouseScrollUseCase
 from remote.application.use_cases.send_command import SendCommandUseCase
 from remote.application.use_cases.send_hotkey import SendHotkeyUseCase
@@ -21,6 +22,7 @@ from remote.interfaces.api.serializers.remote_serializers import (
     HotkeyPayloadSerializer,
     KeyPressPayloadSerializer,
     MouseButtonPayloadSerializer,
+    MouseMoveButtonPayloadSerializer,
     MouseMovePayloadSerializer,
     MouseScrollPayloadSerializer,
     SendCommandPayloadSerializer,
@@ -158,11 +160,14 @@ def mouse_scroll_view(request, user):
 @audit_log("remote.mouse_move_and_button", CATEGORY_REMOTE)
 def mouse_move_and_button(request, user):
     data = json.loads(request.body)
-    x = data.get("x")
-    y = data.get("y")
-    button = data.get("button")
-    pusher.mouse_move_button(x, y, button)
-    return JsonResponse({"msg": "Ok"})
+    serializer = MouseMoveButtonPayloadSerializer(data=data)
+    serializer.is_valid(raise_exception=False)
+
+    payload, status_code = MouseMoveAndButtonUseCase().execute(
+        payload=data,
+        mouse_move_button_fn=pusher.mouse_move_button,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_GET

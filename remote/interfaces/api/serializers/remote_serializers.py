@@ -24,3 +24,9 @@ class MouseButtonPayloadSerializer(serializers.Serializer):
 
 class MouseScrollPayloadSerializer(serializers.Serializer):
     value = serializers.JSONField(required=False)
+
+
+class MouseMoveButtonPayloadSerializer(serializers.Serializer):
+    x = serializers.JSONField(required=False)
+    y = serializers.JSONField(required=False)
+    button = serializers.JSONField(required=False)
