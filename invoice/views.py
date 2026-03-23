@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
 from financial.utils import generate_payments
+from invoice.application.use_cases.get_all_invoices import GetAllInvoicesUseCase
 from invoice.application.use_cases.get_invoice_detail import GetInvoiceDetailUseCase
 from invoice.models import Invoice
 from kawori.decorators import validate_user
@@ -28,74 +29,15 @@ def parse_type(value: str) -> int:
 @require_GET
 @validate_user("financial")
 def get_all_invoice_view(request, user):
-    req = request.GET
-    filters = {}
-
-    status = req.get("status")
-    if status:
-        if status == "open":
-            filters["value_open__gt"] = 0.0
-        if status == "done":
-            filters["value_open"] = 0.0
-    if req.get("type"):
-        filters["type"] = req.get("type")
-    if req.get("fixed"):
-        filters["fixed"] = boolean(req.get("fixed"))
-    if req.get("name__icontains"):
-        filters["name__icontains"] = req.get("name__icontains")
-    if req.get("installments"):
-        filters["installments"] = req.get("installments")
-    if req.get("date__gte"):
-        filters["date__gte"] = format_date(req.get("date__gte")) or datetime(2018, 1, 1)
-    if req.get("date__lte"):
-        filters["date__lte"] = format_date(
-            req.get("date__lte")
-        ) or datetime.now() + timedelta(days=1)
-    if req.get("payment_date__gte"):
-        filters["payment_date__gte"] = format_date(
-            req.get("payment_date__gte")
-        ) or datetime(2018, 1, 1)
-    if req.get("payment_date__lte"):
-        filters["payment_date__lte"] = format_date(
-            req.get("payment_date__lte")
-        ) or datetime.now() + timedelta(days=1)
-
-    invoices_query = Invoice.objects.filter(**filters, user=user, active=True).order_by(
-        "payment_date", "id"
+    payload = GetAllInvoicesUseCase().execute(
+        request_query=request.GET,
+        user=user,
+        invoice_model=Invoice,
+        paginate_fn=paginate,
+        boolean_fn=boolean,
+        format_date_fn=format_date,
     )
-
-    page_size = req.get("page_size", 10)
-
-    data = paginate(invoices_query, req.get("page"), page_size)
-
-    invoices = [
-        {
-            "id": invoice.id,
-            "status": invoice.status,
-            "name": invoice.name,
-            "installments": invoice.installments,
-            "value": float(invoice.value or 0),
-            "value_open": float(invoice.value_open or 0),
-            "value_closed": float(invoice.value_closed or 0),
-            "date": invoice.date,
-            "next_payment": invoice.payment_date,
-            "tags": [
-                {
-                    "id": tag.id,
-                    "name": f"# {tag.name}" if hasattr(tag, "budget") else tag.name,
-                    "color": tag.color,
-                    "is_budget": hasattr(tag, "budget"),
-                }
-                for tag in invoice.tags.all().order_by("budget", "name")
-            ],
-        }
-        for invoice in data.get("data")
-    ]
-
-    data["page_size"] = page_size
-    data["data"] = invoices
-
-    return JsonResponse({"data": data})
+    return JsonResponse(payload)
 
 
 @require_GET
