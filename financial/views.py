@@ -54,6 +54,7 @@ from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportAmountPaymentOpenResponseSerializer,
     ReportAmountPaymentClosedResponseSerializer,
     ReportAmountInvoiceByTagResponseSerializer,
+    ReportForecastAmountValueResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -953,7 +954,8 @@ def report_forecast_amount_value(request, user):
         cursor_factory=connection.cursor,
     )
 
-    return JsonResponse({"data": data})
+    response_serializer = ReportForecastAmountValueResponseSerializer({"data": data})
+    return JsonResponse(response_serializer.data)
 
 
 def get_total_payment_from_date(date_begin, date_end, user_id, type):
