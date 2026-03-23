@@ -6,6 +6,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_FINANCIAL
+from contract.application.use_cases.get_contract_detail import GetContractDetailUseCase
 from contract.models import Contract
 from financial.utils import generate_payments, update_contract_value
 from invoice.models import Invoice
@@ -67,18 +68,13 @@ def save_new_contract_view(request, user):
 @require_GET
 @validate_user("financial")
 def detail_contract_view(request, id, user):
-    data = Contract.objects.filter(id=id, user=user).first()
-
-    if data is None:
+    contract = GetContractDetailUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        contract_id=id,
+    )
+    if contract is None:
         return JsonResponse({"msg": "Contract not found"}, status=404)
-
-    contract = {
-        "id": data.id,
-        "name": data.name,
-        "value": float(data.value or 0),
-        "value_open": float(data.value_open or 0),
-        "value_closed": float(data.value_closed or 0),
-    }
 
     return JsonResponse({"data": contract})
 
