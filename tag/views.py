@@ -9,6 +9,7 @@ from kawori.decorators import validate_user
 from tag.application.use_cases.create_tag import CreateTagUseCase
 from tag.application.use_cases.get_all_tags import GetAllTagsUseCase
 from tag.application.use_cases.get_tag_detail import GetTagDetailUseCase
+from tag.application.use_cases.save_tag import SaveTagUseCase
 from tag.interfaces.api.serializers.tag_serializers import (
     TagCreatePayloadSerializer,
     TagListQuerySerializer,
@@ -77,16 +78,12 @@ def include_new_tag_view(request, user):
 @validate_user("financial")
 @audit_log("tag.update", CATEGORY_FINANCIAL, "Tag")
 def save_tag_view(request, id, user):
-    tag = Tag.objects.filter(id=id, user=user).first()
-
-    if tag is None:
-        return JsonResponse({"msg": "Tag não encontrada"}, status=404)
-
     data = json.loads(request.body)
 
-    tag.name = data.get("name")
-    tag.color = data.get("color")
-
-    tag.save()
-
-    return JsonResponse({"msg": "Tag atualizado com sucesso"})
+    _, payload, status_code = SaveTagUseCase().execute(
+        user=user,
+        tag_model=Tag,
+        tag_id=id,
+        payload=data,
+    )
+    return JsonResponse(payload, status=status_code)
