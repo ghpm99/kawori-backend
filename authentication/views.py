@@ -52,6 +52,9 @@ from authentication.application.use_cases.social_authorize import (
 from authentication.application.use_cases.social_accounts_list import (
     SocialAccountsListUseCase,
 )
+from authentication.application.use_cases.social_account_unlink import (
+    SocialAccountUnlinkUseCase,
+)
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
@@ -96,6 +99,9 @@ from authentication.interfaces.api.serializers.social_authorize_serializers impo
 )
 from authentication.interfaces.api.serializers.social_accounts_list_serializers import (
     SocialAccountsListResponseSerializer,
+)
+from authentication.interfaces.api.serializers.social_account_unlink_serializers import (
+    SocialAccountUnlinkResponseSerializer,
 )
 from authentication.utils import (
     SocialOAuthError,
@@ -721,20 +727,12 @@ def social_accounts_list(request: HttpRequest, user: User) -> JsonResponse:
 def social_account_unlink(
     request: HttpRequest, user: User, provider: str
 ) -> JsonResponse:
-    provider = (provider or "").strip().lower()
-    account = SocialAccount.objects.filter(user=user, provider=provider).first()
-    if not account:
-        return JsonResponse(
-            {"msg": "Conta social não encontrada."}, status=HTTPStatus.NOT_FOUND
-        )
-
-    has_password_login = user.has_usable_password()
-    social_count = SocialAccount.objects.filter(user=user).count()
-    if not has_password_login and social_count <= 1:
-        return JsonResponse(
-            {"msg": "Não é possível desvincular a única forma de acesso da conta."},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    account.delete()
-    return JsonResponse({"msg": "Conta social desvinculada."})
+    payload, status_code, account = SocialAccountUnlinkUseCase().execute(
+        user=user,
+        provider=provider,
+        social_account_model=SocialAccount,
+    )
+    if account is not None:
+        account.delete()
+    serializer = SocialAccountUnlinkResponseSerializer(payload)
+    return JsonResponse(serializer.data, status=status_code)
