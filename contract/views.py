@@ -12,6 +12,7 @@ from contract.application.use_cases.get_contract_detail import GetContractDetail
 from contract.application.use_cases.get_contract_invoices import (
     GetContractInvoicesUseCase,
 )
+from contract.application.use_cases.merge_contracts import MergeContractsUseCase
 from contract.interfaces.api.serializers.contract_serializers import (
     ContractInvoicesQuerySerializer,
     ContractListQuerySerializer,
@@ -136,27 +137,15 @@ def include_new_invoice_view(request, id, user):
 @audit_log("contract.merge", CATEGORY_FINANCIAL, "Contract")
 def merge_contract_view(request, id, user):
     data = json.loads(request.body)
-
-    contract = Contract.objects.filter(id=id, user=user).first()
-    if contract is None:
-        return JsonResponse({"msg": "Contract not found"}, status=404)
-    contracts = data.get("contracts") or []
-
-    with transaction.atomic():
-        for contract_id in contracts:
-            if contract_id == contract.id:
-                continue
-            invoices = Invoice.objects.filter(
-                contract=contract_id, user=user, active=True
-            ).all()
-            for invoice in invoices:
-                invoice.contract = contract
-                invoice.save()
-            Contract.objects.filter(id=contract_id, user=user).delete()
-
-        update_contract_value(contract)
-
-    return JsonResponse({"msg": "Contratos mesclados com sucesso!"})
+    payload, status_code = MergeContractsUseCase().execute(
+        user=user,
+        contract_model=Contract,
+        invoice_model=Invoice,
+        contract_id=id,
+        payload=data,
+        update_contract_value_fn=update_contract_value,
+    )
+    return JsonResponse(payload, status=status_code)
 
 
 @require_POST
