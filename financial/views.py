@@ -53,6 +53,7 @@ from financial.interfaces.api.serializers.report_ai_insights_serializers import 
 from financial.interfaces.api.serializers.report_payment_serializers import (
     ReportAmountPaymentOpenResponseSerializer,
     ReportAmountPaymentClosedResponseSerializer,
+    ReportAmountInvoiceByTagResponseSerializer,
     DateFromRequiredQuerySerializer,
     ReportAmountPaymentResponseSerializer,
     ReportCountPaymentResponseSerializer,
@@ -931,7 +932,8 @@ def report_amount_invoice_by_tag_view(request, user):
         cursor_factory=connection.cursor,
     )
 
-    return JsonResponse({"data": tags})
+    response_serializer = ReportAmountInvoiceByTagResponseSerializer({"data": tags})
+    return JsonResponse(response_serializer.data)
 
 
 @require_GET
