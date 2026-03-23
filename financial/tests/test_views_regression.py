@@ -312,7 +312,7 @@ class FinancialViewsRegressionTestCase(TestCase):
         )
 
     def test_report_forecast_amount_value_view_empty_and_non_empty(self):
-        empty_ctx, empty_cursor = self._mock_cursor(fetchall_side_effect=[[]])
+        empty_ctx, empty_cursor = self._mock_cursor(fetchone_side_effect=[(0, 0)])
         with patch("financial.views.connection.cursor", return_value=empty_ctx):
             empty_response = self._call(views.report_forecast_amount_value)
 
@@ -322,9 +322,7 @@ class FinancialViewsRegressionTestCase(TestCase):
         self.assertNotIn("BETWEEN %(begin)s", empty_query)
         self.assertEqual(empty_params, {"user_id": self.user.id})
 
-        values_ctx, values_cursor = self._mock_cursor(
-            fetchall_side_effect=[[(10,), (20,), (40,), (100,)]]
-        )
+        values_ctx, values_cursor = self._mock_cursor(fetchone_side_effect=[(100.0, 4)])
         with patch("financial.views.connection.cursor", return_value=values_ctx):
             response = self._call(
                 views.report_forecast_amount_value,
@@ -332,16 +330,23 @@ class FinancialViewsRegressionTestCase(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertGreater(json.loads(response.content)["data"], 0)
+        self.assertEqual(json.loads(response.content)["data"], 100.0)
         query, params = values_cursor.execute.call_args.args
-        self.assertIn("BETWEEN %(begin)s", query)
+        self.assertNotIn("BETWEEN %(begin)s", query)
+        self.assertEqual(params, {"user_id": self.user.id})
+
+    def test_report_forecast_amount_value_view_returns_error_when_period_is_invalid(
+        self,
+    ):
+        response = self._call(
+            views.report_forecast_amount_value,
+            data={"date_from": "2026-07-02", "date_to": "2026-07-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(
-            params,
-            {
-                "user_id": self.user.id,
-                "begin": datetime(2026, 7, 1),
-                "end": datetime(2026, 7, 31),
-            },
+            json.loads(response.content),
+            {"msg": "date_from must be less than or equal to date_to"},
         )
 
     def test_report_payment_view_builds_summary_payload(self):

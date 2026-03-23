@@ -29,6 +29,9 @@ from financial.application.use_cases.report_amount_payment_open import (
 from financial.application.use_cases.report_count_payment import (
     ReportCountPaymentUseCase,
 )
+from financial.application.use_cases.report_forecast_amount_value import (
+    ReportForecastAmountValueUseCase,
+)
 from financial.application.use_cases.report_payment_summary import (
     ReportPaymentSummaryUseCase,
 )
@@ -909,53 +912,21 @@ def report_amount_invoice_by_tag_view(request, user):
 @require_GET
 @validate_user("financial")
 def report_forecast_amount_value(request, user):
-    params, error_response = parse_optional_period_filters(request)
-    if error_response:
-        return error_response
-
-    query_params = {"user_id": user.id}
-
-    query_monthly_avg = """
-        SELECT
-            AVG(monthly_total) AS avg_monthly,
-            COUNT(*) AS total_months
-        FROM (
-            SELECT
-                date_trunc('month', fp.payment_date) AS month,
-                SUM(fp.value) AS monthly_total
-            FROM
-                financial_payment fp
-            WHERE 1=1
-                AND fp.user_id = %(user_id)s
-                AND fp.active = true
-            GROUP BY
-                date_trunc('month', fp.payment_date)
-        ) monthly_totals;
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(query_monthly_avg, query_params)
-        result = cursor.fetchone()
-
-    avg_monthly = float(result[0] or 0)
-    total_months = int(result[1] or 0)
-
-    if avg_monthly == 0:
-        return JsonResponse({"data": 0})
-
-    if params["begin"] and params["end"]:
-        months_in_period = (
-            (params["end"].year - params["begin"].year) * 12
-            + params["end"].month
-            - params["begin"].month
-            + 1
+    serializer = ReportPaymentPeriodQuerySerializer(data=request.GET)
+    if not serializer.is_valid():
+        return JsonResponse(
+            {"msg": serializer.errors["non_field_errors"][0]},
+            status=400,
         )
-    else:
-        months_in_period = total_months
 
-    forecast_value = round(avg_monthly * months_in_period, 2)
+    data = ReportForecastAmountValueUseCase().execute(
+        user=user,
+        date_from=serializer.validated_data["date_from_parsed"],
+        date_to=serializer.validated_data["date_to_parsed"],
+        cursor_factory=connection.cursor,
+    )
 
-    return JsonResponse({"data": forecast_value})
+    return JsonResponse({"data": data})
 
 
 def get_total_payment_from_date(date_begin, date_end, user_id, type):
