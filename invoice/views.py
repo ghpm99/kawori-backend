@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timedelta
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST

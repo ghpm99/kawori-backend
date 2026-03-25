@@ -1,7 +1,9 @@
 class GetFacetextureConfigUseCase:
     def execute(self, user, character_model, class_image_url_fn):
         characters = (
-            character_model.objects.filter(user=user, active=True).all().order_by("order")
+            character_model.objects.filter(user=user, active=True)
+            .all()
+            .order_by("order")
         )
 
         data = []

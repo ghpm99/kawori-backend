@@ -1,4 +1,6 @@
-from user_profile.interfaces.api.serializers.user_groups_serializer import UserGroupsSerializer
+from user_profile.interfaces.api.serializers.user_groups_serializer import (
+    UserGroupsSerializer,
+)
 
 
 class UserGroupsUseCase:

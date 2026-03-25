@@ -14,7 +14,11 @@ class DownloadBackgroundUseCase:
         if not request_files.get("background"):
             return {"msg": "Nao existe nenhum background"}, 400, None
 
-        characters = character_model.objects.filter(user=user, active=True).order_by("order").all()
+        characters = (
+            character_model.objects.filter(user=user, active=True)
+            .order_by("order")
+            .all()
+        )
         if not characters:
             return {"msg": "Facetexture nao encontrado"}, 404, None
 

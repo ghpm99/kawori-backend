@@ -34,6 +34,4 @@ class AnalyticsViewsRegressionTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertEqual(payload, {"new_users": 7})
-        mocked_filter.assert_called_once_with(
-            is_active=True, date_joined=expected_date
-        )
+        mocked_filter.assert_called_once_with(is_active=True, date_joined=expected_date)

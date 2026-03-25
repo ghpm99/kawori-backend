@@ -18,7 +18,9 @@ class MetricsTimeseriesUseCase:
             return {"msg": "interval inválido"}, 400
 
         bucket_fn = (
-            trunc_hour_fn("created_at") if interval == "hour" else trunc_date_fn("created_at")
+            trunc_hour_fn("created_at")
+            if interval == "hour"
+            else trunc_date_fn("created_at")
         )
         rows = (
             queryset.annotate(bucket=bucket_fn)

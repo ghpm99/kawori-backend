@@ -5,38 +5,38 @@ from django.views.decorators.http import require_GET, require_POST
 
 from audit.decorators import audit_log
 from audit.models import CATEGORY_CLASSIFICATION
-from classification.application.use_cases.get_bdo_class import GetBDOClassUseCase
+from classification.application.use_cases.answer_by_class import AnswerByClassUseCase
+from classification.application.use_cases.get_all_answers import GetAllAnswersUseCase
 from classification.application.use_cases.get_all_questions import (
     GetAllQuestionsUseCase,
 )
-from classification.application.use_cases.get_all_answers import GetAllAnswersUseCase
 from classification.application.use_cases.get_answer_summary import (
     GetAnswerSummaryUseCase,
 )
-from classification.application.use_cases.answer_by_class import AnswerByClassUseCase
+from classification.application.use_cases.get_bdo_class import GetBDOClassUseCase
 from classification.application.use_cases.register_answer import RegisterAnswerUseCase
-from classification.interfaces.api.serializers.get_all_questions_serializers import (
-    GetAllQuestionsResponseSerializer,
+from classification.application.use_cases.total_votes import TotalVotesUseCase
+from classification.interfaces.api.serializers.answer_by_class_serializers import (
+    AnswerByClassResponseSerializer,
 )
 from classification.interfaces.api.serializers.get_all_answers_serializers import (
     GetAllAnswersResponseSerializer,
 )
+from classification.interfaces.api.serializers.get_all_questions_serializers import (
+    GetAllQuestionsResponseSerializer,
+)
 from classification.interfaces.api.serializers.get_answer_summary_serializers import (
     GetAnswerSummaryResponseSerializer,
-)
-from classification.interfaces.api.serializers.answer_by_class_serializers import (
-    AnswerByClassResponseSerializer,
-)
-from classification.interfaces.api.serializers.register_answer_serializers import (
-    RegisterAnswerRequestSerializer,
 )
 from classification.interfaces.api.serializers.get_bdo_class_serializers import (
     GetBDOClassResponseSerializer,
 )
+from classification.interfaces.api.serializers.register_answer_serializers import (
+    RegisterAnswerRequestSerializer,
+)
 from classification.interfaces.api.serializers.total_votes_serializers import (
     TotalVotesResponseSerializer,
 )
-from classification.application.use_cases.total_votes import TotalVotesUseCase
 from classification.models import Answer, AnswerSummary, Question
 from facetexture.models import BDOClass
 from facetexture.views import get_bdo_class_image_url, get_bdo_class_symbol_url

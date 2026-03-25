@@ -19,7 +19,9 @@ class MetricsEventsUseCase:
         data = [
             {
                 "id": event.id,
-                "created_at": event.created_at.isoformat() if event.created_at else None,
+                "created_at": (
+                    event.created_at.isoformat() if event.created_at else None
+                ),
                 "trace_id": event.trace_id,
                 "feature_name": event.feature_name,
                 "task_type": event.task_type,

@@ -93,6 +93,7 @@ docs/                # Documentação operacional
 | `/analytics/` | Analytics |
 | `/remote/` | Controle remoto |
 | `/pusher/` | Webhook Pusher |
+| `/swagger/` | Swagger UI (OpenAPI) |
 
 ## Testes
 
@@ -106,6 +107,11 @@ python manage.py test payment --settings=kawori.settings.development
 # Um test case específico
 python manage.py test payment.tests.views.test_get_all_view.GetAllViewTestCase --settings=kawori.settings.development
 ```
+
+## Documentacao de API
+
+- Swagger UI: `/swagger/`
+- OpenAPI schema: `/swagger/schema/`
 
 ## Fluxo de desenvolvimento
 

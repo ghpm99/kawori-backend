@@ -1,6 +1,12 @@
 class ReorderCharacterUseCase:
     def execute(
-        self, user, character_id, data, character_model, transaction_module, connection_module
+        self,
+        user,
+        character_id,
+        data,
+        character_model,
+        transaction_module,
+        connection_module,
     ):
         index_destination = data.get("index_destination")
         if index_destination is None:
@@ -24,7 +30,8 @@ class ReorderCharacterUseCase:
 
             with connection_module.cursor() as cursor:
                 cursor.execute(
-                    query, {"order": index_destination, "id": character_id, "user": user.id}
+                    query,
+                    {"order": index_destination, "id": character_id, "user": user.id},
                 )
 
             query = """
@@ -65,6 +72,12 @@ class ReorderCharacterUseCase:
                     },
                 )
 
-        characters = character_model.objects.filter(user=user, active=True).all().order_by("order")
-        payload = [{"id": character.id, "order": character.order} for character in characters]
+        characters = (
+            character_model.objects.filter(user=user, active=True)
+            .all()
+            .order_by("order")
+        )
+        payload = [
+            {"id": character.id, "order": character.order} for character in characters
+        ]
         return {"data": payload}, 200

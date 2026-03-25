@@ -49,7 +49,10 @@ class GetAuditReportUseCase:
 
         summary = {
             "total_events": logs.count(),
-            "unique_users": logs.exclude(username="").values("username").distinct().count(),
+            "unique_users": logs.exclude(username="")
+            .values("username")
+            .distinct()
+            .count(),
             "success_events": logs.filter(result="success").count(),
             "failure_events": logs.filter(result="failure").count(),
             "error_events": logs.filter(result="error").count(),
@@ -62,7 +65,10 @@ class GetAuditReportUseCase:
             .order_by("day")
         )
         interactions_by_day = [
-            {"day": item["day"].isoformat() if item["day"] else None, "count": item["count"]}
+            {
+                "day": item["day"].isoformat() if item["day"] else None,
+                "count": item["count"],
+            }
             for item in interactions_by_day
         ]
 

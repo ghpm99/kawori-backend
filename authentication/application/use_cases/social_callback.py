@@ -58,7 +58,9 @@ class SocialCallbackUseCase:
             redirect_uri = request.build_absolute_uri(
                 reverse_fn("auth_social_callback", kwargs={"provider": provider})
             )
-            token_data = exchange_social_code_for_token_fn(provider_config, code, redirect_uri)
+            token_data = exchange_social_code_for_token_fn(
+                provider_config, code, redirect_uri
+            )
             profile = fetch_social_profile_fn(provider_config, token_data)
         except social_oauth_error_cls as exc:
             state_obj.consume()
@@ -125,17 +127,24 @@ class SocialCallbackUseCase:
                         state_obj.consume()
                         return redirect_or_json_fn(
                             state_obj,
-                            {"status": "error", "msg": "Usuário vinculado está inativo."},
+                            {
+                                "status": "error",
+                                "msg": "Usuário vinculado está inativo.",
+                            },
                             status_code=http_status_module.FORBIDDEN,
                         )
                 else:
                     target_user = None
                     if email:
-                        target_user = user_model.objects.filter(email__iexact=email).first()
+                        target_user = user_model.objects.filter(
+                            email__iexact=email
+                        ).first()
                         linked_existing_user = bool(target_user)
 
                     if target_user is None:
-                        target_user = create_user_from_social_profile_fn(profile, provider)
+                        target_user = create_user_from_social_profile_fn(
+                            profile, provider
+                        )
                         is_new_user = True
 
             social_defaults = {

@@ -17,53 +17,50 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from audit.decorators import audit_log, audit_log_auth
 from audit.models import CATEGORY_AUTH
-from authentication.models import (
-    EmailVerification,
-    SocialAccount,
-    SocialAuthState,
-    UserToken,
-)
-from authentication.application.use_cases.signout import SignoutUseCase
-from authentication.application.use_cases.request_password_reset import (
-    RequestPasswordResetUseCase,
-)
-from authentication.application.use_cases.validate_reset_token import (
-    ValidateResetTokenUseCase,
-)
 from authentication.application.use_cases.confirm_password_reset import (
     ConfirmPasswordResetUseCase,
-)
-from authentication.application.use_cases.verify_email import VerifyEmailUseCase
-from authentication.application.use_cases.resend_verification_email import (
-    ResendVerificationEmailUseCase,
-)
-from authentication.application.use_cases.obtain_token_pair import (
-    ObtainTokenPairUseCase,
-)
-from authentication.application.use_cases.verify_token import VerifyTokenUseCase
-from authentication.application.use_cases.refresh_token import RefreshTokenUseCase
-from authentication.application.use_cases.social_providers import (
-    SocialProvidersUseCase,
-)
-from authentication.application.use_cases.signup import SignupUseCase
-from authentication.application.use_cases.social_authorize import (
-    SocialAuthorizeUseCase,
-)
-from authentication.application.use_cases.social_accounts_list import (
-    SocialAccountsListUseCase,
-)
-from authentication.application.use_cases.social_callback import SocialCallbackUseCase
-from authentication.application.use_cases.social_account_unlink import (
-    SocialAccountUnlinkUseCase,
 )
 from authentication.application.use_cases.obtain_csrf_cookie import (
     ObtainCsrfCookieUseCase,
 )
+from authentication.application.use_cases.obtain_token_pair import (
+    ObtainTokenPairUseCase,
+)
+from authentication.application.use_cases.refresh_token import RefreshTokenUseCase
+from authentication.application.use_cases.request_password_reset import (
+    RequestPasswordResetUseCase,
+)
+from authentication.application.use_cases.resend_verification_email import (
+    ResendVerificationEmailUseCase,
+)
+from authentication.application.use_cases.signout import SignoutUseCase
+from authentication.application.use_cases.signup import SignupUseCase
+from authentication.application.use_cases.social_account_unlink import (
+    SocialAccountUnlinkUseCase,
+)
+from authentication.application.use_cases.social_accounts_list import (
+    SocialAccountsListUseCase,
+)
+from authentication.application.use_cases.social_authorize import (
+    SocialAuthorizeUseCase,
+)
+from authentication.application.use_cases.social_callback import SocialCallbackUseCase
+from authentication.application.use_cases.social_providers import (
+    SocialProvidersUseCase,
+)
+from authentication.application.use_cases.validate_reset_token import (
+    ValidateResetTokenUseCase,
+)
+from authentication.application.use_cases.verify_email import VerifyEmailUseCase
+from authentication.application.use_cases.verify_token import VerifyTokenUseCase
 from authentication.interfaces.api.serializers.obtain_csrf_cookie_serializers import (
     ObtainCsrfCookieResponseSerializer,
 )
-from authentication.interfaces.api.serializers.signout_serializers import (
-    SignoutResponseSerializer,
+from authentication.interfaces.api.serializers.obtain_token_pair_serializers import (
+    ObtainTokenPairRequestSerializer,
+)
+from authentication.interfaces.api.serializers.password_reset_confirm_serializers import (
+    PasswordResetConfirmSerializer,
 )
 from authentication.interfaces.api.serializers.password_reset_request_serializers import (
     PasswordResetRequestSerializer,
@@ -71,41 +68,44 @@ from authentication.interfaces.api.serializers.password_reset_request_serializer
 from authentication.interfaces.api.serializers.password_reset_validate_serializers import (
     PasswordResetValidateSerializer,
 )
-from authentication.interfaces.api.serializers.password_reset_confirm_serializers import (
-    PasswordResetConfirmSerializer,
-)
-from authentication.interfaces.api.serializers.verify_email_serializers import (
-    VerifyEmailSerializer,
+from authentication.interfaces.api.serializers.refresh_token_serializers import (
+    RefreshTokenResponseSerializer,
 )
 from authentication.interfaces.api.serializers.resend_verification_email_serializers import (
     ResendVerificationEmailResponseSerializer,
 )
-from authentication.interfaces.api.serializers.obtain_token_pair_serializers import (
-    ObtainTokenPairRequestSerializer,
-)
-from authentication.interfaces.api.serializers.verify_token_serializers import (
-    VerifyTokenResponseSerializer,
-)
-from authentication.interfaces.api.serializers.refresh_token_serializers import (
-    RefreshTokenResponseSerializer,
-)
-from authentication.interfaces.api.serializers.social_providers_serializers import (
-    SocialProvidersResponseSerializer,
+from authentication.interfaces.api.serializers.signout_serializers import (
+    SignoutResponseSerializer,
 )
 from authentication.interfaces.api.serializers.signup_serializers import (
     SignupRequestSerializer,
 )
-from authentication.interfaces.api.serializers.social_authorize_serializers import (
-    SocialAuthorizeResponseSerializer,
+from authentication.interfaces.api.serializers.social_account_unlink_serializers import (
+    SocialAccountUnlinkResponseSerializer,
 )
 from authentication.interfaces.api.serializers.social_accounts_list_serializers import (
     SocialAccountsListResponseSerializer,
 )
+from authentication.interfaces.api.serializers.social_authorize_serializers import (
+    SocialAuthorizeResponseSerializer,
+)
 from authentication.interfaces.api.serializers.social_callback_serializers import (
     SocialCallbackQuerySerializer,
 )
-from authentication.interfaces.api.serializers.social_account_unlink_serializers import (
-    SocialAccountUnlinkResponseSerializer,
+from authentication.interfaces.api.serializers.social_providers_serializers import (
+    SocialProvidersResponseSerializer,
+)
+from authentication.interfaces.api.serializers.verify_email_serializers import (
+    VerifyEmailSerializer,
+)
+from authentication.interfaces.api.serializers.verify_token_serializers import (
+    VerifyTokenResponseSerializer,
+)
+from authentication.models import (
+    EmailVerification,
+    SocialAccount,
+    SocialAuthState,
+    UserToken,
 )
 from authentication.utils import (
     SocialOAuthError,

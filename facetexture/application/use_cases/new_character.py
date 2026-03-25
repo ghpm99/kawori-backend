@@ -19,7 +19,9 @@ class NewCharacterUseCase:
         if character_count == 0:
             new_order = 0
         else:
-            last_order = character_model.objects.filter(user=user, active=True).latest("order")
+            last_order = character_model.objects.filter(user=user, active=True).latest(
+                "order"
+            )
             new_order = last_order.order + 1
 
         image_url = class_image_fn(bdo_class.id)

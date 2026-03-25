@@ -1,6 +1,8 @@
 class GetImageClassUseCase:
     def execute(self, class_id, bdo_class_model, get_image_class_fn, io_module):
-        bdo_class_order = bdo_class_model.objects.filter(id=class_id).values("class_order")
+        bdo_class_order = bdo_class_model.objects.filter(id=class_id).values(
+            "class_order"
+        )
 
         if bdo_class_order is None:
             return {"data": "Não foi encontrado classe com esse ID"}, 404, None

@@ -2,7 +2,6 @@ import calendar
 import json
 from datetime import date, datetime
 
-from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 

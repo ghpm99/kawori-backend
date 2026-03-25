@@ -1,11 +1,8 @@
 import json
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 from django.db import connection, transaction
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -51,19 +48,19 @@ from financial.interfaces.api.serializers.report_ai_insights_serializers import 
     ReportAIInsightsResponseSerializer,
 )
 from financial.interfaces.api.serializers.report_payment_serializers import (
-    ReportAmountPaymentOpenResponseSerializer,
-    ReportAmountPaymentClosedResponseSerializer,
+    DateFromRequiredQuerySerializer,
     ReportAmountInvoiceByTagResponseSerializer,
+    ReportAmountPaymentClosedResponseSerializer,
+    ReportAmountPaymentOpenResponseSerializer,
+    ReportAmountPaymentResponseSerializer,
+    ReportBalanceProjectionResponseSerializer,
+    ReportCountPaymentResponseSerializer,
+    ReportDailyCashFlowResponseSerializer,
     ReportForecastAmountValueResponseSerializer,
     ReportMetricsResponseSerializer,
-    ReportDailyCashFlowResponseSerializer,
-    ReportTopExpensesResponseSerializer,
-    ReportBalanceProjectionResponseSerializer,
-    DateFromRequiredQuerySerializer,
-    ReportAmountPaymentResponseSerializer,
-    ReportCountPaymentResponseSerializer,
     ReportPaymentPeriodQuerySerializer,
     ReportPaymentSummaryResponseSerializer,
+    ReportTopExpensesResponseSerializer,
     RequiredPeriodQuerySerializer,
 )
 from financial.utils import (

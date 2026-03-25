@@ -1,4 +1,6 @@
-from user_profile.interfaces.api.serializers.user_view_serializer import UserViewSerializer
+from user_profile.interfaces.api.serializers.user_view_serializer import (
+    UserViewSerializer,
+)
 
 
 class UserViewUseCase:

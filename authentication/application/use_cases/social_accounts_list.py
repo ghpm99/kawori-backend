@@ -12,7 +12,9 @@ class SocialAccountsListUseCase:
                     "avatar_url": account.avatar_url,
                     "linked_at": account.linked_at.isoformat(),
                     "last_login_at": (
-                        account.last_login_at.isoformat() if account.last_login_at else None
+                        account.last_login_at.isoformat()
+                        if account.last_login_at
+                        else None
                     ),
                 }
             )
